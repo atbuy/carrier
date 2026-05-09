@@ -110,8 +110,8 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	}
 	outCh := asyncCopy(stdoutDst, stdout)
 	errCh := asyncCopy(stderrDst, stderr)
-	waitErr := cmd.Wait()
 	copyErr := waitCopies(outCh, errCh)
+	waitErr := cmd.Wait()
 	exit, _ := ExitCode(waitErr)
 	if copyErr != nil {
 		return exit, copyErr
