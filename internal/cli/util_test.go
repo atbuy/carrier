@@ -1,0 +1,81 @@
+package cli
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func TestParseIDAndArgv(t *testing.T) {
+	id, err := parseID("42")
+	if err != nil {
+		t.Fatalf("parseID failed: %v", err)
+	}
+	if id != 42 {
+		t.Fatalf("id = %d", id)
+	}
+
+	argv, err := parseArgv(`["go","test","./..."]`)
+	if err != nil {
+		t.Fatalf("parseArgv failed: %v", err)
+	}
+	if len(argv) != 3 || argv[0] != "go" || argv[2] != "./..." {
+		t.Fatalf("argv mismatch: %#v", argv)
+	}
+}
+
+func TestFormattingHelpers(t *testing.T) {
+	ms := int64(1234)
+	if got := formatDuration(&ms); got != "1.23s" {
+		t.Fatalf("formatDuration = %q", got)
+	}
+	if got := formatDuration(nil); got != "" {
+		t.Fatalf("nil duration = %q", got)
+	}
+	if got := formatTime(time.Time{}); got != "" {
+		t.Fatalf("zero time = %q", got)
+	}
+	if got := short("123456789012345"); got != "123456789012" {
+		t.Fatalf("short = %q", got)
+	}
+}
+
+func TestDirtyString(t *testing.T) {
+	if got := dirtyString(nil); got != "unknown" {
+		t.Fatalf("nil dirty = %q", got)
+	}
+	v := true
+	if got := dirtyString(&v); got != "true" {
+		t.Fatalf("true dirty = %q", got)
+	}
+	v = false
+	if got := dirtyString(&v); got != "false" {
+		t.Fatalf("false dirty = %q", got)
+	}
+}
+
+func TestReadTextAndContainsFold(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "out.log")
+	t.Setenv("CARRIER_COLOR", "never")
+	if got := readText(""); got != "" {
+		t.Fatalf("empty path read = %q", got)
+	}
+	if got := readText(path); got != "" {
+		t.Fatalf("missing path read = %q", got)
+	}
+	writeTestFile(t, path, "Connection Refused")
+	if got := readText(path); got != "Connection Refused" {
+		t.Fatalf("readText = %q", got)
+	}
+	if !containsFold("Connection Refused", "connection") {
+		t.Fatalf("containsFold should be case-insensitive")
+	}
+}
+
+func writeTestFile(t *testing.T, path, contents string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
+}
