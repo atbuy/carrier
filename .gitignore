@@ -28,3 +28,6 @@ coverage.out
 # Environment files
 .env
 .env.*
+
+# Python
+.python-version
