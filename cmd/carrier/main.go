@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/user/carrier/internal/cli"
+	"github.com/atbuy/carrier/internal/cli"
 )
 
 func main() {

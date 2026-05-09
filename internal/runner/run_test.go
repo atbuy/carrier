@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/user/carrier/internal/config"
-	"github.com/user/carrier/internal/store"
+	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func TestRunCapturesOutputAndMetadata(t *testing.T) {

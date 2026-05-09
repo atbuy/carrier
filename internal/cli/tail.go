@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/user/carrier/internal/logs"
+	"github.com/atbuy/carrier/internal/logs"
 )
 
 func (a *app) tailCmd() *cobra.Command {

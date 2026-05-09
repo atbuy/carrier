@@ -11,8 +11,8 @@ import (
 	"github.com/creack/pty"
 	"golang.org/x/term"
 
-	"github.com/user/carrier/internal/config"
-	"github.com/user/carrier/internal/logs"
+	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/logs"
 )
 
 func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {

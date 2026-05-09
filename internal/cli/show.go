@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/user/carrier/internal/store"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func (a *app) lastCmd() *cobra.Command {

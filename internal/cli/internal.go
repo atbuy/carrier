@@ -8,11 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/user/carrier/internal/gitmeta"
-	"github.com/user/carrier/internal/logs"
-	"github.com/user/carrier/internal/notify"
-	carriershell "github.com/user/carrier/internal/shell"
-	"github.com/user/carrier/internal/store"
+	"github.com/atbuy/carrier/internal/gitmeta"
+	"github.com/atbuy/carrier/internal/logs"
+	"github.com/atbuy/carrier/internal/notify"
+	carriershell "github.com/atbuy/carrier/internal/shell"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func (a *app) internalCmd() *cobra.Command {

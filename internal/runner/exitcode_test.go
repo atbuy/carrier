@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/user/carrier/internal/store"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func TestExitCodeSuccess(t *testing.T) {

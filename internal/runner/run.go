@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/carrier/internal/config"
-	"github.com/user/carrier/internal/gitmeta"
-	"github.com/user/carrier/internal/logs"
-	"github.com/user/carrier/internal/notify"
-	"github.com/user/carrier/internal/store"
+	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/gitmeta"
+	"github.com/atbuy/carrier/internal/logs"
+	"github.com/atbuy/carrier/internal/notify"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 type Options struct {

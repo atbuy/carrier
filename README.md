@@ -44,7 +44,7 @@ make build
 For a module release:
 
 ```bash
-go install github.com/user/carrier/cmd/carrier@latest
+go install github.com/atbuy/carrier/cmd/carrier@latest
 ```
 
 ## Common Commands

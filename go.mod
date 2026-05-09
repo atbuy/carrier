@@ -1,4 +1,4 @@
-module github.com/user/carrier
+module github.com/atbuy/carrier
 
 go 1.25.0
 

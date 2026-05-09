@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/carrier/internal/store"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func parseID(s string) (int64, error) {

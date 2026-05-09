@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	carriershell "github.com/user/carrier/internal/shell"
+	carriershell "github.com/atbuy/carrier/internal/shell"
 )
 
 func (a *app) shellCmd() *cobra.Command {

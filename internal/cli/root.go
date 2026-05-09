@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/user/carrier/internal/config"
-	"github.com/user/carrier/internal/store"
+	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 type app struct {

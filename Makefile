@@ -1,4 +1,4 @@
-MODULE := github.com/user/carrier
+MODULE := github.com/atbuy/carrier
 BIN ?= bin/carrier
 
 GO ?= go
