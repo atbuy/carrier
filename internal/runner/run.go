@@ -106,6 +106,8 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
 	stdoutLog := logs.NewRedactingWriter(logs.NewCappedWriter(stdoutFile, maxOutputBytes), redactor)
 	stderrLog := logs.NewRedactingWriter(logs.NewCappedWriter(stderrFile, maxOutputBytes), redactor)
+	defer func() { _ = stdoutLog.Close() }()
+	defer func() { _ = stderrLog.Close() }()
 	stdoutDst := io.MultiWriter(os.Stdout, stdoutLog)
 	stderrDst := io.MultiWriter(os.Stderr, stderrLog)
 	if err := cmd.Start(); err != nil {
@@ -114,6 +116,12 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	outCh := asyncCopy(stdoutDst, stdout)
 	errCh := asyncCopy(stderrDst, stderr)
 	copyErr := waitCopies(outCh, errCh)
+	if err := stdoutLog.Close(); err != nil && copyErr == nil {
+		copyErr = err
+	}
+	if err := stderrLog.Close(); err != nil && copyErr == nil {
+		copyErr = err
+	}
 	waitErr := cmd.Wait()
 	exit, _ := ExitCode(waitErr)
 	if copyErr != nil {

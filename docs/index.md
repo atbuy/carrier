@@ -48,6 +48,8 @@ Command output is stored under:
 
 Persisted logs are capped by `storage.max_output_mb` from the config file. Terminal output still streams normally; only on-disk logs are truncated.
 
+Logs are redacted before they are written to disk. Redaction uses a buffered writer so common split secrets and multiline private keys can still be matched.
+
 ## Development
 
 Use the repository `Makefile`:

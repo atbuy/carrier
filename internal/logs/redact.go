@@ -6,6 +6,8 @@ import (
 	"regexp"
 )
 
+const redactionWindowBytes = 64 * 1024
+
 type Redactor struct {
 	enabled  bool
 	patterns []*regexp.Regexp
@@ -34,8 +36,9 @@ func (r Redactor) Redact(b []byte) []byte {
 }
 
 type RedactingWriter struct {
-	w io.Writer
-	r Redactor
+	w      io.Writer
+	r      Redactor
+	buffer []byte
 }
 
 func NewRedactingWriter(w io.Writer, r Redactor) *RedactingWriter {
@@ -43,9 +46,31 @@ func NewRedactingWriter(w io.Writer, r Redactor) *RedactingWriter {
 }
 
 func (w *RedactingWriter) Write(p []byte) (int, error) {
-	_, err := w.w.Write(w.r.Redact(bytes.Clone(p)))
+	if !w.r.enabled || len(w.r.patterns) == 0 {
+		_, err := w.w.Write(p)
+		if err != nil {
+			return 0, err
+		}
+		return len(p), nil
+	}
+	w.buffer = append(w.buffer, p...)
+	flushable := len(w.buffer) - redactionWindowBytes
+	if flushable <= 0 {
+		return len(p), nil
+	}
+	_, err := w.w.Write(w.r.Redact(bytes.Clone(w.buffer[:flushable])))
 	if err != nil {
 		return 0, err
 	}
+	w.buffer = append(w.buffer[:0], w.buffer[flushable:]...)
 	return len(p), nil
+}
+
+func (w *RedactingWriter) Close() error {
+	if len(w.buffer) == 0 {
+		return nil
+	}
+	_, err := w.w.Write(w.r.Redact(bytes.Clone(w.buffer)))
+	w.buffer = nil
+	return err
 }

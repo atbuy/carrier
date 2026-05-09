@@ -49,6 +49,9 @@ func TestLoadDefaultsWhenConfigMissing(t *testing.T) {
 	if !cfg.Redaction.Enabled {
 		t.Fatalf("redaction should default to enabled")
 	}
+	if len(cfg.Redaction.Patterns) < 4 {
+		t.Fatalf("expected expanded default redaction patterns: %#v", cfg.Redaction.Patterns)
+	}
 	if cfg.NotifyMinDuration() != 10*time.Second {
 		t.Fatalf("default notify duration mismatch: %s", cfg.NotifyMinDuration())
 	}

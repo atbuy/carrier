@@ -57,6 +57,8 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 	redactor := logs.NewRedactor(cfg.Redaction.Enabled && !noRedact, cfg.Redaction.Patterns)
 	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
 	state := &StateFile{Path: statePath}
+	logWriter := &sessionLogWriter{redactor: redactor, maxOutputBytes: maxOutputBytes}
+	defer func() { _ = logWriter.Close() }()
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := ptmx.Read(buf)
@@ -65,15 +67,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 			_, _ = os.Stdout.Write(chunk)
 			cur := state.Read()
 			if cur.CurrentLog != "" {
-				if f, ferr := os.OpenFile(cur.CurrentLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); ferr == nil {
-					var alreadyWritten int64
-					if info, serr := f.Stat(); serr == nil {
-						alreadyWritten = info.Size()
-					}
-					capped := logs.NewCappedAppendWriter(f, maxOutputBytes, alreadyWritten)
-					_, _ = logs.NewRedactingWriter(capped, redactor).Write(chunk)
-					_ = f.Close()
-				}
+				_, _ = logWriter.Write(cur.CurrentLog, chunk)
 			}
 		}
 		if err != nil {
@@ -92,4 +86,58 @@ func boolEnv(k string, v bool) string {
 
 func strconvPID() string {
 	return strings.TrimSpace(strconv.Itoa(os.Getpid()))
+}
+
+type sessionLogWriter struct {
+	path           string
+	file           *os.File
+	writer         *logs.RedactingWriter
+	redactor       logs.Redactor
+	maxOutputBytes int64
+}
+
+func (w *sessionLogWriter) Write(path string, chunk []byte) (int, error) {
+	if err := w.ensure(path); err != nil {
+		return 0, err
+	}
+	return w.writer.Write(chunk)
+}
+
+func (w *sessionLogWriter) ensure(path string) error {
+	if w.path == path && w.writer != nil {
+		return nil
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	var alreadyWritten int64
+	if info, serr := f.Stat(); serr == nil {
+		alreadyWritten = info.Size()
+	}
+	w.path = path
+	w.file = f
+	w.writer = logs.NewRedactingWriter(logs.NewCappedAppendWriter(f, w.maxOutputBytes, alreadyWritten), w.redactor)
+	return nil
+}
+
+func (w *sessionLogWriter) Close() error {
+	var first error
+	if w.writer != nil {
+		if err := w.writer.Close(); err != nil {
+			first = err
+		}
+	}
+	if w.file != nil {
+		if err := w.file.Close(); err != nil && first == nil {
+			first = err
+		}
+	}
+	w.path = ""
+	w.file = nil
+	w.writer = nil
+	return first
 }

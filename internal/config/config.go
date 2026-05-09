@@ -45,7 +45,8 @@ func Default() Config {
 			Enabled: true,
 			Patterns: []string{
 				`Bearer [A-Za-z0-9._-]+`,
-				`(?i)(password|token|api_key)=\S+`,
+				`(?i)(password|passwd|token|api[_-]?key|secret|access[_-]?token|refresh[_-]?token)\s*[:=]\s*\S+`,
+				`AKIA[0-9A-Z]{16}`,
 				`-----BEGIN PRIVATE KEY-----[\s\S]*?-----END PRIVATE KEY-----`,
 			},
 		},
