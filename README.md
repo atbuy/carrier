@@ -35,18 +35,52 @@ c show 1
 
 ## Install
 
-From this checkout:
+### With Go
 
-```bash
-make build
-./bin/carrier --help
-```
-
-For a module release:
+Install the latest released module with:
 
 ```bash
 go install github.com/atbuy/carrier/cmd/carrier@latest
 ```
+
+Make sure Go's bin directory is on your `PATH`:
+
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+Then verify the install:
+
+```bash
+carrier --help
+```
+
+### From Source
+
+Clone the repository and build the local binary:
+
+```bash
+git clone https://github.com/atbuy/carrier.git
+cd carrier
+make build
+./bin/carrier --help
+```
+
+To install from a source checkout:
+
+```bash
+make install
+```
+
+### Recommended Alias
+
+Most examples assume this shell alias:
+
+```bash
+alias c='carrier'
+```
+
+Add it to your shell config, for example `~/.zshrc` or `~/.bashrc`.
 
 ## Common Commands
 

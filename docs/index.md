@@ -4,11 +4,31 @@
 
 ## Quick Start
 
-Build from source:
+Install with Go:
 
 ```bash
+go install github.com/atbuy/carrier/cmd/carrier@latest
+```
+
+Make sure Go's bin directory is on your `PATH`:
+
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/atbuy/carrier.git
+cd carrier
 make build
 ./bin/carrier --help
+```
+
+Most examples use this alias:
+
+```bash
+alias c='carrier'
 ```
 
 Run and record a command:
