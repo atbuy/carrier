@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func TestParseIDAndArgv(t *testing.T) {
@@ -70,6 +72,26 @@ func TestReadTextAndContainsFold(t *testing.T) {
 	}
 	if !containsFold("Connection Refused", "connection") {
 		t.Fatalf("containsFold should be case-insensitive")
+	}
+}
+
+func TestDisplayCommandQuotesRunArgvButLeavesShellCommand(t *testing.T) {
+	run := &store.Run{
+		Mode:     store.ModeRun,
+		Command:  "legacy command",
+		ArgvJSON: `["bash","-c","echo hello && exit 1"]`,
+	}
+	if got := displayCommand(run); got != "bash -c 'echo hello && exit 1'" {
+		t.Fatalf("run display command = %q", got)
+	}
+
+	shell := &store.Run{
+		Mode:     store.ModeShell,
+		Command:  "echo hello && exit 1",
+		ArgvJSON: `["echo hello && exit 1"]`,
+	}
+	if got := displayCommand(shell); got != shell.Command {
+		t.Fatalf("shell display command = %q", got)
 	}
 }
 

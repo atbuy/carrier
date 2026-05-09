@@ -43,6 +43,9 @@ func TestRunCapturesOutputAndMetadata(t *testing.T) {
 	if run.Status != store.StatusSuccess {
 		t.Fatalf("status = %q", run.Status)
 	}
+	if run.Command != "sh -c 'echo TOKEN=secret; echo err >&2'" {
+		t.Fatalf("command display = %q", run.Command)
+	}
 	if run.ExitCode == nil || *run.ExitCode != 0 {
 		t.Fatalf("exit code metadata = %#v", run.ExitCode)
 	}

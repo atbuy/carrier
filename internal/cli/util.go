@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atbuy/carrier/internal/command"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -38,7 +39,7 @@ func formatTime(t time.Time) string {
 func printRun(r *store.Run) {
 	fmt.Printf("ID:       %d\n", r.ID)
 	fmt.Printf("Status:   %s\n", r.Status)
-	fmt.Printf("Command:  %s\n", r.Command)
+	fmt.Printf("Command:  %s\n", displayCommand(r))
 	fmt.Printf("CWD:      %s\n", r.CWD)
 	if r.ExitCode != nil {
 		fmt.Printf("Exit:     %d\n", *r.ExitCode)
@@ -83,4 +84,13 @@ func readText(path string) string {
 
 func containsFold(haystack, needle string) bool {
 	return strings.Contains(strings.ToLower(haystack), strings.ToLower(needle))
+}
+
+func displayCommand(r *store.Run) string {
+	if r.Mode != store.ModeShell {
+		if argv, err := parseArgv(r.ArgvJSON); err == nil && len(argv) > 0 {
+			return command.Display(argv)
+		}
+	}
+	return r.Command
 }

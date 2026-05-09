@@ -21,7 +21,7 @@ func (a *app) exportCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("# carrier run %d\n\n", r.ID)
-			fmt.Printf("**Command:** `%s`  \n", r.Command)
+			fmt.Printf("**Command:** `%s`  \n", displayCommand(r))
 			fmt.Printf("**CWD:** `%s`  \n", r.CWD)
 			fmt.Printf("**Status:** %s  \n", r.Status)
 			if r.ExitCode != nil {

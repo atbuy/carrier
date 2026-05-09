@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/atbuy/carrier/internal/command"
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/gitmeta"
 	"github.com/atbuy/carrier/internal/logs"
@@ -45,7 +45,7 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	argvJSON, _ := json.Marshal(opts.Argv)
 	git := gitmeta.Collect(opts.CWD)
 	id, err := st.CreateRun(store.CreateRun{
-		Status: store.StatusRunning, Mode: opts.Mode, Command: strings.Join(opts.Argv, " "),
+		Status: store.StatusRunning, Mode: opts.Mode, Command: command.Display(opts.Argv),
 		ArgvJSON: string(argvJSON), CWD: opts.CWD, StartedAt: started, Hostname: host, Shell: shell,
 		GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
 		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways,
