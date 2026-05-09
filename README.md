@@ -1,5 +1,9 @@
 # carrier
 
+[![CI](https://github.com/atbuy/carrier/actions/workflows/ci.yml/badge.svg)](https://github.com/atbuy/carrier/actions/workflows/ci.yml)
+[![Docs](https://github.com/atbuy/carrier/actions/workflows/docs.yml/badge.svg)](https://github.com/atbuy/carrier/actions/workflows/docs.yml)
+[![codecov](https://codecov.io/gh/atbuy/carrier/graph/badge.svg)](https://codecov.io/gh/atbuy/carrier)
+
 `carrier` is a local developer command logger for Go-based single-binary installs. It records command executions, working directory, timing, exit code, output logs, Git metadata, and optional desktop notifications.
 
 Documentation: [https://atbuy.github.io/carrier/](https://atbuy.github.io/carrier/)
