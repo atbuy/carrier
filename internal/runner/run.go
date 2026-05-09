@@ -103,8 +103,11 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 		return 1, err
 	}
 	redactor := logs.NewRedactor(cfg.Redaction.Enabled && !opts.NoRedact, cfg.Redaction.Patterns)
-	stdoutDst := io.MultiWriter(os.Stdout, logs.NewRedactingWriter(stdoutFile, redactor))
-	stderrDst := io.MultiWriter(os.Stderr, logs.NewRedactingWriter(stderrFile, redactor))
+	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
+	stdoutLog := logs.NewRedactingWriter(logs.NewCappedWriter(stdoutFile, maxOutputBytes), redactor)
+	stderrLog := logs.NewRedactingWriter(logs.NewCappedWriter(stderrFile, maxOutputBytes), redactor)
+	stdoutDst := io.MultiWriter(os.Stdout, stdoutLog)
+	stderrDst := io.MultiWriter(os.Stderr, stderrLog)
 	if err := cmd.Start(); err != nil {
 		return 127, err
 	}

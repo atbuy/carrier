@@ -27,6 +27,7 @@ c show 1
 - `carrier run <command...>` records one command while preserving the child exit code.
 - stdout and stderr stream live to the terminal and are stored separately.
 - persisted logs are redacted by default.
+- persisted logs are capped by `storage.max_output_mb` to protect disk usage.
 - SQLite metadata is stored in `~/.local/share/carrier/carrier.db`.
 - output logs are stored in `~/.local/share/carrier/runs/`.
 - optional notifications use `notify-send` on Linux.

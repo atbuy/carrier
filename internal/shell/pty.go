@@ -55,6 +55,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 	}
 	go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
 	redactor := logs.NewRedactor(cfg.Redaction.Enabled && !noRedact, cfg.Redaction.Patterns)
+	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
 	state := &StateFile{Path: statePath}
 	buf := make([]byte, 32*1024)
 	for {
@@ -65,7 +66,12 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 			cur := state.Read()
 			if cur.CurrentLog != "" {
 				if f, ferr := os.OpenFile(cur.CurrentLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); ferr == nil {
-					_, _ = f.Write(redactor.Redact(chunk))
+					var alreadyWritten int64
+					if info, serr := f.Stat(); serr == nil {
+						alreadyWritten = info.Size()
+					}
+					capped := logs.NewCappedAppendWriter(f, maxOutputBytes, alreadyWritten)
+					_, _ = logs.NewRedactingWriter(capped, redactor).Write(chunk)
 					_ = f.Close()
 				}
 			}

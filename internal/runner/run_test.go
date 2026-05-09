@@ -3,6 +3,7 @@ package runner
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/atbuy/carrier/internal/config"
@@ -108,5 +109,45 @@ func TestRunCommandFailureRecordsFailedStatus(t *testing.T) {
 	}
 	if run.Status != store.StatusFailed {
 		t.Fatalf("status = %q", run.Status)
+	}
+}
+
+func TestRunCapsPersistedOutput(t *testing.T) {
+	dataDir := t.TempDir()
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = dataDir
+	cfg.Storage.MaxOutputMB = 1
+
+	code, err := Run(cfg, st, Options{
+		Mode:  store.ModeRun,
+		Argv:  []string{"sh", "-c", "yes x | head -c 1200000"},
+		CWD:   t.TempDir(),
+		Quiet: true,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	run, err := st.Latest()
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	stdout, err := os.ReadFile(run.StdoutPath)
+	if err != nil {
+		t.Fatalf("read stdout log: %v", err)
+	}
+	if len(stdout) > 1050000 {
+		t.Fatalf("stdout log too large: %d", len(stdout))
+	}
+	if !strings.Contains(string(stdout), "output truncated") {
+		t.Fatalf("stdout log missing truncation notice")
 	}
 }

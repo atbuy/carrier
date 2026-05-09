@@ -46,6 +46,8 @@ Command output is stored under:
 ~/.local/share/carrier/runs/
 ```
 
+Persisted logs are capped by `storage.max_output_mb` from the config file. Terminal output still streams normally; only on-disk logs are truncated.
+
 ## Development
 
 Use the repository `Makefile`:
