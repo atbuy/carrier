@@ -31,7 +31,7 @@ jobs:
       - name: Check formatting
         run: |
           gofumpt -w .
-          goimports-reviser -recursive -rm-unused -format -project-name github.com/user/carrier ./...
+          goimports-reviser -recursive -rm-unused -format -project-name github.com/atbuy/carrier ./...
           git diff --exit-code
 
       - name: Lint
