@@ -1,0 +1,30 @@
+# Build outputs
+/bin/
+/dist/
+/carrier
+
+# Go test and coverage artifacts
+*.test
+*.cover
+coverage.out
+
+# Generated documentation site
+/site/
+
+# Local carrier runtime data
+/.local/
+/runs/
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# Editor and OS files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.*
