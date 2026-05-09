@@ -8,7 +8,7 @@ GOLANGCI_LINT ?= golangci-lint
 ZENSICAL ?= zensical
 ARGS ?= --help
 
-.PHONY: help fmt lint test build run clean docs-build docs-serve
+.PHONY: help fmt lint test build install run clean docs-build docs-serve
 
 help:
 	@printf '%s\n' \
@@ -17,6 +17,7 @@ help:
 		'  make lint         Run golangci-lint' \
 		'  make test         Run Go tests' \
 		'  make build        Build bin/carrier' \
+		'  make install      Install carrier with go install' \
 		'  make run ARGS=... Run carrier locally' \
 		'  make docs-build   Build Zensical docs into site/' \
 		'  make docs-serve   Serve Zensical docs locally'
@@ -33,6 +34,9 @@ test:
 
 build:
 	$(GO) build -o $(BIN) ./cmd/carrier
+
+install:
+	$(GO) install ./cmd/carrier
 
 run:
 	$(GO) run ./cmd/carrier $(ARGS)
