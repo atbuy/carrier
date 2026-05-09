@@ -1,9 +1,11 @@
 [project]
 site_name = "carrier"
 site_description = "Local developer command logger"
+site_url = "https://atbuy.github.io/carrier/"
+repo_name = "atbuy/carrier"
+repo_url = "https://github.com/atbuy/carrier"
 docs_dir = "docs"
 site_dir = "site"
-use_directory_urls = true
 
 [project.theme]
 variant = "modern"
