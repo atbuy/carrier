@@ -32,6 +32,10 @@ carrier rerun 42
 carrier doctor
 ```
 
+## Shell Mode
+
+`carrier shell` is alpha-quality. It is useful for trying tracked interactive sessions, but `carrier run` is the stable path for precise command capture. Shell tracking depends on PTY output and injected zsh/bash hooks, so stdout and stderr may be merged and some prompts or shell plugins can affect behavior.
+
 ## Storage
 
 Metadata is stored in SQLite at:

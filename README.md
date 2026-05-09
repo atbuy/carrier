@@ -31,7 +31,7 @@ c show 1
 - SQLite metadata is stored in `~/.local/share/carrier/carrier.db`.
 - output logs are stored in `~/.local/share/carrier/runs/`.
 - optional notifications use `notify-send` on Linux.
-- `carrier shell` starts a PTY-backed tracked shell session.
+- `carrier shell` starts a PTY-backed tracked shell session. This mode is alpha-quality and best-effort for zsh/bash.
 
 ## Install
 
@@ -54,7 +54,7 @@ go install github.com/atbuy/carrier/cmd/carrier@latest
 carrier run go test ./...
 carrier -n run docker compose build
 carrier -N run ls
-carrier shell
+carrier shell # alpha
 carrier last
 carrier show 42
 carrier tail 42
@@ -94,6 +94,10 @@ failure = true
 program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
 ```
+
+## Shell Mode Status
+
+`carrier shell` is experimental. It uses a PTY plus injected zsh/bash hooks to detect command boundaries, so prompts, tmux, shell plugins, aliases, and interactive programs may affect tracking. Use `carrier run` when precise stdout/stderr capture matters.
 
 ## Development
 
