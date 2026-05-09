@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -11,7 +12,8 @@ import (
 )
 
 func (a *app) lastCmd() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "last",
 		Short: "show latest run",
 		Args:  cobra.NoArgs,
@@ -20,14 +22,20 @@ func (a *app) lastCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				return writeJSON(cmd, runViewFromStore(r, false))
+			}
 			printRun(r)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	return cmd
 }
 
 func (a *app) showCmd() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "show full run details",
 		Args:  cobra.ExactArgs(1),
@@ -39,6 +47,9 @@ func (a *app) showCmd() *cobra.Command {
 			r, err := a.st.GetRun(id)
 			if err != nil {
 				return err
+			}
+			if jsonOutput {
+				return writeJSON(cmd, runViewFromStore(r, true))
 			}
 			printRun(r)
 			if r.TerminalOutputPath != "" {
@@ -57,6 +68,8 @@ func (a *app) showCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	return cmd
 }
 
 func (a *app) failedCmd() *cobra.Command {
@@ -64,7 +77,32 @@ func (a *app) failedCmd() *cobra.Command {
 }
 
 func (a *app) runningCmd() *cobra.Command {
-	return listStatusCmd("running", store.StatusRunning, a)
+	var jsonOutput bool
+	cmd := &cobra.Command{
+		Use:   "running",
+		Short: "list running runs",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			runs, err := a.st.ListByStatus(store.StatusRunning, 100)
+			if err != nil {
+				return err
+			}
+			if jsonOutput {
+				views := make([]runView, 0, len(runs))
+				for _, r := range runs {
+					views = append(views, runViewFromStore(&r, false))
+				}
+				return writeJSON(cmd, views)
+			}
+			for _, r := range runs {
+				ms := timeSinceMS(r.StartedAt)
+				fmt.Printf("%d  %s  %s  %s  %s\n", r.ID, r.Status, displayCommand(&r), r.CWD, formatDuration(&ms))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	return cmd
 }
 
 func listStatusCmd(name, status string, a *app) *cobra.Command {
@@ -83,7 +121,7 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 					ms := timeSinceMS(r.StartedAt)
 					age = "  " + formatDuration(&ms)
 				}
-				fmt.Printf("%d  %s  %s  %s%s\n", r.ID, r.Status, r.Command, r.CWD, age)
+				fmt.Printf("%d  %s  %s  %s%s\n", r.ID, r.Status, displayCommand(&r), r.CWD, age)
 			}
 			return nil
 		},
@@ -92,4 +130,55 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 
 func timeSinceMS(t time.Time) int64 {
 	return time.Since(t).Milliseconds()
+}
+
+type runView struct {
+	ID                 int64      `json:"id"`
+	Status             string     `json:"status"`
+	Mode               string     `json:"mode"`
+	Command            string     `json:"command"`
+	Argv               []string   `json:"argv,omitempty"`
+	CWD                string     `json:"cwd"`
+	StartedAt          time.Time  `json:"started_at"`
+	FinishedAt         *time.Time `json:"finished_at,omitempty"`
+	DurationMS         *int64     `json:"duration_ms,omitempty"`
+	ExitCode           *int       `json:"exit_code,omitempty"`
+	Hostname           string     `json:"hostname,omitempty"`
+	Shell              string     `json:"shell,omitempty"`
+	GitRoot            string     `json:"git_root,omitempty"`
+	GitBranch          string     `json:"git_branch,omitempty"`
+	GitCommit          string     `json:"git_commit,omitempty"`
+	GitDirty           *bool      `json:"git_dirty,omitempty"`
+	StdoutPath         string     `json:"stdout_path,omitempty"`
+	StderrPath         string     `json:"stderr_path,omitempty"`
+	TerminalOutputPath string     `json:"terminal_output_path,omitempty"`
+	Stdout             string     `json:"stdout,omitempty"`
+	Stderr             string     `json:"stderr,omitempty"`
+	TerminalOutput     string     `json:"terminal_output,omitempty"`
+	NotifyRequested    bool       `json:"notify_requested"`
+	NotifyAlways       bool       `json:"notify_always"`
+	CreatedAt          time.Time  `json:"created_at"`
+}
+
+func runViewFromStore(r *store.Run, includeOutput bool) runView {
+	argv, _ := parseArgv(r.ArgvJSON)
+	view := runView{
+		ID: r.ID, Status: r.Status, Mode: r.Mode, Command: displayCommand(r), Argv: argv, CWD: r.CWD,
+		StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, DurationMS: r.DurationMS, ExitCode: r.ExitCode,
+		Hostname: r.Hostname, Shell: r.Shell, GitRoot: r.GitRoot, GitBranch: r.GitBranch, GitCommit: r.GitCommit,
+		GitDirty: r.GitDirty, StdoutPath: r.StdoutPath, StderrPath: r.StderrPath, TerminalOutputPath: r.TerminalOutputPath,
+		NotifyRequested: r.NotifyRequested, NotifyAlways: r.NotifyAlways, CreatedAt: r.CreatedAt,
+	}
+	if includeOutput {
+		view.Stdout = readText(r.StdoutPath)
+		view.Stderr = readText(r.StderrPath)
+		view.TerminalOutput = readText(r.TerminalOutputPath)
+	}
+	return view
+}
+
+func writeJSON(cmd *cobra.Command, value any) error {
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }

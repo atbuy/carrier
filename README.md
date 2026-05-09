@@ -90,10 +90,13 @@ carrier -n run docker compose build
 carrier -N run ls
 carrier shell # alpha
 carrier last
+carrier last --json
 carrier show 42
+carrier show 42 --json
 carrier tail 42
 carrier failed
 carrier running
+carrier running --json
 carrier search "connection refused"
 carrier export 42
 carrier rerun 42

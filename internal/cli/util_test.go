@@ -95,6 +95,40 @@ func TestDisplayCommandQuotesRunArgvButLeavesShellCommand(t *testing.T) {
 	}
 }
 
+func TestRunViewFromStoreIncludesDisplayCommandAndOutput(t *testing.T) {
+	dir := t.TempDir()
+	stdoutPath := filepath.Join(dir, "stdout.log")
+	stderrPath := filepath.Join(dir, "stderr.log")
+	writeTestFile(t, stdoutPath, "out")
+	writeTestFile(t, stderrPath, "err")
+	duration := int64(123)
+	exitCode := 7
+	run := &store.Run{
+		ID:         42,
+		Status:     store.StatusFailed,
+		Mode:       store.ModeRun,
+		Command:    "legacy",
+		ArgvJSON:   `["bash","-c","echo hello && exit 7"]`,
+		CWD:        "/tmp/project",
+		StartedAt:  time.Date(2026, 5, 10, 1, 2, 3, 0, time.UTC),
+		DurationMS: &duration,
+		ExitCode:   &exitCode,
+		StdoutPath: stdoutPath,
+		StderrPath: stderrPath,
+	}
+
+	view := runViewFromStore(run, true)
+	if view.Command != "bash -c 'echo hello && exit 7'" {
+		t.Fatalf("view command = %q", view.Command)
+	}
+	if view.Stdout != "out" || view.Stderr != "err" {
+		t.Fatalf("view output mismatch: %#v", view)
+	}
+	if len(view.Argv) != 3 || view.Argv[0] != "bash" {
+		t.Fatalf("view argv mismatch: %#v", view.Argv)
+	}
+}
+
 func writeTestFile(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {

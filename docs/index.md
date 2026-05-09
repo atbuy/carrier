@@ -43,8 +43,10 @@ Inspect recorded runs:
 
 ```bash
 carrier last
+carrier last --json
 carrier failed
 carrier show 42
+carrier show 42 --json
 carrier tail 42
 carrier search "connection refused"
 carrier export 42
@@ -52,6 +54,8 @@ carrier rerun 42
 carrier doctor
 carrier version
 ```
+
+Use `--json` with `last`, `show`, and `running` when scripting against recorded runs.
 
 ## Shell Mode
 
