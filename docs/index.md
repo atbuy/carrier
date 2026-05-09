@@ -53,6 +53,8 @@ carrier export 42
 carrier rerun 42
 carrier doctor
 carrier version
+carrier clean --older-than 30d --dry-run
+carrier clean --older-than 30d -d
 ```
 
 Use `--json` with `last`, `show`, and `running` when scripting against recorded runs.

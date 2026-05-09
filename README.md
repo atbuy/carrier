@@ -103,6 +103,8 @@ carrier rerun 42
 carrier doctor
 carrier version
 carrier clean --older-than 30d
+carrier clean --older-than 30d --dry-run
+carrier clean --older-than 30d -d
 ```
 
 ## Configuration

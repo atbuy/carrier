@@ -102,6 +102,15 @@ func (s *Store) All(limit int) ([]Run, error) {
 	return scanRuns(rows)
 }
 
+func (s *Store) ListOlderThan(cutoff time.Time) ([]Run, error) {
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs WHERE started_at < ? ORDER BY id`, fmtTime(cutoff))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanRuns(rows)
+}
+
 func (s *Store) DeleteOlderThan(cutoff time.Time) ([]Run, error) {
 	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs WHERE started_at < ?`, fmtTime(cutoff))
 	if err != nil {

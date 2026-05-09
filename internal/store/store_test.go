@@ -124,3 +124,44 @@ func TestDeleteOlderThan(t *testing.T) {
 		t.Fatalf("new run missing: %v", err)
 	}
 }
+
+func TestListOlderThanDoesNotDelete(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	oldID, err := st.CreateRun(CreateRun{
+		Status:    StatusSuccess,
+		Mode:      ModeRun,
+		Command:   "old",
+		ArgvJSON:  `["old"]`,
+		CWD:       "/tmp",
+		StartedAt: time.Now().Add(-48 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("create old run: %v", err)
+	}
+	if _, err := st.CreateRun(CreateRun{
+		Status:    StatusSuccess,
+		Mode:      ModeRun,
+		Command:   "new",
+		ArgvJSON:  `["new"]`,
+		CWD:       "/tmp",
+		StartedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("create new run: %v", err)
+	}
+
+	runs, err := st.ListOlderThan(time.Now().Add(-24 * time.Hour))
+	if err != nil {
+		t.Fatalf("list older than: %v", err)
+	}
+	if len(runs) != 1 || runs[0].ID != oldID {
+		t.Fatalf("older list mismatch: %#v", runs)
+	}
+	if _, err := st.GetRun(oldID); err != nil {
+		t.Fatalf("dry-run list deleted run: %v", err)
+	}
+}
