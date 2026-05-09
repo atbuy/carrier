@@ -2,10 +2,20 @@
 
 `carrier` is a local developer command logger for Go-based single-binary installs. It records command executions, working directory, timing, exit code, output logs, Git metadata, and optional desktop notifications.
 
+Documentation: [https://atbuy.github.io/carrier/](https://atbuy.github.io/carrier/)
+
 Most users will alias it:
 
 ```bash
 alias c='carrier'
+```
+
+Quick usage:
+
+```bash
+c run go test ./...
+c last
+c show 1
 ```
 
 ## Features
