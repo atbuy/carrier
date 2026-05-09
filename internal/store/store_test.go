@@ -80,6 +80,30 @@ func TestStoreRunLifecycle(t *testing.T) {
 	}
 }
 
+func TestOpenAppliesGooseMigrations(t *testing.T) {
+	dir := t.TempDir()
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	var versionID int64
+	var isApplied bool
+	if err := st.db.QueryRow(`SELECT version_id, is_applied FROM goose_db_version ORDER BY id DESC LIMIT 1`).Scan(&versionID, &isApplied); err != nil {
+		t.Fatalf("query goose version: %v", err)
+	}
+	if versionID != 1 || !isApplied {
+		t.Fatalf("goose version mismatch: version=%d applied=%v", versionID, isApplied)
+	}
+
+	if reopened, err := Open(dir); err != nil {
+		t.Fatalf("reopen migrated store: %v", err)
+	} else {
+		_ = reopened.Close()
+	}
+}
+
 func TestDeleteOlderThan(t *testing.T) {
 	st, err := Open(t.TempDir())
 	if err != nil {
