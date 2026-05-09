@@ -66,6 +66,7 @@ func testRootCommand() *cobra.Command {
 		&cobra.Command{Use: "search <text>", Short: "search commands and output"},
 		&cobra.Command{Use: "export <id>", Short: "export run as Markdown"},
 		&cobra.Command{Use: "clean --older-than 30d", Short: "delete old records and logs"},
+		&cobra.Command{Use: "doctor", Short: "check local carrier setup"},
 	)
 	installHelp(root)
 	return root
