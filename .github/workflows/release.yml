@@ -47,7 +47,7 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           mkdir -p dist
-          go build -trimpath -ldflags="-s -w" -o "dist/carrier-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/carrier
+          go build -trimpath -ldflags="-s -w -X github.com/atbuy/carrier/internal/version.Version=${GITHUB_REF_NAME} -X github.com/atbuy/carrier/internal/version.Commit=${GITHUB_SHA} -X github.com/atbuy/carrier/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o "dist/carrier-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/carrier
 
       - name: Package
         run: |

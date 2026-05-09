@@ -11,6 +11,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/version"
 )
 
 func (a *app) doctorCmd() *cobra.Command {
@@ -25,6 +26,7 @@ func (a *app) doctorCmd() *cobra.Command {
 }
 
 func (a *app) runDoctor() error {
+	check("version", true, version.Current().Version, nil)
 	configPath, err := config.Path()
 	check("config path", err == nil, configPath, err)
 	check("data dir", dirWritable(a.cfg.Storage.DataDir), a.cfg.Storage.DataDir, nil)
