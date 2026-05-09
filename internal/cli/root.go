@@ -39,6 +39,7 @@ func Execute() int {
 	root.PersistentFlags().BoolVar(&a.noRedact, "no-redact", false, "disable persisted log redaction for this run")
 
 	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.searchCmd(), a.exportCmd(), a.rerunCmd(), a.cleanCmd(), a.tailCmd(), a.shellCmd(), a.internalCmd())
+	installHelp(root)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "carrier:", err)
 		return 1
