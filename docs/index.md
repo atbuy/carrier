@@ -4,6 +4,18 @@
 
 ## Quick Start
 
+Install from GitHub Releases:
+
+```bash
+version=v0.1.0
+curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-linux-amd64.tar.gz"
+curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/checksums.txt"
+sha256sum --check --ignore-missing checksums.txt
+tar -xzf carrier-linux-amd64.tar.gz
+install -Dm755 carrier-linux-amd64 ~/.local/bin/carrier
+carrier version
+```
+
 Install with Go:
 
 ```bash

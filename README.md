@@ -35,6 +35,34 @@ c show 1
 
 ## Install
 
+### From GitHub Releases
+
+Download a prebuilt archive from [GitHub Releases](https://github.com/atbuy/carrier/releases).
+
+Linux x86_64 example:
+
+```bash
+version=v0.1.0
+curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-linux-amd64.tar.gz"
+curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/checksums.txt"
+sha256sum --check --ignore-missing checksums.txt
+tar -xzf carrier-linux-amd64.tar.gz
+install -Dm755 carrier-linux-amd64 ~/.local/bin/carrier
+carrier version
+```
+
+macOS arm64 example:
+
+```bash
+version=v0.1.0
+curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-darwin-arm64.tar.gz"
+tar -xzf carrier-darwin-arm64.tar.gz
+install -m 755 carrier-darwin-arm64 /usr/local/bin/carrier
+carrier version
+```
+
+GitHub also shows a `sha256:<hash>` digest beside each release asset, similar to Neovim releases. Use `checksums.txt` for command-line verification.
+
 ### With Go
 
 Install the latest released module with:
