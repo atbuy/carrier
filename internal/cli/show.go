@@ -34,6 +34,7 @@ func (a *app) lastCmd() *cobra.Command {
 
 func (a *app) showCmd() *cobra.Command {
 	var jsonOutput bool
+	var lines int
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "show full run details",
@@ -55,22 +56,48 @@ func (a *app) showCmd() *cobra.Command {
 			printRun(out, r)
 			if r.TerminalOutputPath != "" {
 				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorCyan, "terminal"))
-				_, _ = fmt.Fprint(out, readText(r.TerminalOutputPath))
+				_, _ = fmt.Fprint(out, lastNLines(readText(r.TerminalOutputPath), lines))
 				return nil
 			}
 			if r.StdoutPath != "" {
 				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorGreen, "stdout"))
-				_, _ = fmt.Fprint(out, readText(r.StdoutPath))
+				_, _ = fmt.Fprint(out, lastNLines(readText(r.StdoutPath), lines))
 			}
 			if r.StderrPath != "" {
 				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorRed, "stderr"))
-				_, _ = fmt.Fprint(out, readText(r.StderrPath))
+				_, _ = fmt.Fprint(out, lastNLines(readText(r.StderrPath), lines))
 			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	cmd.Flags().IntVar(&lines, "lines", 0, "show only the last N lines of output (0 = all)")
 	return cmd
+}
+
+// lastNLines returns the last n lines of s. Returns s unchanged when n <= 0.
+func lastNLines(s string, n int) string {
+	if n <= 0 || s == "" {
+		return s
+	}
+	// Walk backwards counting newlines.
+	end := len(s)
+	// Ignore a trailing newline when counting.
+	pos := end
+	if pos > 0 && s[pos-1] == '\n' {
+		pos--
+	}
+	found := 0
+	for pos > 0 && found < n {
+		pos--
+		if s[pos] == '\n' {
+			found++
+		}
+	}
+	if found == n {
+		pos++ // step past the newline we stopped on
+	}
+	return s[pos:end]
 }
 
 func (a *app) failedCmd() *cobra.Command {
