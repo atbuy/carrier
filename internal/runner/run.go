@@ -64,7 +64,7 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 		return 1, err
 	}
 	if !opts.Quiet {
-		_, _ = os.Stderr.WriteString("carrier: run " + strconvID(id) + "\n")
+		_, _ = io.WriteString(os.Stderr, runStartedLine(os.Stderr, id))
 	}
 	exit, killed, finishErr := execute(opts, cfg, stdoutPath, stderrPath)
 	status := store.StatusSuccess
