@@ -24,6 +24,12 @@ Show active config:
 carrier config show
 ```
 
+Validate active config:
+
+```bash
+carrier config check
+```
+
 If the config file is missing, code defaults are used.
 
 ## Full example

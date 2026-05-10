@@ -119,3 +119,59 @@ func TestNotifyMinDurationFallback(t *testing.T) {
 		t.Fatalf("fallback duration = %s", got)
 	}
 }
+
+func TestCheckDefaultConfigPasses(t *testing.T) {
+	if issues := Check(Default()); len(issues) != 0 {
+		t.Fatalf("default config issues: %#v", issues)
+	}
+}
+
+func TestCheckReportsInvalidConfig(t *testing.T) {
+	cfg := Default()
+	cfg.Storage.DataDir = ""
+	cfg.Storage.MaxOutputMB = -1
+	cfg.Redaction.Patterns = []string{"[", ""}
+	cfg.Notify.MinDuration = "soon"
+	cfg.Shell.Program = " "
+	cfg.Shell.IgnoreCommands = append(cfg.Shell.IgnoreCommands, "")
+
+	issues := Check(cfg)
+	errors, warnings := CountIssues(issues)
+	if errors != 5 || warnings != 2 {
+		t.Fatalf("issue counts = %d errors, %d warnings: %#v", errors, warnings, issues)
+	}
+	for _, want := range []string{
+		"storage.data_dir",
+		"storage.max_output_mb",
+		"redaction.patterns[0]",
+		"redaction.patterns[1]",
+		"notify.min_duration",
+		"shell.program",
+		"shell.ignore_commands[8]",
+	} {
+		if !hasIssue(issues, want) {
+			t.Fatalf("missing issue for %s: %#v", want, issues)
+		}
+	}
+}
+
+func TestCheckWarnsOnDisabledOutputCapAndEmptyRedactionPatterns(t *testing.T) {
+	cfg := Default()
+	cfg.Storage.MaxOutputMB = 0
+	cfg.Redaction.Patterns = nil
+
+	issues := Check(cfg)
+	errors, warnings := CountIssues(issues)
+	if errors != 0 || warnings != 2 {
+		t.Fatalf("issue counts = %d errors, %d warnings: %#v", errors, warnings, issues)
+	}
+}
+
+func hasIssue(issues []Issue, field string) bool {
+	for _, issue := range issues {
+		if issue.Field == field {
+			return true
+		}
+	}
+	return false
+}

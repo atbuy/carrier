@@ -17,7 +17,7 @@ func (a *app) configCmd() *cobra.Command {
 		Use:   "config",
 		Short: "inspect and create config",
 	}
-	cmd.AddCommand(configPathCmd(), configShowCmd(), configInitCmd())
+	cmd.AddCommand(configPathCmd(), configShowCmd(), configInitCmd(), configCheckCmd())
 	return cmd
 }
 
@@ -82,6 +82,52 @@ func configInitCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite existing config")
 	return cmd
+}
+
+func configCheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "check",
+		Short: "validate active config",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := config.Path()
+			if err != nil {
+				return err
+			}
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			issues := config.Check(cfg)
+			errors, warnings := config.CountIssues(issues)
+			out := cmd.OutOrStdout()
+			_, _ = fmt.Fprintf(out, "config: %s\n", path)
+			for _, issue := range issues {
+				_, _ = fmt.Fprintf(out, "%s %s: %s\n", issue.Level, issue.Field, issue.Message)
+			}
+			switch {
+			case errors > 0:
+				_, _ = fmt.Fprintf(out, "failed: %s\n", issueSummary(errors, warnings))
+				return fmt.Errorf("config check failed")
+			case warnings > 0:
+				_, _ = fmt.Fprintf(out, "ok: %s\n", issueSummary(errors, warnings))
+			default:
+				_, _ = fmt.Fprintln(out, "ok")
+			}
+			return nil
+		},
+	}
+}
+
+func issueSummary(errors, warnings int) string {
+	return fmt.Sprintf("%d %s, %d %s", errors, plural("error", errors), warnings, plural("warning", warnings))
+}
+
+func plural(word string, count int) string {
+	if count == 1 {
+		return word
+	}
+	return word + "s"
 }
 
 func defaultConfigTOML() string {

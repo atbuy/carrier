@@ -133,6 +133,7 @@ carrier rerun 42
 carrier doctor
 carrier config path
 carrier config show
+carrier config check
 carrier config init
 carrier version
 carrier clean --older-than 30d --dry-run

@@ -134,6 +134,12 @@ func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 			t.Fatalf("config show missing %q:\n%s", want, show.stdout)
 		}
 	}
+
+	check := runCarrier(t, env, "config", "check")
+	check.requireExit(t, 0)
+	if !strings.Contains(check.stdout, "config: "+configPath) || !strings.Contains(check.stdout, "ok\n") {
+		t.Fatalf("config check output = %q", check.stdout)
+	}
 }
 
 func TestCarrierCLIHelperProcess(t *testing.T) {

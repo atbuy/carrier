@@ -155,6 +155,7 @@ Shows config path, storage paths, migration version, data size, redaction status
 ```bash
 carrier config path
 carrier config show
+carrier config check
 carrier config init
 carrier config init --force
 ```
