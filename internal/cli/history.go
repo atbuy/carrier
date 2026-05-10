@@ -30,7 +30,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch}
 			if since != "" {
-				d, err := time.ParseDuration(since)
+				d, err := parseAge(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since duration %q: %w", since, err)
 				}
