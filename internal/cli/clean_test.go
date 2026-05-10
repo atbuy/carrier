@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +30,64 @@ func TestParseAge(t *testing.T) {
 func TestParseAgeRejectsInvalidInput(t *testing.T) {
 	if _, err := parseAge("bad"); err == nil {
 		t.Fatalf("parseAge accepted invalid input")
+	}
+}
+
+func TestCleanRequiresAtLeastOneFlag(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	app := &app{st: st}
+	cmd := app.cleanCmd()
+	err = cmd.RunE(cmd, nil)
+	if err == nil {
+		t.Fatalf("clean without any filter flag succeeded")
+	}
+	if !strings.Contains(err.Error(), "--older-than or --keep-last") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCleanKeepLastDryRun(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	started := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 5 {
+		id, err := st.CreateRun(store.CreateRun{
+			Status: store.StatusRunning, Mode: store.ModeRun,
+			Command: fmt.Sprintf("cmd%d", i), ArgvJSON: `["cmd"]`,
+			CWD: "/tmp", StartedAt: started.Add(time.Duration(i) * time.Minute),
+		})
+		if err != nil {
+			t.Fatalf("create run: %v", err)
+		}
+		if err := st.FinishRun(id, store.StatusSuccess, 0, started.Add(time.Duration(i)*time.Minute+time.Second)); err != nil {
+			t.Fatalf("finish run: %v", err)
+		}
+	}
+
+	app := &app{st: st}
+	cmd := app.cleanCmd()
+	var out strings.Builder
+	cmd.SetOut(&out)
+	if err := cmd.Flags().Set("keep-last", "3"); err != nil {
+		t.Fatalf("set keep-last: %v", err)
+	}
+	if err := cmd.Flags().Set("dry-run", "true"); err != nil {
+		t.Fatalf("set dry-run: %v", err)
+	}
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("dry-run keep-last failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "would delete") {
+		t.Fatalf("missing 'would delete' in output: %s", out.String())
 	}
 }
 

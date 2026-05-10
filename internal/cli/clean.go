@@ -6,25 +6,27 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func (a *app) cleanCmd() *cobra.Command {
 	var olderThan string
+	var keepLast int
 	var dryRun bool
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "clean --older-than 30d",
+		Use:   "clean",
 		Short: "delete old records and logs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := parseAge(olderThan)
-			if err != nil {
-				return err
+			if olderThan == "" && keepLast == 0 {
+				return fmt.Errorf("at least one of --older-than or --keep-last is required")
 			}
-			cutoff := time.Now().Add(-d)
 			out := cmd.OutOrStdout()
 			c := outputColors(out)
+
 			if dryRun {
-				runs, err := a.st.ListOlderThan(cutoff)
+				runs, err := a.previewClean(olderThan, keepLast)
 				if err != nil {
 					return err
 				}
@@ -43,7 +45,7 @@ func (a *app) cleanCmd() *cobra.Command {
 			if !yes {
 				return fmt.Errorf("refusing to delete without --yes; use --dry-run to preview")
 			}
-			runs, err := a.st.DeleteOlderThan(cutoff)
+			runs, err := a.execClean(olderThan, keepLast)
 			if err != nil {
 				return err
 			}
@@ -56,11 +58,77 @@ func (a *app) cleanCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&olderThan, "older-than", "", "delete runs older than duration, e.g. 30d")
+	cmd.Flags().StringVar(&olderThan, "older-than", "", "delete runs older than this duration (e.g. 30d, 24h)")
+	cmd.Flags().IntVar(&keepLast, "keep-last", 0, "keep only the N most recent runs, delete the rest")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "show records that would be deleted without deleting")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "confirm deletion")
-	_ = cmd.MarkFlagRequired("older-than")
 	return cmd
+}
+
+// previewClean returns runs that would be deleted without deleting them.
+func (a *app) previewClean(olderThan string, keepLast int) ([]store.Run, error) {
+	seen := map[int64]bool{}
+	var result []store.Run
+	if olderThan != "" {
+		d, err := parseAge(olderThan)
+		if err != nil {
+			return nil, err
+		}
+		runs, err := a.st.ListOlderThan(time.Now().Add(-d))
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range runs {
+			seen[r.ID] = true
+			result = append(result, r)
+		}
+	}
+	if keepLast > 0 {
+		runs, err := a.st.ListOutsideKeepLast(keepLast)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range runs {
+			if !seen[r.ID] {
+				seen[r.ID] = true
+				result = append(result, r)
+			}
+		}
+	}
+	return result, nil
+}
+
+// execClean deletes runs according to the given criteria.
+func (a *app) execClean(olderThan string, keepLast int) ([]store.Run, error) {
+	seen := map[int64]bool{}
+	var result []store.Run
+	if olderThan != "" {
+		d, err := parseAge(olderThan)
+		if err != nil {
+			return nil, err
+		}
+		runs, err := a.st.DeleteOlderThan(time.Now().Add(-d))
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range runs {
+			seen[r.ID] = true
+			result = append(result, r)
+		}
+	}
+	if keepLast > 0 {
+		runs, err := a.st.DeleteKeepLast(keepLast)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range runs {
+			if !seen[r.ID] {
+				seen[r.ID] = true
+				result = append(result, r)
+			}
+		}
+	}
+	return result, nil
 }
 
 func parseAge(s string) (time.Duration, error) {

@@ -189,6 +189,36 @@ func (s *Store) DeleteOlderThan(cutoff time.Time) ([]Run, error) {
 	return runs, nil
 }
 
+// ListOutsideKeepLast returns runs that would be deleted by DeleteKeepLast.
+func (s *Store) ListOutsideKeepLast(n int) ([]Run, error) {
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?) ORDER BY id DESC`, n)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanRuns(rows)
+}
+
+// DeleteKeepLast deletes all runs except the n most recent (by id).
+func (s *Store) DeleteKeepLast(n int) ([]Run, error) {
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?)`, n)
+	if err != nil {
+		return nil, err
+	}
+	runs, err := scanRuns(rows)
+	_ = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.db.Exec(`DELETE FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?)`, n); err != nil {
+		return nil, err
+	}
+	if err := s.deleteSearchRows(runs); err != nil {
+		return nil, err
+	}
+	return runs, nil
+}
+
 func scanRuns(rows *sql.Rows) ([]Run, error) {
 	var runs []Run
 	for rows.Next() {
