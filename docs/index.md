@@ -2,11 +2,26 @@
 
 `carrier` is a local command logger for developers. It records what you ran, where you ran it, when it started and finished, how long it took, whether it failed, captured output, and useful Git context.
 
-It is designed for normal terminal work: Ubuntu, Ghostty, tmux, zsh/bash, local projects, and long-running build/test commands.
+It is designed for normal terminal work: local projects, long-running build/test commands, deploys, migrations, Docker tasks, zsh/bash, tmux, and terminal emulators such as Ghostty.
 
 !!! tip "New here?"
 
     Start with [Getting started](tutorial/getting-started.md). It walks through install, first run, inspection, and cleanup.
+
+!!! example "Try it in one command"
+
+    Already installed?
+
+    ```bash
+    carrier run bash -c 'echo "build started"; echo "warning: example" >&2; sleep 1; exit 1'
+    ```
+
+    Then inspect it:
+
+    ```bash
+    carrier last
+    carrier show 1
+    ```
 
 !!! warning "Shell mode is alpha"
 
@@ -14,30 +29,32 @@ It is designed for normal terminal work: Ubuntu, Ghostty, tmux, zsh/bash, local 
 
 ## Common tasks
 
-- Install a release binary: [Installation](tutorial/installation.md)
+- Install carrier: [Installation](tutorial/installation.md)
 - Record your first command: [Getting started](tutorial/getting-started.md)
-- Learn every command: [Commands](guide/commands.md)
-- Configure storage, redaction, notifications, and shell mode: [Configuration reference](reference/configuration.md)
+- Learn every command and flag: [Commands](guide/commands.md)
+- Build daily workflows with history, labels, export, rerun, and search: [Workflows](guide/workflows.md)
+- Script against JSON output and log paths: [Power-user workflows](advanced/power-user-workflows.md)
+- Understand alpha shell mode: [Shell mode](advanced/shell-mode.md)
+- Configure storage, redaction, notifications, and shell behavior: [Configuration reference](reference/configuration.md)
+- Check environment variables: [Environment variables](reference/environment.md)
 - Understand SQLite and log files: [Storage and state](reference/storage-and-state.md)
-- Use JSON, rerun, export, and tail workflows: [Advanced workflows](advanced/power-user-workflows.md)
 - Debug local setup: run `carrier doctor` or read [Troubleshooting](reference/troubleshooting.md)
-- See release assets and checksums: [Release install reference](reference/release-install.md)
 
 ## Why use carrier?
 
-- keep command history with stdout/stderr
-- preserve child process exit codes
-- search past commands and output
-- export failed runs as Markdown
-- rerun commands from their original working directory
-- get optional desktop notifications for long commands
-- keep logs on local disk, redacted by default
+- command history includes stdout, stderr, duration, exit code, cwd, Git branch, and Git dirty state
+- child process exit codes are preserved, so `carrier run` works in scripts
+- search covers commands, cwd, and stored output snippets
+- failed runs can be exported as Markdown or JSON for issues, pull requests, and chat threads
+- original argv is stored separately from the display string, so `rerun` does not parse shell-looking text
+- logs stay local on disk and are redacted before persistence by default
+- optional notifications help with slow builds without making every command noisy
 
 ## Core concepts
 
 ### A run is one recorded command
 
-Every recorded command gets an integer ID. Use that ID with `show`, `tail`, `export`, and `rerun`.
+Every recorded command gets an integer ID. Use that ID with `show`, `tail`, `export`, `label`, and `rerun`.
 
 ```bash
 carrier run go test ./...
@@ -73,6 +90,10 @@ Persisted logs are:
 
 Terminal output still streams normally. Redaction and truncation only affect persisted logs.
 
+### Search is local
+
+`carrier search` uses SQLite FTS for command/cwd/output matches, then falls back to substring matching for command and cwd text. No hosted service is involved.
+
 ## Choose your path
 
 ### First-time users
@@ -94,6 +115,7 @@ Terminal output still streams normally. Redaction and truncation only affect per
 ### Exact reference
 
 - [Configuration reference](reference/configuration.md)
+- [Environment variables](reference/environment.md)
 - [Storage and state](reference/storage-and-state.md)
 - [Release install reference](reference/release-install.md)
 - [Troubleshooting](reference/troubleshooting.md)

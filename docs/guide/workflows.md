@@ -4,7 +4,7 @@ This page shows practical workflows.
 
 ## Test loop
 
-```bash
+```bash title="Record tests"
 carrier run go test ./...
 carrier last
 carrier failed
@@ -12,20 +12,26 @@ carrier failed
 
 If a test fails:
 
-```bash
+```bash title="Inspect failure"
 carrier show 42
 carrier export 42 > failed-tests.md
 ```
 
 After fixing:
 
-```bash
+```bash title="Run the same command again"
 carrier rerun 42
+```
+
+If you need to change package paths or flags before rerunning:
+
+```bash title="Edit before rerun"
+carrier rerun 42 --edit
 ```
 
 ## Docker build
 
-```bash
+```bash title="Notify on long build"
 carrier -n run docker compose build
 ```
 
@@ -33,7 +39,7 @@ carrier -n run docker compose build
 
 Force notification:
 
-```bash
+```bash title="Notify regardless of duration"
 carrier -N run docker compose build
 ```
 
@@ -41,26 +47,30 @@ carrier -N run docker compose build
 
 For precise capture:
 
-```bash
+```bash title="Record a service command"
 carrier run npm run dev
 ```
 
 From another terminal:
 
-```bash
+```bash title="Inspect active command"
 carrier running
 carrier tail 42
 ```
 
 For interactive terminal sessions, try alpha shell mode:
 
-```bash
+```bash title="Start tracked shell"
 carrier shell
 ```
 
+!!! warning
+
+    Use `carrier run` for reliable stdout/stderr separation. Shell mode is a convenience layer around PTY output and shell hooks.
+
 ## Failure report
 
-```bash
+```bash title="Create a report"
 carrier failed
 carrier show 42
 carrier export 42 > run-42.md
@@ -68,49 +78,113 @@ carrier export 42 > run-42.md
 
 Attach `run-42.md` to a ticket, pull request, or chat thread.
 
+## Label important runs
+
+Use labels when a run represents something worth finding later:
+
+```bash title="Label a deployment"
+carrier label 42 prod deploy
+carrier history --label prod
+```
+
+Clear the label:
+
+```bash title="Clear label"
+carrier label 42
+```
+
 ## Search old output
 
-```bash
+```bash title="Search"
 carrier search "connection refused"
 carrier search "permission denied"
 carrier search "timeout"
 ```
 
+Use a smaller result set when piping to other tools:
+
+```bash title="Search JSON"
+carrier search --limit 20 --json "timeout" | jq '.[].id'
+```
+
 ## Review command health
 
-```bash
+```bash title="Review stats"
 carrier stats
 carrier stats --slowest 10
 ```
 
 Use this to check total runs, failure rate, runs per active day, and slow commands.
 
+## Watch a project
+
+Re-run a command when files change:
+
+```bash title="Watch Go files"
+carrier watch --pattern '*.go' go test ./...
+```
+
+Use a longer debounce for tools that write many files:
+
+```bash title="Debounce noisy writes"
+carrier watch --debounce 750ms make test
+```
+
+`watch` runs once immediately, then runs again after matching changes.
+
 ## Keep storage clean
 
 Preview cleanup:
 
-```bash
+```bash title="Preview age cleanup"
 carrier clean --older-than 30d --dry-run
 ```
 
 Delete:
 
-```bash
+```bash title="Delete old records"
 carrier clean --older-than 30d --yes
+```
+
+Keep only the latest records:
+
+```bash title="Count-based retention"
+carrier clean --keep-last 500 --dry-run
+carrier clean --keep-last 500 --yes
 ```
 
 ## Script against carrier
 
 Use JSON:
 
-```bash
+```bash title="JSON entry points"
 carrier last --json
 carrier show 42 --json
 carrier running --json
+carrier history --json
+carrier search --json "panic"
+carrier stats --json
 ```
 
 Example:
 
-```bash
+```bash title="Read an exit code"
 carrier show 42 --json | jq -r '.exit_code'
 ```
+
+Use captured log paths directly:
+
+```bash title="Open stderr log"
+less "$(carrier show 42 --json | jq -r '.stderr_path')"
+```
+
+## Capture and inspect environment
+
+Environment capture is enabled by default with `storage.capture_env = true`.
+
+```bash title="Show captured environment"
+carrier show 42 --env
+carrier show 42 --json | jq '.env'
+```
+
+Values are redacted when displayed unless you pass `--no-redact`.

@@ -4,31 +4,39 @@ This page covers supported install paths.
 
 ## Install with the script
 
-Linux and macOS:
+=== "Linux/macOS"
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
-```
+    ```bash title="Install latest"
+    curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
+    ```
 
-Install a specific version:
+    ```bash title="Install a specific version"
+    curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
+    ```
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
-```
+    ```bash title="Install system-wide"
+    curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --system
+    ```
 
-Windows PowerShell:
+=== "Windows"
 
-```powershell
-irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
-```
+    ```powershell title="Install latest"
+    irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
+    ```
 
-Install a specific version on Windows:
+    ```powershell title="Install a specific version"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
+    ```
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
-```
+    ```powershell title="Install system-wide"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -System"
+    ```
 
 The installer detects your OS and CPU architecture, installs into your user bin directory, and prints `carrier version` when done. Use `--system` on Linux/macOS or `-System` on Windows for a system-wide install.
+
+!!! tip "Default install locations"
+
+    Linux/macOS installs to `~/.local/bin/carrier` by default. Windows installs to `%LOCALAPPDATA%\carrier\bin\carrier.exe` and adds that directory to the user `PATH`.
 
 Release notes include checksum verification details for users who want manual validation.
 
@@ -36,25 +44,26 @@ Release notes include checksum verification details for users who want manual va
 
 If you have Go installed:
 
-```bash
+```bash title="Install latest Go module"
 go install github.com/atbuy/carrier/cmd/carrier@latest
 ```
 
 Ensure Go's bin dir is on `PATH`:
 
-```bash
+```bash title="Add GOPATH/bin to PATH"
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
 Verify:
 
-```bash
+```bash title="Verify install"
 carrier version
+carrier doctor
 ```
 
 ## Build from source
 
-```bash
+```bash title="Build local binary"
 git clone https://github.com/atbuy/carrier.git
 cd carrier
 make build
@@ -69,7 +78,7 @@ make install
 
 ## Recommended shell alias
 
-```bash
+```bash title="Alias"
 alias c='carrier'
 ```
 
@@ -80,17 +89,25 @@ Add it to:
 
 ## Optional desktop notifications
 
-On Ubuntu, `carrier` uses `notify-send` for opt-in notifications.
+Notifications are requested per command, not enabled globally. Carrier uses the platform notification tool:
+
+| Platform | Tool                            |
+| -------- | ------------------------------- |
+| Linux    | `notify-send`                   |
+| macOS    | `osascript`                     |
+| Windows  | PowerShell notification balloon |
 
 Check availability:
 
-```bash
+```bash title="Check local setup"
 carrier doctor
 ```
 
 Use notifications:
 
-```bash
+```bash title="Request notifications"
 carrier -n run docker compose build
 carrier -N run ls
 ```
+
+`-n` respects `notify.min_duration`; `-N` bypasses that duration gate.

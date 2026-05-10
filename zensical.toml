@@ -23,6 +23,7 @@ nav = [
   ]},
   {"Reference" = [
     "reference/configuration.md",
+    "reference/environment.md",
     "reference/storage-and-state.md",
     "reference/release-install.md",
     "reference/troubleshooting.md"

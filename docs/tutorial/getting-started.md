@@ -26,23 +26,23 @@ It is most useful for test runs, builds, migrations, deploy commands, long Docke
 
 ## Install carrier
 
-Linux and macOS:
+=== "Linux/macOS"
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
-```
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
+    ```
 
-Windows:
+=== "Windows"
 
-```powershell
-irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
-```
+    ```powershell
+    irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
+    ```
 
 Specific versions and Go installs are covered in [Installation](installation.md).
 
 Verify:
 
-```bash
+```bash title="Verify install"
 carrier version
 carrier doctor
 ```
@@ -51,13 +51,13 @@ carrier doctor
 
 Most examples use:
 
-```bash
+```bash title="Shell alias"
 alias c='carrier'
 ```
 
 Add that to `~/.zshrc` or `~/.bashrc`, then reload your shell:
 
-```bash
+```bash title="Reload zsh config"
 source ~/.zshrc
 ```
 
@@ -67,7 +67,7 @@ Use `source ~/.bashrc` if you use bash.
 
 Run a simple command:
 
-```bash
+```bash title="Record a simple command"
 c run echo "hello from carrier"
 ```
 
@@ -75,13 +75,13 @@ You should see normal terminal output. `carrier` records metadata and saves logs
 
 Show latest run:
 
-```bash
+```bash title="Show latest run"
 c last
 ```
 
 Inspect full details:
 
-```bash
+```bash title="Show full details"
 c show 1
 ```
 
@@ -91,7 +91,7 @@ If your first run ID is not `1`, use ID shown by `last`.
 
 Run:
 
-```bash
+```bash title="Record a failing command"
 c run bash -c 'echo stdout; echo stderr >&2; exit 7'
 echo $?
 ```
@@ -100,7 +100,7 @@ The final `echo $?` should print `7`. `carrier run` preserves child exit code.
 
 List failed runs:
 
-```bash
+```bash title="List failed runs"
 c failed
 ```
 
@@ -108,7 +108,7 @@ c failed
 
 Search command text, cwd, stdout, stderr, and terminal logs:
 
-```bash
+```bash title="Search output"
 c search "stderr"
 ```
 
@@ -116,7 +116,7 @@ c search "stderr"
 
 Export run details as Markdown:
 
-```bash
+```bash title="Export Markdown"
 c export 1 > run-1.md
 ```
 
@@ -126,7 +126,7 @@ This is useful when sharing a failure with teammates or adding context to an iss
 
 Run again from original working directory:
 
-```bash
+```bash title="Rerun original argv"
 c rerun 1
 ```
 
@@ -136,13 +136,13 @@ This creates a new run record. It does not overwrite the old run.
 
 Preview deletion:
 
-```bash
+```bash title="Preview cleanup"
 c clean --older-than 30d --dry-run
 ```
 
 Actually delete:
 
-```bash
+```bash title="Delete old records and logs"
 c clean --older-than 30d --yes
 ```
 

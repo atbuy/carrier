@@ -6,15 +6,19 @@ This tutorial uses a realistic test command and shows the full loop: record, ins
 
 From any project directory, run:
 
-```bash
+```bash title="Record a failing command"
 carrier run bash -c 'echo "build started"; echo "warning: example" >&2; sleep 1; exit 1'
 ```
 
 The command exits with `1`, and `carrier` exits with `1` too.
 
+!!! tip
+
+    That exit-code behavior means `carrier run` can wrap commands in scripts without hiding failures.
+
 ## Inspect latest run
 
-```bash
+```bash title="Find the run ID"
 carrier last
 ```
 
@@ -31,7 +35,7 @@ Duration: 1s
 
 ## Show output
 
-```bash
+```bash title="Show metadata plus logs"
 carrier show 42
 ```
 
@@ -41,20 +45,20 @@ For `carrier run`, stdout and stderr are shown separately.
 
 Tail both streams with labels:
 
-```bash
+```bash title="Tail stdout and stderr"
 carrier tail 42
 ```
 
 Tail one stream:
 
-```bash
+```bash title="Tail one stream"
 carrier tail 42 --stream stdout
 carrier tail 42 --stream stderr
 ```
 
 ## Search logs
 
-```bash
+```bash title="Search stored output"
 carrier search "warning"
 ```
 
@@ -62,7 +66,7 @@ Search checks command text, cwd, and stored output logs.
 
 ## Export report
 
-```bash
+```bash title="Create a Markdown report"
 carrier export 42 > failed-run.md
 ```
 
@@ -70,15 +74,21 @@ The report is Markdown, with metadata plus output blocks.
 
 ## Rerun from original directory
 
-```bash
+```bash title="Rerun original argv"
 carrier rerun 42
 ```
 
 Rerun creates a new run record.
 
+If you want to edit the command first:
+
+```bash title="Edit before rerun"
+carrier rerun 42 --edit
+```
+
 ## Try JSON output
 
-```bash
+```bash title="JSON output"
 carrier show 42 --json
 carrier last --json
 carrier running --json
@@ -90,12 +100,12 @@ Use JSON when integrating with scripts.
 
 Preview:
 
-```bash
+```bash title="Preview cleanup"
 carrier clean --older-than 30d --dry-run
 ```
 
 Delete:
 
-```bash
+```bash title="Delete old records and logs"
 carrier clean --older-than 30d --yes
 ```
