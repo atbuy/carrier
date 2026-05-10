@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -78,7 +79,9 @@ func (a *app) internalEndCmd() *cobra.Command {
 			}
 			r, err := a.st.GetRun(state.CurrentID)
 			if err == nil {
-				notify.MaybeSend(a.cfg, *r)
+				if notifyErr := notify.MaybeSend(a.cfg, *r); notifyErr != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
+				}
 			}
 			return sf.Write(carriershell.State{})
 		},
