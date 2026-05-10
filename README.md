@@ -128,6 +128,8 @@ carrier failed
 carrier running
 carrier running --json
 carrier search "connection refused"
+carrier stats
+carrier stats --json
 carrier export 42
 carrier rerun 42
 carrier doctor

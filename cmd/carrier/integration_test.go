@@ -85,9 +85,50 @@ func TestCarrierCLIIntegrationCleanDryRunKeepsRuns(t *testing.T) {
 	}
 }
 
+func TestCarrierCLIIntegrationStats(t *testing.T) {
+	requireShell(t)
+	env := newCarrierTestEnv(t)
+
+	runCarrier(t, env, "run", "sh", "-c", "exit 0").requireExit(t, 0)
+	if failed := runCarrier(t, env, "run", "sh", "-c", "exit 3"); failed.exitCode != 3 {
+		t.Fatalf("failed run exit code = %d, want 3", failed.exitCode)
+	}
+
+	stats := runCarrier(t, env, "stats")
+	stats.requireExit(t, 0)
+	for _, want := range []string{
+		"Runs:        2",
+		"Completed:   2",
+		"Success:     1",
+		"Failed:      1",
+		"Runs/day:    2.00",
+		"Failure:     50.0%",
+		"Slowest:",
+	} {
+		if !strings.Contains(stats.stdout, want) {
+			t.Fatalf("stats output missing %q:\n%s", want, stats.stdout)
+		}
+	}
+}
+
 func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 	env := newCarrierTestEnv(t)
 	configPath := filepath.Join(env.xdgConfig, "carrier", "config.toml")
+
+	help := runCarrier(t, env, "config", "--help")
+	help.requireExit(t, 0)
+	for _, want := range []string{
+		"config <command>",
+		"Commands",
+		"path       show config file path",
+		"show       show active config",
+		"check      validate active config",
+		"init       write default config file",
+	} {
+		if !strings.Contains(help.stdout, want) {
+			t.Fatalf("config help output missing %q:\n%s", want, help.stdout)
+		}
+	}
 
 	path := runCarrier(t, env, "config", "path")
 	path.requireExit(t, 0)

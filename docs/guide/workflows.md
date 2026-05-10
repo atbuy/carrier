@@ -76,6 +76,15 @@ carrier search "permission denied"
 carrier search "timeout"
 ```
 
+## Review command health
+
+```bash
+carrier stats
+carrier stats --slowest 10
+```
+
+Use this to check total runs, failure rate, runs per active day, and slow commands.
+
 ## Keep storage clean
 
 Preview cleanup:

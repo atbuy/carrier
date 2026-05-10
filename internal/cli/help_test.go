@@ -30,6 +30,29 @@ func TestRootHelpGroupsCommandsAndFlags(t *testing.T) {
 	}
 }
 
+func TestCommandHelpShowsSubcommands(t *testing.T) {
+	cmd := (&app{}).configCmd()
+	var buf bytes.Buffer
+
+	printCommandHelp(&buf, helpColors{}, cmd)
+	out := buf.String()
+
+	for _, want := range []string{
+		"Usage",
+		"config <command>",
+		"Commands",
+		"path       show config file path",
+		"show       show active config",
+		"init       write default config file",
+		"check      validate active config",
+		"carrier config check",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("config help output missing %q\n%s", want, out)
+		}
+	}
+}
+
 func TestHelpColorsCanBeForced(t *testing.T) {
 	t.Setenv("CARRIER_COLOR", "always")
 	t.Setenv("NO_COLOR", "")
@@ -64,6 +87,7 @@ func testRootCommand() *cobra.Command {
 		&cobra.Command{Use: "tail <id>", Short: "stream captured output"},
 		&cobra.Command{Use: "failed", Short: "list failed runs"},
 		&cobra.Command{Use: "search <text>", Short: "search commands and output"},
+		&cobra.Command{Use: "stats", Short: "show run totals and slow commands"},
 		&cobra.Command{Use: "export <id>", Short: "export run as Markdown"},
 		&cobra.Command{Use: "clean --older-than 30d", Short: "delete old records and logs"},
 		&cobra.Command{Use: "config", Short: "inspect and create config"},

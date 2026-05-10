@@ -12,12 +12,14 @@ import (
 )
 
 const (
-	colorReset = "\x1b[0m"
-	colorBold  = "\x1b[1m"
-	colorDim   = "\x1b[2m"
-	colorCyan  = "\x1b[36m"
-	colorGreen = "\x1b[32m"
-	colorGray  = "\x1b[90m"
+	colorReset  = "\x1b[0m"
+	colorBold   = "\x1b[1m"
+	colorDim    = "\x1b[2m"
+	colorCyan   = "\x1b[36m"
+	colorGreen  = "\x1b[32m"
+	colorRed    = "\x1b[31m"
+	colorYellow = "\x1b[33m"
+	colorGray   = "\x1b[90m"
 )
 
 func installHelp(root *cobra.Command) {
@@ -62,7 +64,7 @@ func printRootHelp(w io.Writer, c helpColors, cmd *cobra.Command) {
 	line(w, "  carrier [flags] <command>")
 	line(w)
 	printCommandGroup(w, c, "Run", cmd, []string{"run", "shell", "rerun"})
-	printCommandGroup(w, c, "Inspect", cmd, []string{"last", "running", "show", "tail", "failed", "search", "export"})
+	printCommandGroup(w, c, "Inspect", cmd, []string{"last", "running", "show", "tail", "failed", "search", "stats", "export"})
 	printCommandGroup(w, c, "Maintenance", cmd, []string{"clean", "config", "doctor", "version"})
 	line(w, c.paint(colorBold, "Examples"))
 	line(w, cmd.Example)
@@ -77,6 +79,7 @@ func printCommandHelp(w io.Writer, c helpColors, cmd *cobra.Command) {
 	line(w)
 	line(w, c.paint(colorBold, "Usage"))
 	linef(w, "  %s\n", cmd.UseLine())
+	printSubcommands(w, c, cmd)
 	if cmd.Example != "" {
 		line(w)
 		line(w, c.paint(colorBold, "Examples"))
@@ -84,6 +87,21 @@ func printCommandHelp(w io.Writer, c helpColors, cmd *cobra.Command) {
 	}
 	printFlagSet(w, c, "Flags", cmd.LocalFlags())
 	printFlagSet(w, c, "Global Flags", cmd.InheritedFlags())
+}
+
+func printSubcommands(w io.Writer, c helpColors, cmd *cobra.Command) {
+	printed := false
+	for _, child := range cmd.Commands() {
+		if child.Hidden {
+			continue
+		}
+		if !printed {
+			line(w)
+			line(w, c.paint(colorBold, "Commands"))
+			printed = true
+		}
+		linef(w, "  %s  %s\n", c.paint(colorGreen, padRight(child.Name(), 9)), child.Short)
+	}
 }
 
 func printCommandGroup(w io.Writer, c helpColors, title string, root *cobra.Command, names []string) {

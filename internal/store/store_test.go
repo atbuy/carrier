@@ -196,3 +196,89 @@ func TestListOlderThanDoesNotDelete(t *testing.T) {
 		t.Fatalf("dry-run list deleted run: %v", err)
 	}
 }
+
+func TestStats(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	day1 := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
+	day2 := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	successID := createStatsRun(t, st, StatusSuccess, "go test ./...", `["go","test","./..."]`, day1, 1000)
+	failedID := createStatsRun(t, st, StatusFailed, "make lint", `["make","lint"]`, day1.Add(time.Hour), 2500)
+	if successID == failedID {
+		t.Fatalf("expected unique ids")
+	}
+	if _, err := st.CreateRun(CreateRun{
+		Status:    StatusRunning,
+		Mode:      ModeRun,
+		Command:   "npm run dev",
+		ArgvJSON:  `["npm","run","dev"]`,
+		CWD:       "/tmp/project",
+		StartedAt: day2,
+	}); err != nil {
+		t.Fatalf("create running run: %v", err)
+	}
+
+	stats, err := st.Stats(2)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if stats.TotalRuns != 3 || stats.CompletedRuns != 2 || stats.SuccessfulRuns != 1 || stats.FailedRuns != 1 || stats.RunningRuns != 1 {
+		t.Fatalf("stats counts mismatch: %#v", stats)
+	}
+	if stats.ActiveDays != 2 {
+		t.Fatalf("active days = %d, want 2", stats.ActiveDays)
+	}
+	if stats.AvgDurationMS == nil || *stats.AvgDurationMS != 1750 {
+		t.Fatalf("avg duration = %#v, want 1750", stats.AvgDurationMS)
+	}
+	if stats.FirstStartedAt == nil || !stats.FirstStartedAt.Equal(day1) {
+		t.Fatalf("first started = %#v, want %s", stats.FirstStartedAt, day1)
+	}
+	if stats.LastStartedAt == nil || !stats.LastStartedAt.Equal(day2) {
+		t.Fatalf("last started = %#v, want %s", stats.LastStartedAt, day2)
+	}
+	if len(stats.SlowestRuns) != 2 {
+		t.Fatalf("slowest length = %d, want 2", len(stats.SlowestRuns))
+	}
+	if stats.SlowestRuns[0].ID != failedID || stats.SlowestRuns[0].DurationMS != 2500 {
+		t.Fatalf("first slowest mismatch: %#v", stats.SlowestRuns[0])
+	}
+	if stats.SlowestRuns[1].ID != successID || stats.SlowestRuns[1].DurationMS != 1000 {
+		t.Fatalf("second slowest mismatch: %#v", stats.SlowestRuns[1])
+	}
+
+	withoutSlowest, err := st.Stats(0)
+	if err != nil {
+		t.Fatalf("stats without slowest: %v", err)
+	}
+	if len(withoutSlowest.SlowestRuns) != 0 {
+		t.Fatalf("slowest should be empty: %#v", withoutSlowest.SlowestRuns)
+	}
+}
+
+func createStatsRun(t *testing.T, st *Store, status, command, argv string, started time.Time, durationMS int64) int64 {
+	t.Helper()
+	id, err := st.CreateRun(CreateRun{
+		Status:    StatusRunning,
+		Mode:      ModeRun,
+		Command:   command,
+		ArgvJSON:  argv,
+		CWD:       "/tmp/project",
+		StartedAt: started,
+	})
+	if err != nil {
+		t.Fatalf("create stats run: %v", err)
+	}
+	exitCode := 0
+	if status != StatusSuccess {
+		exitCode = 1
+	}
+	if err := st.FinishRun(id, status, exitCode, started.Add(time.Duration(durationMS)*time.Millisecond)); err != nil {
+		t.Fatalf("finish stats run: %v", err)
+	}
+	return id
+}

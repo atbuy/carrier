@@ -58,3 +58,27 @@ type CreateRun struct {
 	NotifyRequested    bool
 	NotifyAlways       bool
 }
+
+type Stats struct {
+	TotalRuns      int64
+	CompletedRuns  int64
+	SuccessfulRuns int64
+	FailedRuns     int64
+	RunningRuns    int64
+	ActiveDays     int64
+	FirstStartedAt *time.Time
+	LastStartedAt  *time.Time
+	AvgDurationMS  *int64
+	SlowestRuns    []SlowRun
+}
+
+type SlowRun struct {
+	ID         int64
+	Status     string
+	Mode       string
+	Command    string
+	ArgvJSON   string
+	CWD        string
+	StartedAt  time.Time
+	DurationMS int64
+}

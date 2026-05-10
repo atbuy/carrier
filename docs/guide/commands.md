@@ -103,6 +103,16 @@ carrier search "gcov data not found"
 
 Search is file-scan based in current versions.
 
+## `stats`
+
+Show run totals, runs per active day, failure rate, average duration, and slowest commands:
+
+```bash
+carrier stats
+carrier stats --slowest 10
+carrier stats --json
+```
+
 ## `export`
 
 Export a run as Markdown:

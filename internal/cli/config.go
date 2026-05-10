@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
@@ -14,8 +15,15 @@ import (
 
 func (a *app) configCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config",
+		Use:   "config <command>",
 		Short: "inspect and create config",
+		Example: strings.Join([]string{
+			"  carrier config path",
+			"  carrier config init",
+			"  carrier config check",
+			"  carrier config show",
+			"  carrier config init --force",
+		}, "\n"),
 	}
 	cmd.AddCommand(configPathCmd(), configShowCmd(), configInitCmd(), configCheckCmd())
 	return cmd
