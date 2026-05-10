@@ -8,7 +8,8 @@ import (
 )
 
 func (a *app) searchCmd() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "search <text>...",
 		Short: "search commands and output",
 		Args:  cobra.MinimumNArgs(1),
@@ -16,6 +17,20 @@ func (a *app) searchCmd() *cobra.Command {
 			results, err := a.st.SearchRuns(strings.Join(args, " "), 100)
 			if err != nil {
 				return err
+			}
+			if jsonOutput {
+				type searchView struct {
+					runView
+					Snippet string `json:"snippet,omitempty"`
+				}
+				views := make([]searchView, 0, len(results))
+				for _, result := range results {
+					views = append(views, searchView{
+						runView: runViewFromStore(&result.Run, false),
+						Snippet: cleanSnippet(result.Snippet),
+					})
+				}
+				return writeJSON(cmd, views)
 			}
 			out := cmd.OutOrStdout()
 			c := outputColors(out)
@@ -35,6 +50,8 @@ func (a *app) searchCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	return cmd
 }
 
 func cleanSnippet(snippet string) string {
