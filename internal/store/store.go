@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -111,6 +112,48 @@ func (s *Store) ListByStatus(status string, limit int) ([]Run, error) {
 
 func (s *Store) All(limit int) ([]Run, error) {
 	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs ORDER BY id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanRuns(rows)
+}
+
+// HistoryFilter holds optional filter criteria for ListHistory.
+// Zero values mean "no filter" for that field.
+type HistoryFilter struct {
+	Status string    // exact match on status column
+	Since  time.Time // only runs started at or after this time
+	CWD    string    // substring match on cwd
+	Branch string    // exact match on git_branch
+}
+
+func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
+	where := []string{}
+	args := []any{}
+	if f.Status != "" {
+		where = append(where, "status = ?")
+		args = append(args, f.Status)
+	}
+	if !f.Since.IsZero() {
+		where = append(where, "started_at >= ?")
+		args = append(args, fmtTime(f.Since))
+	}
+	if f.CWD != "" {
+		where = append(where, "cwd LIKE ?")
+		args = append(args, "%"+f.CWD+"%")
+	}
+	if f.Branch != "" {
+		where = append(where, "git_branch = ?")
+		args = append(args, f.Branch)
+	}
+	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs`
+	if len(where) > 0 {
+		q += " WHERE " + strings.Join(where, " AND ")
+	}
+	q += " ORDER BY id DESC LIMIT ?"
+	args = append(args, limit)
+	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -2,14 +2,21 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func (a *app) historyCmd() *cobra.Command {
 	var (
 		limit      int
 		jsonOutput bool
+		status     string
+		since      string
+		cwd        string
+		branch     string
 	)
 	cmd := &cobra.Command{
 		Use:   "history",
@@ -21,7 +28,15 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
   carrier history | fzf | awk '{print $1}' | xargs carrier rerun`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			runs, err := a.st.All(limit)
+			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch}
+			if since != "" {
+				d, err := time.ParseDuration(since)
+				if err != nil {
+					return fmt.Errorf("invalid --since duration %q: %w", since, err)
+				}
+				f.Since = time.Now().Add(-d)
+			}
+			runs, err := a.st.ListHistory(limit, f)
 			if err != nil {
 				return err
 			}
@@ -49,5 +64,9 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	}
 	cmd.Flags().IntVarP(&limit, "limit", "l", 500, "maximum number of runs to show")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	cmd.Flags().StringVar(&status, "status", "", "filter by status (success, failed, running, killed)")
+	cmd.Flags().StringVar(&since, "since", "", "only runs started within this duration ago (e.g. 24h, 7d)")
+	cmd.Flags().StringVar(&cwd, "cwd", "", "filter by working directory (substring match)")
+	cmd.Flags().StringVar(&branch, "branch", "", "filter by git branch (exact match)")
 	return cmd
 }
