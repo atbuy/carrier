@@ -17,6 +17,7 @@ func (a *app) historyCmd() *cobra.Command {
 		since      string
 		cwd        string
 		branch     string
+		command    string
 	)
 	cmd := &cobra.Command{
 		Use:   "history",
@@ -28,7 +29,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
   carrier history | fzf | awk '{print $1}' | xargs carrier rerun`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch}
+			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch, Command: command}
 			if since != "" {
 				d, err := parseAge(since)
 				if err != nil {
@@ -68,5 +69,6 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVar(&since, "since", "", "only runs started within this duration ago (e.g. 24h, 7d)")
 	cmd.Flags().StringVar(&cwd, "cwd", "", "filter by working directory (substring match)")
 	cmd.Flags().StringVar(&branch, "branch", "", "filter by git branch (exact match)")
+	cmd.Flags().StringVarP(&command, "command", "c", "", "filter by command (substring match)")
 	return cmd
 }

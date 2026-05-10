@@ -122,10 +122,11 @@ func (s *Store) All(limit int) ([]Run, error) {
 // HistoryFilter holds optional filter criteria for ListHistory.
 // Zero values mean "no filter" for that field.
 type HistoryFilter struct {
-	Status string    // exact match on status column
-	Since  time.Time // only runs started at or after this time
-	CWD    string    // substring match on cwd
-	Branch string    // exact match on git_branch
+	Status  string    // exact match on status column
+	Since   time.Time // only runs started at or after this time
+	CWD     string    // substring match on cwd
+	Branch  string    // exact match on git_branch
+	Command string    // substring match on command
 }
 
 func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
@@ -146,6 +147,10 @@ func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
 	if f.Branch != "" {
 		where = append(where, "git_branch = ?")
 		args = append(args, f.Branch)
+	}
+	if f.Command != "" {
+		where = append(where, "command LIKE ?")
+		args = append(args, "%"+f.Command+"%")
 	}
 	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs`
 	if len(where) > 0 {
