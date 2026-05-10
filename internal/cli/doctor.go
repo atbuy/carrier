@@ -44,6 +44,8 @@ func (a *app) runDoctor(w io.Writer) error {
 	}
 	check(w, c, "max output", true, fmt.Sprintf("%d MB", a.cfg.Storage.MaxOutputMB), nil)
 	check(w, c, "redaction", a.cfg.Redaction.Enabled, fmt.Sprintf("%d patterns", len(a.cfg.Redaction.Patterns)), nil)
+	staleCount, _ := a.st.CountStaleRuns(a.cfg.StaleRunThreshold())
+	check(w, c, "stale runs", staleCount == 0, fmt.Sprintf("%d stuck in running (threshold %s)", staleCount, a.cfg.Storage.StaleRunThreshold), nil)
 	check(w, c, "git", commandAvailable("git"), "git executable available", nil)
 	check(w, c, "notify", notify.Available(), "optional desktop notifications", nil)
 	check(w, c, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)

@@ -71,5 +71,6 @@ func (a *app) open() error {
 	}
 	a.cfg = cfg
 	a.st = st
+	_, _ = st.MarkStaleRunsKilled(cfg.StaleRunThreshold())
 	return nil
 }

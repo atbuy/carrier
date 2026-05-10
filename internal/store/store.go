@@ -189,6 +189,48 @@ func (s *Store) DeleteOlderThan(cutoff time.Time) ([]Run, error) {
 	return runs, nil
 }
 
+// CountStaleRuns returns the number of runs still in "running" status that
+// started more than threshold ago.
+func (s *Store) CountStaleRuns(threshold time.Duration) (int64, error) {
+	cutoff := fmtTime(time.Now().Add(-threshold))
+	var n int64
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM runs WHERE status=? AND started_at < ?`, StatusRunning, cutoff).Scan(&n)
+	return n, err
+}
+
+// MarkStaleRunsKilled sets status=killed on runs that are still in "running"
+// state but started more than threshold ago. Returns the number of rows updated.
+func (s *Store) MarkStaleRunsKilled(threshold time.Duration) (int64, error) {
+	cutoff := fmtTime(time.Now().Add(-threshold))
+	res, err := s.db.Exec(
+		`UPDATE runs SET status=?, finished_at=started_at, duration_ms=0, exit_code=-1
+		 WHERE status=? AND started_at < ?`,
+		StatusKilled, StatusRunning, cutoff,
+	)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if n > 0 {
+		// Re-index affected rows so FTS reflects the new status.
+		rows, err := s.db.Query(
+			`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs WHERE status=? AND started_at < ?`,
+			StatusKilled, cutoff,
+		)
+		if err == nil {
+			runs, _ := scanRuns(rows)
+			_ = rows.Close()
+			for _, r := range runs {
+				_ = s.indexRun(r.ID)
+			}
+		}
+	}
+	return n, nil
+}
+
 // ListOutsideKeepLast returns runs that would be deleted by DeleteKeepLast.
 func (s *Store) ListOutsideKeepLast(n int) ([]Run, error) {
 	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?) ORDER BY id DESC`, n)

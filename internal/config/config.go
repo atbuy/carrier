@@ -18,8 +18,9 @@ type Config struct {
 }
 
 type StorageConfig struct {
-	DataDir     string `toml:"data_dir"`
-	MaxOutputMB int64  `toml:"max_output_mb"`
+	DataDir          string `toml:"data_dir"`
+	MaxOutputMB      int64  `toml:"max_output_mb"`
+	StaleRunThreshold string `toml:"stale_run_threshold"`
 }
 
 type RedactionConfig struct {
@@ -40,7 +41,7 @@ type ShellConfig struct {
 
 func Default() Config {
 	return Config{
-		Storage: StorageConfig{DataDir: "~/.local/share/carrier", MaxOutputMB: 20},
+		Storage: StorageConfig{DataDir: "~/.local/share/carrier", MaxOutputMB: 20, StaleRunThreshold: "24h"},
 		Redaction: RedactionConfig{
 			Enabled: true,
 			Patterns: []string{
@@ -99,6 +100,14 @@ func (c Config) NotifyMinDuration() time.Duration {
 	d, err := time.ParseDuration(c.Notify.MinDuration)
 	if err != nil {
 		return 10 * time.Second
+	}
+	return d
+}
+
+func (c Config) StaleRunThreshold() time.Duration {
+	d, err := time.ParseDuration(c.Storage.StaleRunThreshold)
+	if err != nil {
+		return 24 * time.Hour
 	}
 	return d
 }
