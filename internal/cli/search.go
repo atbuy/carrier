@@ -9,11 +9,11 @@ import (
 
 func (a *app) searchCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "search <text>",
+		Use:   "search <text>...",
 		Short: "search commands and output",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			results, err := a.st.SearchRuns(args[0], 100)
+			results, err := a.st.SearchRuns(strings.Join(args, " "), 100)
 			if err != nil {
 				return err
 			}

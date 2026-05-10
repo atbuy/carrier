@@ -58,3 +58,40 @@ func TestSearchCommandUsesFTSResults(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchCommandVariadicArgs(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	started := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	id, err := st.CreateRun(store.CreateRun{
+		Status:    store.StatusRunning,
+		Mode:      store.ModeRun,
+		Command:   "go test ./...",
+		ArgvJSON:  `["go","test","./..."]`,
+		CWD:       "/tmp/project",
+		StartedAt: started,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	if err := st.FinishRun(id, store.StatusSuccess, 0, started.Add(time.Second)); err != nil {
+		t.Fatalf("finish run: %v", err)
+	}
+
+	app := &app{st: st}
+	cmd := app.searchCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	// multi-word search without quoting
+	if err := cmd.RunE(cmd, []string{"go", "test"}); err != nil {
+		t.Fatalf("variadic search failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "go test ./...") {
+		t.Fatalf("variadic search missing result:\n%s", out.String())
+	}
+}
