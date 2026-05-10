@@ -3,6 +3,7 @@ package runner
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -111,7 +112,7 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	stdoutDst := io.MultiWriter(os.Stdout, stdoutLog)
 	stderrDst := io.MultiWriter(os.Stderr, stderrLog)
 	if err := cmd.Start(); err != nil {
-		return 127, err
+		return 127, startError(opts.Argv[0], err)
 	}
 	outCh := asyncCopy(stdoutDst, stdout)
 	errCh := asyncCopy(stderrDst, stderr)
@@ -132,4 +133,11 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 
 func strconvID(id int64) string {
 	return strconv.FormatInt(id, 10)
+}
+
+func startError(name string, err error) error {
+	if errors.Is(err, exec.ErrNotFound) {
+		return fmt.Errorf("command not found: %s", name)
+	}
+	return fmt.Errorf("start command %s: %w", command.Quote(name), err)
 }

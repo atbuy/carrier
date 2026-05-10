@@ -84,6 +84,33 @@ func TestRunMissingCommand(t *testing.T) {
 	}
 }
 
+func TestRunCommandNotFoundReturnsClearError(t *testing.T) {
+	dataDir := t.TempDir()
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = dataDir
+	code, err := Run(cfg, st, Options{
+		Mode:  store.ModeRun,
+		Argv:  []string{"carrier-command-does-not-exist"},
+		CWD:   t.TempDir(),
+		Quiet: true,
+	})
+	if err == nil {
+		t.Fatalf("expected command not found error")
+	}
+	if code != 127 {
+		t.Fatalf("code = %d", code)
+	}
+	if !strings.Contains(err.Error(), "command not found: carrier-command-does-not-exist") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestRunCommandFailureRecordsFailedStatus(t *testing.T) {
 	dataDir := t.TempDir()
 	st, err := store.Open(dataDir)
