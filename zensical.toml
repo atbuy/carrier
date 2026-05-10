@@ -6,6 +6,29 @@ repo_name = "atbuy/carrier"
 repo_url = "https://github.com/atbuy/carrier"
 docs_dir = "docs"
 site_dir = "site"
+nav = [
+  {"Home" = "index.md"},
+  {"Tutorial" = [
+    "tutorial/getting-started.md",
+    "tutorial/installation.md",
+    "tutorial/first-run.md"
+  ]},
+  {"Guide" = [
+    "guide/commands.md",
+    "guide/workflows.md"
+  ]},
+  {"Advanced" = [
+    "advanced/power-user-workflows.md",
+    "advanced/shell-mode.md"
+  ]},
+  {"Reference" = [
+    "reference/configuration.md",
+    "reference/storage-and-state.md",
+    "reference/release-install.md",
+    "reference/troubleshooting.md"
+  ]},
+  {"FAQ" = "faq.md"}
+]
 
 [project.theme]
 variant = "modern"

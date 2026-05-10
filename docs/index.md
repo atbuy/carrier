@@ -1,93 +1,59 @@
 # carrier
 
-`carrier` records local command executions for developer workflows. It captures command metadata, timing, exit status, output logs, Git context, and optional desktop notifications.
+`carrier` is a local command logger for developers. It records what you ran, where you ran it, when it started and finished, how long it took, whether it failed, captured output, and useful Git context.
 
-## Quick Start
+It is designed for normal terminal work: Ubuntu, Ghostty, tmux, zsh/bash, local projects, and long-running build/test commands.
 
-Install from GitHub Releases:
+!!! tip "New here?"
 
-```bash
-version=v0.1.0
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-linux-amd64.tar.gz"
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/checksums.txt"
-sha256sum --check --ignore-missing checksums.txt
-tar -xzf carrier-linux-amd64.tar.gz
-install -Dm755 carrier-linux-amd64 ~/.local/bin/carrier
-carrier version
-```
+    Start with [Getting started](tutorial/getting-started.md). It walks through install, first run, inspection, and cleanup.
 
-Install with Go:
+!!! warning "Shell mode is alpha"
 
-```bash
-go install github.com/atbuy/carrier/cmd/carrier@latest
-```
+    `carrier run` is the stable path for precise stdout/stderr capture. `carrier shell` is useful for experiments and long interactive sessions, but depends on PTY output and shell hooks.
 
-Make sure Go's bin directory is on your `PATH`:
+## Common tasks
 
-```bash
-export PATH="$PATH:$(go env GOPATH)/bin"
-```
+- Install a release binary: [Installation](tutorial/installation.md)
+- Record your first command: [Getting started](tutorial/getting-started.md)
+- Learn every command: [Commands](guide/commands.md)
+- Configure storage, redaction, notifications, and shell mode: [Configuration reference](reference/configuration.md)
+- Understand SQLite and log files: [Storage and state](reference/storage-and-state.md)
+- Use JSON, rerun, export, and tail workflows: [Advanced workflows](advanced/power-user-workflows.md)
+- Debug local setup: run `carrier doctor` or read [Troubleshooting](reference/troubleshooting.md)
+- Verify release checksums: [Release install reference](reference/release-install.md)
 
-Or build from source:
+## Why use carrier?
 
-```bash
-git clone https://github.com/atbuy/carrier.git
-cd carrier
-make build
-./bin/carrier --help
-```
+- keep command history with stdout/stderr
+- preserve child process exit codes
+- search past commands and output
+- export failed runs as Markdown
+- rerun commands from their original working directory
+- get optional desktop notifications for long commands
+- keep logs on local disk, redacted by default
 
-Most examples use this alias:
+## Core concepts
 
-```bash
-alias c='carrier'
-```
+### A run is one recorded command
 
-Run and record a command:
+Every recorded command gets an integer ID. Use that ID with `show`, `tail`, `export`, and `rerun`.
 
 ```bash
 carrier run go test ./...
-carrier -n run docker compose build
-carrier -N run ls
-```
-
-Inspect recorded runs:
-
-```bash
 carrier last
-carrier last --json
-carrier failed
-carrier show 42
-carrier show 42 --json
-carrier tail 42
-carrier tail 42 --stream stdout
-carrier tail 42 --stream stderr
-carrier search "connection refused"
-carrier export 42
-carrier rerun 42
-carrier doctor
-carrier config path
-carrier config show
-carrier config init
-carrier version
-carrier clean --older-than 30d --dry-run
-carrier clean --older-than 30d -d
-carrier clean --older-than 30d --yes
+carrier show 1
 ```
 
-Use `--json` with `last`, `show`, and `running` when scripting against recorded runs.
+### Metadata lives in SQLite
 
-## Shell Mode
-
-`carrier shell` is alpha-quality. It is useful for trying tracked interactive sessions, but `carrier run` is the stable path for precise command capture. Shell tracking depends on PTY output and injected zsh/bash hooks, so stdout and stderr may be merged and some prompts or shell plugins can affect behavior.
-
-## Storage
-
-Metadata is stored in SQLite at:
+Run metadata is stored in:
 
 ```text
 ~/.local/share/carrier/carrier.db
 ```
+
+### Output lives in log files
 
 Command output is stored under:
 
@@ -95,17 +61,40 @@ Command output is stored under:
 ~/.local/share/carrier/runs/
 ```
 
-Persisted logs are capped by `storage.max_output_mb` from the config file. Terminal output still streams normally; only on-disk logs are truncated.
+`carrier run` stores stdout and stderr separately. `carrier shell` stores terminal output.
 
-Logs are redacted before they are written to disk. Redaction uses a buffered writer so common split secrets and multiline private keys can still be matched.
+### Logs are protected
 
-## Development
+Persisted logs are:
 
-Use the repository `Makefile`:
+- redacted before writing to disk
+- capped by `storage.max_output_mb`
+- left on disk until you clean them
 
-```bash
-make fmt
-make lint
-make test
-make build
-```
+Terminal output still streams normally. Redaction and truncation only affect persisted logs.
+
+## Choose your path
+
+### First-time users
+
+- [Getting started](tutorial/getting-started.md)
+- [Installation](tutorial/installation.md)
+- [First run tutorial](tutorial/first-run.md)
+
+### Daily usage
+
+- [Commands](guide/commands.md)
+- [Workflows](guide/workflows.md)
+
+### Advanced usage
+
+- [Power-user workflows](advanced/power-user-workflows.md)
+- [Shell mode](advanced/shell-mode.md)
+
+### Exact reference
+
+- [Configuration reference](reference/configuration.md)
+- [Storage and state](reference/storage-and-state.md)
+- [Release install reference](reference/release-install.md)
+- [Troubleshooting](reference/troubleshooting.md)
+- [FAQ](faq.md)
