@@ -48,6 +48,8 @@ carrier failed
 carrier show 42
 carrier show 42 --json
 carrier tail 42
+carrier tail 42 --stream stdout
+carrier tail 42 --stream stderr
 carrier search "connection refused"
 carrier export 42
 carrier rerun 42

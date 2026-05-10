@@ -94,6 +94,8 @@ carrier last --json
 carrier show 42
 carrier show 42 --json
 carrier tail 42
+carrier tail 42 --stream stdout
+carrier tail 42 --stream stderr
 carrier failed
 carrier running
 carrier running --json
