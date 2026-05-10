@@ -21,12 +21,31 @@ func TestPathUsesXDGConfigHome(t *testing.T) {
 	}
 }
 
+func TestPathUsesHomeWhenXDGConfigHomeUnset(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", home)
+
+	got, err := Path()
+	if err != nil {
+		t.Fatalf("Path failed: %v", err)
+	}
+
+	want := filepath.Join(home, ".config", "carrier", "config.toml")
+	if got != want {
+		t.Fatalf("Path = %q, want %q", got, want)
+	}
+}
+
 func TestExpandHomePath(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
 	if got, want := Expand("~/data"), filepath.Join(home, "data"); got != want {
 		t.Fatalf("Expand = %q, want %q", got, want)
+	}
+	if got := Expand("~"); got != home {
+		t.Fatalf("Expand(~) = %q, want %q", got, home)
 	}
 	if got := Expand("/var/tmp"); got != "/var/tmp" {
 		t.Fatalf("absolute path changed: %q", got)
@@ -111,6 +130,25 @@ ignore_commands = ["vim"]
 	}
 }
 
+func TestLoadInvalidTomlReturnsError(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(home, ".config")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	configDir := filepath.Join(xdg, "carrier")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte("[storage\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid TOML error")
+	}
+}
+
 func TestNotifyMinDurationFallback(t *testing.T) {
 	cfg := Default()
 	cfg.Notify.MinDuration = "not-a-duration"
@@ -167,6 +205,16 @@ func TestCheckWarnsOnDisabledOutputCapAndEmptyRedactionPatterns(t *testing.T) {
 	}
 }
 
+func TestCheckRejectsNegativeNotifyDuration(t *testing.T) {
+	cfg := Default()
+	cfg.Notify.MinDuration = "-1s"
+
+	issues := Check(cfg)
+	if !hasIssue(issues, "notify.min_duration") {
+		t.Fatalf("missing notify.min_duration issue: %#v", issues)
+	}
+}
+
 func hasIssue(issues []Issue, field string) bool {
 	for _, issue := range issues {
 		if issue.Field == field {
@@ -174,4 +222,103 @@ func hasIssue(issues []Issue, field string) bool {
 		}
 	}
 	return false
+}
+
+// ---------------------------------------------------------------------------
+// StaleRunThreshold
+// ---------------------------------------------------------------------------
+
+func TestStaleRunThresholdDefault(t *testing.T) {
+	cfg := Default()
+	if got := cfg.StaleRunThreshold(); got != 24*time.Hour {
+		t.Fatalf("StaleRunThreshold = %s, want 24h", got)
+	}
+}
+
+func TestStaleRunThresholdInvalidFallsBackTo24h(t *testing.T) {
+	cfg := Default()
+	cfg.Storage.StaleRunThreshold = "not-a-duration"
+	if got := cfg.StaleRunThreshold(); got != 24*time.Hour {
+		t.Fatalf("StaleRunThreshold fallback = %s, want 24h", got)
+	}
+}
+
+func TestStaleRunThresholdCustom(t *testing.T) {
+	cfg := Default()
+	cfg.Storage.StaleRunThreshold = "1h"
+	if got := cfg.StaleRunThreshold(); got != time.Hour {
+		t.Fatalf("StaleRunThreshold = %s, want 1h", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Load — additional paths
+// ---------------------------------------------------------------------------
+
+func TestLoadMissingFileReturnsDefaults(t *testing.T) {
+	// Point XDG_CONFIG_HOME at a temp dir that has no config.toml inside it.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load with missing file should not error: %v", err)
+	}
+	def := Default()
+	if cfg.Storage.MaxOutputMB != def.Storage.MaxOutputMB {
+		t.Fatalf("MaxOutputMB = %d, want %d", cfg.Storage.MaxOutputMB, def.Storage.MaxOutputMB)
+	}
+	if cfg.Notify.MinDuration != def.Notify.MinDuration {
+		t.Fatalf("MinDuration = %q, want %q", cfg.Notify.MinDuration, def.Notify.MinDuration)
+	}
+}
+
+func TestLoadValidTomlFile(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(home, "xdg")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	configDir := filepath.Join(xdg, "carrier")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	const tomlContent = `
+[storage]
+data_dir = "~/mydata"
+max_output_mb = 5
+stale_run_threshold = "6h"
+
+[notify]
+min_duration = "30s"
+success = true
+failure = false
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(tomlContent), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if cfg.Storage.MaxOutputMB != 5 {
+		t.Fatalf("MaxOutputMB = %d, want 5", cfg.Storage.MaxOutputMB)
+	}
+	if cfg.StaleRunThreshold() != 6*time.Hour {
+		t.Fatalf("StaleRunThreshold = %s, want 6h", cfg.StaleRunThreshold())
+	}
+	if cfg.NotifyMinDuration() != 30*time.Second {
+		t.Fatalf("NotifyMinDuration = %s, want 30s", cfg.NotifyMinDuration())
+	}
+	if cfg.Notify.Failure {
+		t.Fatalf("Notify.Failure should be false")
+	}
+	wantDir := filepath.Join(home, "mydata")
+	if cfg.Storage.DataDir != wantDir {
+		t.Fatalf("DataDir = %q, want %q", cfg.Storage.DataDir, wantDir)
+	}
 }

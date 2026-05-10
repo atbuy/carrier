@@ -83,6 +83,35 @@ func TestConfigCheckCommandReportsOK(t *testing.T) {
 	}
 }
 
+func TestConfigShowCommand(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	cmd := configShowCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("config show failed: %v", err)
+	}
+	// Output should be valid TOML containing storage section.
+	if !strings.Contains(out.String(), "[storage]") {
+		t.Fatalf("config show missing [storage]:\n%s", out.String())
+	}
+}
+
+func TestIssueColor(t *testing.T) {
+	if got := issueColor("error"); got != colorRed {
+		t.Fatalf("error color = %q", got)
+	}
+	if got := issueColor("warn"); got != colorYellow {
+		t.Fatalf("warn color = %q", got)
+	}
+	if got := issueColor("unknown"); got != colorGray {
+		t.Fatalf("unknown color = %q", got)
+	}
+}
+
 func TestConfigCheckCommandReportsErrors(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")

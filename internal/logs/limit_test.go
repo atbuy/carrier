@@ -2,6 +2,7 @@ package logs
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 )
@@ -72,6 +73,80 @@ func TestCappedAppendWriterDoesNotRepeatNoticeAfterLimitExceeded(t *testing.T) {
 	if got := buf.String(); got != "" {
 		t.Fatalf("expected repeated overflow to be discarded, got %q", got)
 	}
+}
+
+func TestCappedWriterUnlimitedPassesErrorThrough(t *testing.T) {
+	// limit=0 → writes directly; exercise the error path.
+	ew := &errorWriter{}
+	writer := NewCappedWriter(ew, 0)
+	_, err := writer.Write([]byte("data"))
+	if err == nil {
+		t.Fatal("expected error from errorWriter")
+	}
+}
+
+func TestCappedWriterPartialWriteError(t *testing.T) {
+	// Writer that accepts only 3 bytes then errors.
+	pw := &partialWriter{limit: 3}
+	writer := NewCappedWriter(pw, 100)
+	n, err := writer.Write([]byte("hello"))
+	if err == nil {
+		t.Fatal("expected error from partialWriter")
+	}
+	if n != 3 {
+		t.Fatalf("n = %d, want 3", n)
+	}
+}
+
+func TestCappedWriterTruncationNoticeError(t *testing.T) {
+	fw := &failOnSecondWrite{}
+	writer := NewCappedWriter(fw, 2)
+
+	_, err := writer.Write([]byte("abc"))
+	if err == nil {
+		t.Fatal("expected truncation notice write error")
+	}
+}
+
+// errorWriter always returns an error.
+type errorWriter struct{}
+
+func (e *errorWriter) Write(p []byte) (int, error) {
+	return 0, io.ErrUnexpectedEOF
+}
+
+// partialWriter accepts up to `limit` bytes then returns an error.
+type partialWriter struct {
+	limit   int
+	written int
+}
+
+func (pw *partialWriter) Write(p []byte) (int, error) {
+	remaining := pw.limit - pw.written
+	if remaining <= 0 {
+		return 0, io.ErrUnexpectedEOF
+	}
+	n := len(p)
+	if n > remaining {
+		n = remaining
+	}
+	pw.written += n
+	if pw.written >= pw.limit && len(p) > n {
+		return n, io.ErrUnexpectedEOF
+	}
+	return n, nil
+}
+
+type failOnSecondWrite struct {
+	calls int
+}
+
+func (w *failOnSecondWrite) Write(p []byte) (int, error) {
+	w.calls++
+	if w.calls == 2 {
+		return 0, io.ErrUnexpectedEOF
+	}
+	return len(p), nil
 }
 
 func TestMaxOutputBytes(t *testing.T) {

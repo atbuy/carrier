@@ -91,6 +91,9 @@ func Expand(path string) string {
 	if path == "~" || strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err == nil {
+			if path == "~" {
+				return home
+			}
 			return filepath.Join(home, strings.TrimPrefix(path, "~/"))
 		}
 	}

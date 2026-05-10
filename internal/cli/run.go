@@ -15,6 +15,8 @@ import (
 	"github.com/atbuy/carrier/internal/store"
 )
 
+var exitProcess = os.Exit
+
 // parseRunFlags scans leading carrier flags from args (before the child command)
 // and updates app fields. Returns the remaining args (the child command + its args).
 // Required because runCmd uses DisableFlagParsing to pass arbitrary flags through
@@ -89,7 +91,7 @@ func (a *app) runCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			os.Exit(code)
+			exitProcess(code)
 			return nil
 		},
 	}
@@ -127,7 +129,7 @@ func (a *app) rerunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			os.Exit(code)
+			exitProcess(code)
 			return nil
 		},
 	}

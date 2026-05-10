@@ -101,6 +101,239 @@ func TestDeleteOlderThanRemovesSearchRows(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// SearchRuns edge cases
+// ---------------------------------------------------------------------------
+
+func TestSearchRunsEmptyQuery(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	_, err = st.SearchRuns("", 10)
+	if err == nil {
+		t.Fatal("SearchRuns with empty query: expected error, got nil")
+	}
+}
+
+func TestSearchRunsWhitespaceOnlyQuery(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	_, err = st.SearchRuns("   ", 10)
+	if err == nil {
+		t.Fatal("SearchRuns with whitespace query: expected error, got nil")
+	}
+}
+
+func TestSearchRunsNoResults(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	if _, err := st.CreateRun(CreateRun{
+		Status:    StatusSuccess,
+		Mode:      ModeRun,
+		Command:   "make build",
+		ArgvJSON:  `["make","build"]`,
+		CWD:       "/tmp/proj",
+		StartedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	results, err := st.SearchRuns("nonexistentxyzterm", 10)
+	if err != nil {
+		t.Fatalf("SearchRuns: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("SearchRuns: want 0 results, got %d", len(results))
+	}
+}
+
+func TestSearchRunsLikeSubstringFallback(t *testing.T) {
+	// FTS5 tokenises on word boundaries, so "pytest" won't match the token "test"
+	// via FTS. The LIKE fallback must catch it.
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	id, err := st.CreateRun(CreateRun{
+		Status:    StatusSuccess,
+		Mode:      ModeRun,
+		Command:   "pytest -v",
+		ArgvJSON:  `["pytest","-v"]`,
+		CWD:       "/home/user/repo",
+		StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	assertSearchHit(t, st, "test", id)
+}
+
+func TestSearchRunsMultiTermAND(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	// run A matches both terms
+	idA, err := st.CreateRun(CreateRun{
+		Status:    StatusSuccess,
+		Mode:      ModeRun,
+		Command:   "cargo build --release",
+		ArgvJSON:  `["cargo","build","--release"]`,
+		CWD:       "/home/user/rust-proj",
+		StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run A: %v", err)
+	}
+
+	// run B matches only one term
+	if _, err := st.CreateRun(CreateRun{
+		Status:    StatusSuccess,
+		Mode:      ModeRun,
+		Command:   "cargo check",
+		ArgvJSON:  `["cargo","check"]`,
+		CWD:       "/home/user/rust-proj",
+		StartedAt: time.Now().Add(time.Second),
+	}); err != nil {
+		t.Fatalf("create run B: %v", err)
+	}
+
+	// searching for "cargo release" should only hit run A (both words present)
+	results, err := st.SearchRuns("cargo release", 10)
+	if err != nil {
+		t.Fatalf("SearchRuns: %v", err)
+	}
+	found := false
+	for _, r := range results {
+		if r.Run.ID == idA {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("SearchRuns multi-term: expected run A (%d) in results %v", idA, results)
+	}
+}
+
+func TestSearchRunsLimitRespected(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	base := time.Now().UTC()
+	for i := 0; i < 5; i++ {
+		if _, err := st.CreateRun(CreateRun{
+			Status:    StatusSuccess,
+			Mode:      ModeRun,
+			Command:   "limitcmd run",
+			ArgvJSON:  `["limitcmd","run"]`,
+			CWD:       "/tmp",
+			StartedAt: base.Add(time.Duration(i) * time.Second),
+		}); err != nil {
+			t.Fatalf("create run %d: %v", i, err)
+		}
+	}
+
+	results, err := st.SearchRuns("limitcmd", 3)
+	if err != nil {
+		t.Fatalf("SearchRuns: %v", err)
+	}
+	if len(results) > 3 {
+		t.Fatalf("SearchRuns: limit=3 but got %d results", len(results))
+	}
+}
+
+func TestSearchRunsDeleteKeepLastRemovesSearchRows(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	base := time.Now().UTC()
+	var createdIDs []int64
+	for i := 0; i < 4; i++ {
+		id, err := st.CreateRun(CreateRun{
+			Status:    StatusSuccess,
+			Mode:      ModeRun,
+			Command:   "searchable-keep-cmd",
+			ArgvJSON:  `["searchable-keep-cmd"]`,
+			CWD:       "/tmp",
+			StartedAt: base.Add(time.Duration(i) * time.Second),
+		})
+		if err != nil {
+			t.Fatalf("create run %d: %v", i, err)
+		}
+		createdIDs = append(createdIDs, id)
+	}
+
+	// keep only 2 newest; oldest 2 should disappear from search
+	if _, err := st.DeleteKeepLast(2); err != nil {
+		t.Fatalf("DeleteKeepLast: %v", err)
+	}
+
+	results, err := st.SearchRuns("searchable-keep-cmd", 10)
+	if err != nil {
+		t.Fatalf("SearchRuns: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("SearchRuns after DeleteKeepLast: want 2, got %d", len(results))
+	}
+	for _, r := range results {
+		if r.Run.ID == createdIDs[0] || r.Run.ID == createdIDs[1] {
+			t.Fatalf("SearchRuns after DeleteKeepLast: deleted run %d still found", r.Run.ID)
+		}
+	}
+}
+
+func TestSearchHelpersReturnErrorsAfterClose(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	seen := map[int64]bool{}
+	if _, err := st.SearchRuns("closed", 10); err == nil {
+		t.Fatal("expected SearchRuns error after close")
+	}
+	if _, err := st.ftsSearch("closed", 10, seen); err == nil {
+		t.Fatal("expected ftsSearch error after close")
+	}
+	if _, err := st.likeSearch([]string{"closed"}, 10, seen); err == nil {
+		t.Fatal("expected likeSearch error after close")
+	}
+	if err := st.indexRun(1); err == nil {
+		t.Fatal("expected indexRun error after close")
+	}
+	if err := st.upsertSearch(1, "cmd", "/tmp", "out"); err == nil {
+		t.Fatal("expected upsertSearch error after close")
+	}
+	if err := st.deleteSearchRows([]Run{{ID: 1}}); err == nil {
+		t.Fatal("expected deleteSearchRows error after close")
+	}
+}
+
+// ---------------------------------------------------------------------------
+
 func assertSearchHit(t *testing.T, st *Store, query string, id int64) []SearchResult {
 	t.Helper()
 	results, err := st.SearchRuns(query, 10)

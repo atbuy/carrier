@@ -91,6 +91,125 @@ func TestCleanKeepLastDryRun(t *testing.T) {
 	}
 }
 
+func TestCleanWithYesDeletesOldRuns(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	old := time.Now().Add(-48 * time.Hour)
+	for i := 0; i < 2; i++ {
+		id, err := st.CreateRun(store.CreateRun{
+			Status: store.StatusRunning, Mode: store.ModeRun,
+			Command: fmt.Sprintf("old%d", i), ArgvJSON: `["old"]`,
+			CWD: "/tmp", StartedAt: old,
+		})
+		if err != nil {
+			t.Fatalf("create old run: %v", err)
+		}
+		if err := st.FinishRun(id, store.StatusSuccess, 0, old.Add(time.Second)); err != nil {
+			t.Fatalf("finish run: %v", err)
+		}
+	}
+
+	app := &app{st: st}
+	cmd := app.cleanCmd()
+	var out strings.Builder
+	cmd.SetOut(&out)
+	if err := cmd.Flags().Set("older-than", "24h"); err != nil {
+		t.Fatalf("set flag: %v", err)
+	}
+	if err := cmd.Flags().Set("yes", "true"); err != nil {
+		t.Fatalf("set yes: %v", err)
+	}
+
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("clean --yes failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "deleted") {
+		t.Fatalf("expected 'deleted' in output: %s", out.String())
+	}
+}
+
+func TestPreviewCleanBothCriteria(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	// Create 5 recent runs (within 1h) — none qualify for 48h olderThan.
+	started := time.Now().Add(-30 * time.Minute)
+	for i := 0; i < 5; i++ {
+		ts := started.Add(time.Duration(i) * time.Minute)
+		id, err := st.CreateRun(store.CreateRun{
+			Status: store.StatusRunning, Mode: store.ModeRun,
+			Command: fmt.Sprintf("cmd%d", i), ArgvJSON: `["cmd"]`,
+			CWD: "/tmp", StartedAt: ts,
+		})
+		if err != nil {
+			t.Fatalf("create run: %v", err)
+		}
+		if err := st.FinishRun(id, store.StatusSuccess, 0, ts.Add(time.Second)); err != nil {
+			t.Fatalf("finish run: %v", err)
+		}
+	}
+
+	a := &app{st: st}
+	// olderThan returns empty (all recent); keepLast returns 2 oldest (outside last 3).
+	// Both criteria combined — the keepLast results go through !seen[r.ID] path.
+	runs, err := a.previewClean("48h", 3)
+	if err != nil {
+		t.Fatalf("previewClean: %v", err)
+	}
+	if len(runs) == 0 {
+		t.Fatal("expected some runs to preview-delete")
+	}
+	// Verify no duplicates (dedup worked).
+	seen := map[int64]bool{}
+	for _, r := range runs {
+		if seen[r.ID] {
+			t.Fatalf("duplicate run ID %d", r.ID)
+		}
+		seen[r.ID] = true
+	}
+}
+
+func TestExecCleanBothCriteria(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	started := time.Now().Add(-30 * time.Minute)
+	for i := 0; i < 5; i++ {
+		ts := started.Add(time.Duration(i) * time.Minute)
+		id, err := st.CreateRun(store.CreateRun{
+			Status: store.StatusRunning, Mode: store.ModeRun,
+			Command: fmt.Sprintf("cmd%d", i), ArgvJSON: `["cmd"]`,
+			CWD: "/tmp", StartedAt: ts,
+		})
+		if err != nil {
+			t.Fatalf("create run: %v", err)
+		}
+		if err := st.FinishRun(id, store.StatusSuccess, 0, ts.Add(time.Second)); err != nil {
+			t.Fatalf("finish run: %v", err)
+		}
+	}
+
+	a := &app{st: st}
+	runs, err := a.execClean("48h", 3)
+	if err != nil {
+		t.Fatalf("execClean: %v", err)
+	}
+	if len(runs) == 0 {
+		t.Fatal("expected some runs to be deleted")
+	}
+}
+
 func TestCleanRequiresYesUnlessDryRun(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {

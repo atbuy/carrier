@@ -205,31 +205,31 @@ func timeSinceMS(t time.Time) int64 {
 }
 
 type runView struct {
-	ID                 int64      `json:"id"`
-	Status             string     `json:"status"`
-	Mode               string     `json:"mode"`
-	Command            string     `json:"command"`
-	Argv               []string   `json:"argv,omitempty"`
-	CWD                string     `json:"cwd"`
-	StartedAt          time.Time  `json:"started_at"`
-	FinishedAt         *time.Time `json:"finished_at,omitempty"`
-	DurationMS         *int64     `json:"duration_ms,omitempty"`
-	ExitCode           *int       `json:"exit_code,omitempty"`
-	Hostname           string     `json:"hostname,omitempty"`
-	Shell              string     `json:"shell,omitempty"`
-	GitRoot            string     `json:"git_root,omitempty"`
-	GitBranch          string     `json:"git_branch,omitempty"`
-	GitCommit          string     `json:"git_commit,omitempty"`
-	GitDirty           *bool      `json:"git_dirty,omitempty"`
-	StdoutPath         string     `json:"stdout_path,omitempty"`
-	StderrPath         string     `json:"stderr_path,omitempty"`
-	TerminalOutputPath string     `json:"terminal_output_path,omitempty"`
-	Stdout             string     `json:"stdout,omitempty"`
-	Stderr             string     `json:"stderr,omitempty"`
-	TerminalOutput     string     `json:"terminal_output,omitempty"`
-	NotifyRequested    bool       `json:"notify_requested"`
-	NotifyAlways       bool       `json:"notify_always"`
-	CreatedAt          time.Time  `json:"created_at"`
+	ID                 int64             `json:"id"`
+	Status             string            `json:"status"`
+	Mode               string            `json:"mode"`
+	Command            string            `json:"command"`
+	Argv               []string          `json:"argv,omitempty"`
+	CWD                string            `json:"cwd"`
+	StartedAt          time.Time         `json:"started_at"`
+	FinishedAt         *time.Time        `json:"finished_at,omitempty"`
+	DurationMS         *int64            `json:"duration_ms,omitempty"`
+	ExitCode           *int              `json:"exit_code,omitempty"`
+	Hostname           string            `json:"hostname,omitempty"`
+	Shell              string            `json:"shell,omitempty"`
+	GitRoot            string            `json:"git_root,omitempty"`
+	GitBranch          string            `json:"git_branch,omitempty"`
+	GitCommit          string            `json:"git_commit,omitempty"`
+	GitDirty           *bool             `json:"git_dirty,omitempty"`
+	StdoutPath         string            `json:"stdout_path,omitempty"`
+	StderrPath         string            `json:"stderr_path,omitempty"`
+	TerminalOutputPath string            `json:"terminal_output_path,omitempty"`
+	Stdout             string            `json:"stdout,omitempty"`
+	Stderr             string            `json:"stderr,omitempty"`
+	TerminalOutput     string            `json:"terminal_output,omitempty"`
+	NotifyRequested    bool              `json:"notify_requested"`
+	NotifyAlways       bool              `json:"notify_always"`
+	CreatedAt          time.Time         `json:"created_at"`
 	Label              string            `json:"label,omitempty"`
 	Env                map[string]string `json:"env,omitempty"`
 }

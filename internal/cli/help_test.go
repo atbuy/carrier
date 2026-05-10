@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -71,6 +72,48 @@ func TestNoColorDisablesColor(t *testing.T) {
 
 	if shouldColor(&bytes.Buffer{}) {
 		t.Fatalf("NO_COLOR should disable color")
+	}
+}
+
+func TestColorNeverAndNonTerminalDefault(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("CARRIER_COLOR", "never")
+	if shouldColor(&bytes.Buffer{}) {
+		t.Fatal("CARRIER_COLOR=never should disable color")
+	}
+
+	t.Setenv("CARRIER_COLOR", "")
+	if shouldColor(&bytes.Buffer{}) {
+		t.Fatal("non-terminal buffer should not use color by default")
+	}
+
+	f, err := os.CreateTemp(t.TempDir(), "not-a-terminal")
+	if err != nil {
+		t.Fatalf("create temp file: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	if shouldColor(f) {
+		t.Fatal("regular file should not use color")
+	}
+}
+
+func TestPrintHelp(t *testing.T) {
+	// Root command → should call printRootHelp.
+	root := testRootCommand()
+	var buf bytes.Buffer
+	printHelp(&buf, root)
+	if !strings.Contains(buf.String(), "carrier") {
+		t.Fatalf("printHelp root missing 'carrier':\n%s", buf.String())
+	}
+
+	// Sub-command → should call printCommandHelp.
+	buf.Reset()
+	subCmd := &cobra.Command{Use: "show <id>", Short: "show full run details"}
+	root.AddCommand(subCmd)
+	subCmd.AddCommand(&cobra.Command{Use: "sub", Short: "a sub sub command"})
+	printHelp(&buf, subCmd)
+	if !strings.Contains(buf.String(), "show full run details") {
+		t.Fatalf("printHelp sub missing description:\n%s", buf.String())
 	}
 }
 

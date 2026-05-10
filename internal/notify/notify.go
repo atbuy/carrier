@@ -16,6 +16,12 @@ import (
 // Use -N/--notify-always to bypass the threshold.
 var ErrBelowThreshold = errors.New("duration below notify min_duration threshold (use -N/--notify-always to override)")
 
+var (
+	runtimeGOOS  = runtime.GOOS
+	execCommand  = exec.Command
+	execLookPath = exec.LookPath
+)
+
 // MaybeSend sends a desktop notification if one was requested and all conditions
 // are met. Returns ErrBelowThreshold when suppressed by the duration gate, or
 // the send error if the platform notifier fails. Returns nil when not requested
@@ -47,13 +53,13 @@ func MaybeSend(cfg config.Config, r store.Run) error {
 
 // send dispatches to the platform-appropriate notification command.
 func send(title, body string) error {
-	switch runtime.GOOS {
+	switch runtimeGOOS {
 	case "darwin":
 		script := fmt.Sprintf(
 			`display notification %q with title %q`,
 			body, title,
 		)
-		return exec.Command("osascript", "-e", script).Run()
+		return execCommand("osascript", "-e", script).Run()
 	case "windows":
 		// PowerShell toast via BurntToast is optional; fall back to a simple
 		// balloon via the Shell.Application COM object which ships with Windows.
@@ -67,23 +73,23 @@ func send(title, body string) error {
 				`$n.Dispose()`,
 			title, body,
 		)
-		return exec.Command("powershell", "-NonInteractive", "-NoProfile", "-Command", script).Run()
+		return execCommand("powershell", "-NonInteractive", "-NoProfile", "-Command", script).Run()
 	default:
-		return exec.Command("notify-send", title, body).Run()
+		return execCommand("notify-send", title, body).Run()
 	}
 }
 
 // Available reports whether the platform notification tool is in PATH.
 func Available() bool {
-	switch runtime.GOOS {
+	switch runtimeGOOS {
 	case "darwin":
-		_, err := exec.LookPath("osascript")
+		_, err := execLookPath("osascript")
 		return err == nil
 	case "windows":
-		_, err := exec.LookPath("powershell")
+		_, err := execLookPath("powershell")
 		return err == nil
 	default:
-		_, err := exec.LookPath("notify-send")
+		_, err := execLookPath("notify-send")
 		return err == nil
 	}
 }

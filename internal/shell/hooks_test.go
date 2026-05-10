@@ -26,6 +26,19 @@ func TestWriteHookDirZsh(t *testing.T) {
 	}
 }
 
+func TestWriteHookDirUnsupportedShellFallsBackToZsh(t *testing.T) {
+	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/fish")
+	if err != nil {
+		t.Fatalf("WriteHookDir fish: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	// Unsupported shell → falls back to .zshrc
+	if _, err := os.Stat(filepath.Join(dir, ".zshrc")); err != nil {
+		t.Fatalf("fallback .zshrc missing: %v", err)
+	}
+}
+
 func TestWriteHookDirBash(t *testing.T) {
 	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/bash")
 	if err != nil {
