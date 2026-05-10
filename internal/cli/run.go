@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -93,7 +96,8 @@ func (a *app) runCmd() *cobra.Command {
 }
 
 func (a *app) rerunCmd() *cobra.Command {
-	return &cobra.Command{
+	var edit bool
+	cmd := &cobra.Command{
 		Use:   "rerun <id>",
 		Short: "rerun original command from original cwd",
 		Args:  cobra.ExactArgs(1),
@@ -110,6 +114,12 @@ func (a *app) rerunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if edit {
+				argv, err = editArgv(argv)
+				if err != nil {
+					return err
+				}
+			}
 			code, err := runner.Run(a.cfg, a.st, runner.Options{
 				Mode: store.ModeRerun, Argv: argv, CWD: r.CWD, Notify: a.notify, NotifyAlways: a.notifyAlways,
 				NoRedact: a.noRedact, Quiet: a.quiet, Timeout: a.timeout,
@@ -121,4 +131,60 @@ func (a *app) rerunCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&edit, "edit", "e", false, "open command in $EDITOR before rerunning")
+	return cmd
+}
+
+// editArgv opens argv in $EDITOR as a JSON array. Returns the edited argv,
+// or an error if the editor exits non-zero or the user leaves the content unchanged.
+func editArgv(argv []string) ([]string, error) {
+	editorEnv := os.Getenv("EDITOR")
+	if editorEnv == "" {
+		editorEnv = os.Getenv("VISUAL")
+	}
+	if editorEnv == "" {
+		return nil, errors.New("$EDITOR is not set")
+	}
+
+	f, err := os.CreateTemp("", "carrier-rerun-*.json")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(argv); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	original, _ := os.ReadFile(f.Name())
+	_ = f.Close()
+
+	editorArgs := strings.Fields(editorEnv)
+	editorArgs = append(editorArgs, f.Name())
+	editorCmd := exec.Command(editorArgs[0], editorArgs[1:]...)
+	editorCmd.Stdin = os.Stdin
+	editorCmd.Stdout = os.Stdout
+	editorCmd.Stderr = os.Stderr
+	if err := editorCmd.Run(); err != nil {
+		return nil, fmt.Errorf("editor exited with error: %w", err)
+	}
+
+	edited, err := os.ReadFile(f.Name())
+	if err != nil {
+		return nil, err
+	}
+	if string(edited) == string(original) {
+		return nil, errors.New("command unchanged, aborting rerun")
+	}
+
+	var newArgv []string
+	if err := json.Unmarshal(edited, &newArgv); err != nil {
+		return nil, fmt.Errorf("invalid JSON after edit: %w", err)
+	}
+	if len(newArgv) == 0 {
+		return nil, errors.New("command is empty after edit")
+	}
+	return newArgv, nil
 }
