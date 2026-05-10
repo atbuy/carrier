@@ -26,13 +26,19 @@ It is most useful for test runs, builds, migrations, deploy commands, long Docke
 
 ## Install carrier
 
-If you already have Go installed:
+Linux and macOS:
 
 ```bash
-go install github.com/atbuy/carrier/cmd/carrier@latest
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
 ```
 
-If you prefer release binaries, see [Installation](installation.md).
+Windows:
+
+```powershell
+irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
+```
+
+Specific versions and Go installs are covered in [Installation](installation.md).
 
 Verify:
 

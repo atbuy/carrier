@@ -2,47 +2,35 @@
 
 This page covers supported install paths.
 
-## Install from GitHub Releases
+## Install with the script
 
-Download prebuilt binaries from:
-
-```text
-https://github.com/atbuy/carrier/releases
-```
-
-Linux x86_64 example:
+Linux and macOS:
 
 ```bash
-version=v0.1.0
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-linux-amd64.tar.gz"
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/checksums.txt"
-sha256sum --check --ignore-missing checksums.txt
-tar -xzf carrier-linux-amd64.tar.gz
-install -Dm755 carrier-linux-amd64 ~/.local/bin/carrier
-carrier version
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
 ```
 
-macOS arm64 example:
+Install a specific version:
 
 ```bash
-version=v0.1.0
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-darwin-arm64.tar.gz"
-tar -xzf carrier-darwin-arm64.tar.gz
-install -m 755 carrier-darwin-arm64 /usr/local/bin/carrier
-carrier version
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
 ```
 
-Windows users can download the `.zip` archive for their architecture and place `carrier.exe` on `PATH`.
+Windows PowerShell:
 
-## Verify checksums
-
-Release uploads include `checksums.txt`.
-
-```bash
-sha256sum --check --ignore-missing checksums.txt
+```powershell
+irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
 ```
 
-GitHub also shows a `sha256:<hash>` digest beside each uploaded release asset.
+Install a specific version on Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
+```
+
+The installer detects your OS and CPU architecture, installs into your user bin directory, and prints `carrier version` when done. Use `--system` on Linux/macOS or `-System` on Windows for a system-wide install.
+
+Release notes include checksum verification details for users who want manual validation.
 
 ## Install with Go
 

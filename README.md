@@ -37,33 +37,33 @@ c show 1
 
 ## Install
 
-### From GitHub Releases
+### Installer Script
 
-Download a prebuilt archive from [GitHub Releases](https://github.com/atbuy/carrier/releases).
-
-Linux x86_64 example:
+Linux and macOS:
 
 ```bash
-version=v0.1.0
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-linux-amd64.tar.gz"
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/checksums.txt"
-sha256sum --check --ignore-missing checksums.txt
-tar -xzf carrier-linux-amd64.tar.gz
-install -Dm755 carrier-linux-amd64 ~/.local/bin/carrier
-carrier version
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
 ```
 
-macOS arm64 example:
+Install a specific version:
 
 ```bash
-version=v0.1.0
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-darwin-arm64.tar.gz"
-tar -xzf carrier-darwin-arm64.tar.gz
-install -m 755 carrier-darwin-arm64 /usr/local/bin/carrier
-carrier version
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
 ```
 
-GitHub also shows a `sha256:<hash>` digest beside each release asset, similar to Neovim releases. Use `checksums.txt` for command-line verification.
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
+```
+
+Install a specific version on Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
+```
+
+Installers download prebuilt binaries from [GitHub Releases](https://github.com/atbuy/carrier/releases). Release notes include checksum verification details for users who want manual validation.
 
 ### With Go
 

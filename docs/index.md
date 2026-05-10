@@ -21,7 +21,7 @@ It is designed for normal terminal work: Ubuntu, Ghostty, tmux, zsh/bash, local 
 - Understand SQLite and log files: [Storage and state](reference/storage-and-state.md)
 - Use JSON, rerun, export, and tail workflows: [Advanced workflows](advanced/power-user-workflows.md)
 - Debug local setup: run `carrier doctor` or read [Troubleshooting](reference/troubleshooting.md)
-- Verify release checksums: [Release install reference](reference/release-install.md)
+- See release assets and checksums: [Release install reference](reference/release-install.md)
 
 ## Why use carrier?
 

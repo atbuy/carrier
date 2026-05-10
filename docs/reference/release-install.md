@@ -1,9 +1,31 @@
 # Release install reference
 
-Release artifacts are published on GitHub:
+Release artifacts are published on [GitHub Releases](https://github.com/atbuy/carrier/releases).
 
-```text
-https://github.com/atbuy/carrier/releases
+## Install scripts
+
+Latest Linux/macOS release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
+```
+
+Specific Linux/macOS release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
+```
+
+Latest Windows release:
+
+```powershell
+irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
+```
+
+Specific Windows release:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
 ```
 
 ## Artifact names
@@ -35,54 +57,36 @@ Checksums:
 checksums.txt
 ```
 
-## Verify with checksums.txt
+## Manual checksum validation
+
+Release notes include the short checksum workflow for each release. Manual validation uses `checksums.txt`:
 
 ```bash
+curl -LO "https://github.com/atbuy/carrier/releases/download/v0.1.0/checksums.txt"
 sha256sum --check --ignore-missing checksums.txt
 ```
 
-## Verify with GitHub asset digest
-
-GitHub shows a digest beside release assets:
-
-```text
-sha256:<hash>
-```
-
-Compare that value to your locally computed hash:
+GitHub also shows a `sha256:<hash>` digest beside each release asset. Compare it with:
 
 ```bash
 sha256sum carrier-linux-amd64.tar.gz
 ```
 
-## Install Linux archive
+## Manual archive install
+
+Download the archive for your OS and architecture from GitHub Releases, extract it, and place the binary on `PATH`.
 
 ```bash
 version=v0.1.0
 curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-linux-amd64.tar.gz"
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/checksums.txt"
-sha256sum --check --ignore-missing checksums.txt
 tar -xzf carrier-linux-amd64.tar.gz
 install -Dm755 carrier-linux-amd64 ~/.local/bin/carrier
 ```
 
-## Install macOS archive
-
-```bash
-version=v0.1.0
-curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-darwin-arm64.tar.gz"
-tar -xzf carrier-darwin-arm64.tar.gz
-install -m 755 carrier-darwin-arm64 /usr/local/bin/carrier
-```
-
-## Install Windows archive
-
-Download the `.zip` file, extract `carrier.exe`, and place it in a directory on `PATH`.
-
-PowerShell hash check:
+Windows archives contain `carrier.exe`; copy it to a directory on `PATH`.
 
 ```powershell
-Get-FileHash .\carrier-windows-amd64.zip -Algorithm SHA256
+Expand-Archive .\carrier-windows-amd64.zip
 ```
 
 ## Maintainer release workflow

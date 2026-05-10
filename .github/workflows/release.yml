@@ -157,6 +157,30 @@ jobs:
           draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           generate_release_notes: true
+          body: |
+            ## Install
+
+            Linux and macOS:
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version ${{ env.RELEASE_TAG }}
+            ```
+
+            Windows PowerShell:
+
+            ```powershell
+            powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version ${{ env.RELEASE_TAG }}"
+            ```
+
+            ## Checksums
+
+            Release assets include `checksums.txt`. To verify manually, download the archive and `checksums.txt` for your platform, then run:
+
+            ```sh
+            sha256sum --check --ignore-missing checksums.txt
+            ```
+
+            GitHub also shows a `sha256:<hash>` digest beside each uploaded asset.
           fail_on_unmatched_files: true
           overwrite_files: true
           files: |
