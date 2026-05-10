@@ -9,12 +9,13 @@ import (
 
 func (a *app) searchCmd() *cobra.Command {
 	var jsonOutput bool
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "search <text>...",
 		Short: "search commands and output",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			results, err := a.st.SearchRuns(strings.Join(args, " "), 100)
+			results, err := a.st.SearchRuns(strings.Join(args, " "), limit)
 			if err != nil {
 				return err
 			}
@@ -51,6 +52,7 @@ func (a *app) searchCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	cmd.Flags().IntVarP(&limit, "limit", "l", 100, "maximum number of results to show")
 	return cmd
 }
 
