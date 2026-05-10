@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -126,6 +128,23 @@ func TestRunViewFromStoreIncludesDisplayCommandAndOutput(t *testing.T) {
 	}
 	if len(view.Argv) != 3 || view.Argv[0] != "bash" {
 		t.Fatalf("view argv mismatch: %#v", view.Argv)
+	}
+}
+
+func TestWriteJSON(t *testing.T) {
+	cmd := testRootCommand()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	if err := writeJSON(cmd, map[string]string{"status": "ok"}); err != nil {
+		t.Fatalf("writeJSON failed: %v", err)
+	}
+	var got map[string]string
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if got["status"] != "ok" {
+		t.Fatalf("JSON value mismatch: %#v", got)
 	}
 }
 
