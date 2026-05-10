@@ -21,15 +21,23 @@ func (a *app) cleanCmd() *cobra.Command {
 				return err
 			}
 			cutoff := time.Now().Add(-d)
+			out := cmd.OutOrStdout()
+			c := outputColors(out)
 			if dryRun {
 				runs, err := a.st.ListOlderThan(cutoff)
 				if err != nil {
 					return err
 				}
 				for _, r := range runs {
-					fmt.Printf("%d  %s  %s  %s\n", r.ID, r.Status, displayCommand(&r), r.CWD)
+					_, _ = fmt.Fprintf(
+						out, "%s  %s  %s  %s\n",
+						c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
+						c.paint(statusColor(r.Status), r.Status),
+						c.paint(colorGreen, displayCommand(&r)),
+						c.paint(colorGray, r.CWD),
+					)
 				}
-				fmt.Printf("would delete %d runs\n", len(runs))
+				_, _ = fmt.Fprintf(out, "%s %s %s\n", c.paint(colorYellow, "would delete"), c.paint(colorCyan, fmt.Sprintf("%d", len(runs))), "runs")
 				return nil
 			}
 			if !yes {
@@ -44,7 +52,7 @@ func (a *app) cleanCmd() *cobra.Command {
 				removeIfSet(r.StderrPath)
 				removeIfSet(r.TerminalOutputPath)
 			}
-			fmt.Printf("deleted %d runs\n", len(runs))
+			_, _ = fmt.Fprintf(out, "%s %s %s\n", c.paint(colorRed, "deleted"), c.paint(colorCyan, fmt.Sprintf("%d", len(runs))), "runs")
 			return nil
 		},
 	}

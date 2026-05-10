@@ -197,7 +197,7 @@ func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 
 	check := runCarrier(t, env, "config", "check")
 	check.requireExit(t, 0)
-	if !strings.Contains(check.stdout, "config: "+configPath) || !strings.Contains(check.stdout, "ok\n") {
+	if !strings.Contains(check.stdout, "Config:") || !strings.Contains(check.stdout, configPath) || !strings.Contains(check.stdout, "ok\n") {
 		t.Fatalf("config check output = %q", check.stdout)
 	}
 }

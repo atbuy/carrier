@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,6 +129,32 @@ func TestRunViewFromStoreIncludesDisplayCommandAndOutput(t *testing.T) {
 	}
 	if len(view.Argv) != 3 || view.Argv[0] != "bash" {
 		t.Fatalf("view argv mismatch: %#v", view.Argv)
+	}
+}
+
+func TestPrintRunColorsLabelsWhenEnabled(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "always")
+	t.Setenv("NO_COLOR", "")
+	duration := int64(123)
+	exitCode := 1
+	run := &store.Run{
+		ID:         7,
+		Status:     store.StatusFailed,
+		Mode:       store.ModeRun,
+		Command:    "legacy",
+		ArgvJSON:   `["go","test"]`,
+		CWD:        "/tmp/project",
+		StartedAt:  time.Date(2026, 5, 10, 1, 2, 3, 0, time.UTC),
+		DurationMS: &duration,
+		ExitCode:   &exitCode,
+	}
+	var out bytes.Buffer
+	printRun(&out, run)
+
+	for _, want := range []string{colorBold, colorCyan, colorRed, "ID:", "Status:", "Command:"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("printRun output missing %q:\n%s", want, out.String())
+		}
 	}
 }
 

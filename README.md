@@ -32,6 +32,7 @@ c show 1
 - SQLite metadata is stored in `~/.local/share/carrier/carrier.db`.
 - output logs are stored in `~/.local/share/carrier/runs/`.
 - optional notifications use `notify-send` on Linux.
+- human-readable output is colorized on TTYs; use `NO_COLOR=1` to disable or `CARRIER_COLOR=always` to force.
 - `carrier shell` starts a PTY-backed tracked shell session. This mode is alpha-quality and best-effort for zsh/bash.
 
 ## Install

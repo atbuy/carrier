@@ -18,11 +18,18 @@ func (a *app) searchCmd() *cobra.Command {
 				return err
 			}
 			out := cmd.OutOrStdout()
+			c := outputColors(out)
 			for _, result := range results {
 				r := result.Run
-				_, _ = fmt.Fprintf(out, "%d  %s  %s  %s\n", r.ID, r.Status, displayCommand(&r), r.CWD)
+				_, _ = fmt.Fprintf(
+					out, "%s  %s  %s  %s\n",
+					c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
+					c.paint(statusColor(r.Status), r.Status),
+					c.paint(colorGreen, displayCommand(&r)),
+					c.paint(colorGray, r.CWD),
+				)
 				if snippet := cleanSnippet(result.Snippet); snippet != "" {
-					_, _ = fmt.Fprintf(out, "    %s\n", snippet)
+					_, _ = fmt.Fprintf(out, "    %s\n", c.paint(colorGray, snippet))
 				}
 			}
 			return nil

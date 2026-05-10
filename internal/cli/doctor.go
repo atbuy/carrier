@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,43 +22,52 @@ func (a *app) doctorCmd() *cobra.Command {
 		Short: "check local carrier setup",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.runDoctor()
+			return a.runDoctor(cmd.OutOrStdout())
 		},
 	}
 }
 
-func (a *app) runDoctor() error {
-	check("version", true, version.Current().Version, nil)
+func (a *app) runDoctor(w io.Writer) error {
+	c := outputColors(w)
+	check(w, c, "version", true, version.Current().Version, nil)
 	configPath, err := config.Path()
-	check("config path", err == nil, configPath, err)
-	check("data dir", dirWritable(a.cfg.Storage.DataDir), a.cfg.Storage.DataDir, nil)
-	check("data size", true, formatBytes(dirSize(a.cfg.Storage.DataDir)), nil)
-	check("runs dir", dirWritable(filepath.Join(a.cfg.Storage.DataDir, "runs")), filepath.Join(a.cfg.Storage.DataDir, "runs"), nil)
-	check("sqlite db", fileParentWritable(filepath.Join(a.cfg.Storage.DataDir, "carrier.db")), filepath.Join(a.cfg.Storage.DataDir, "carrier.db"), nil)
+	check(w, c, "config path", err == nil, configPath, err)
+	check(w, c, "data dir", dirWritable(a.cfg.Storage.DataDir), a.cfg.Storage.DataDir, nil)
+	check(w, c, "data size", true, formatBytes(dirSize(a.cfg.Storage.DataDir)), nil)
+	check(w, c, "runs dir", dirWritable(filepath.Join(a.cfg.Storage.DataDir, "runs")), filepath.Join(a.cfg.Storage.DataDir, "runs"), nil)
+	check(w, c, "sqlite db", fileParentWritable(filepath.Join(a.cfg.Storage.DataDir, "carrier.db")), filepath.Join(a.cfg.Storage.DataDir, "carrier.db"), nil)
 	if version, err := a.st.MigrationVersion(); err == nil {
-		check("migration", true, strconv.FormatInt(version, 10), nil)
+		check(w, c, "migration", true, strconv.FormatInt(version, 10), nil)
 	} else {
-		check("migration", false, "", err)
+		check(w, c, "migration", false, "", err)
 	}
-	check("max output", true, fmt.Sprintf("%d MB", a.cfg.Storage.MaxOutputMB), nil)
-	check("redaction", a.cfg.Redaction.Enabled, fmt.Sprintf("%d patterns", len(a.cfg.Redaction.Patterns)), nil)
-	check("git", commandAvailable("git"), "git executable available", nil)
-	check("notify-send", commandAvailable("notify-send"), "optional desktop notifications", nil)
-	check("shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
-	check("shell mode", false, "alpha: use carrier run for precise capture", nil)
-	check("terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
+	check(w, c, "max output", true, fmt.Sprintf("%d MB", a.cfg.Storage.MaxOutputMB), nil)
+	check(w, c, "redaction", a.cfg.Redaction.Enabled, fmt.Sprintf("%d patterns", len(a.cfg.Redaction.Patterns)), nil)
+	check(w, c, "git", commandAvailable("git"), "git executable available", nil)
+	check(w, c, "notify-send", commandAvailable("notify-send"), "optional desktop notifications", nil)
+	check(w, c, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
+	check(w, c, "shell mode", false, "alpha: use carrier run for precise capture", nil)
+	check(w, c, "terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
 	return nil
 }
 
-func check(name string, ok bool, detail string, err error) {
+func check(w io.Writer, c helpColors, name string, ok bool, detail string, err error) {
 	status := "ok"
+	statusColor := colorGreen
 	if !ok {
 		status = "warn"
+		statusColor = colorYellow
 	}
 	if err != nil {
 		detail = err.Error()
+		statusColor = colorRed
 	}
-	fmt.Printf("%-12s %s  %s\n", name, status, detail)
+	_, _ = fmt.Fprintf(
+		w, "%s %s  %s\n",
+		c.paint(colorBold+colorCyan, padRight(name, 12)),
+		c.paint(statusColor, status),
+		c.paint(colorGray, detail),
+	)
 }
 
 func dirWritable(path string) bool {

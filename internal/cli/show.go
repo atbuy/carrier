@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -25,7 +24,7 @@ func (a *app) lastCmd() *cobra.Command {
 			if jsonOutput {
 				return writeJSON(cmd, runViewFromStore(r, false))
 			}
-			printRun(r)
+			printRun(cmd.OutOrStdout(), r)
 			return nil
 		},
 	}
@@ -51,19 +50,21 @@ func (a *app) showCmd() *cobra.Command {
 			if jsonOutput {
 				return writeJSON(cmd, runViewFromStore(r, true))
 			}
-			printRun(r)
+			out := cmd.OutOrStdout()
+			c := outputColors(out)
+			printRun(out, r)
 			if r.TerminalOutputPath != "" {
-				fmt.Println("\nterminal")
-				fmt.Print(readText(r.TerminalOutputPath))
+				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorCyan, "terminal"))
+				_, _ = fmt.Fprint(out, readText(r.TerminalOutputPath))
 				return nil
 			}
 			if r.StdoutPath != "" {
-				fmt.Println("\nstdout")
-				fmt.Print(readText(r.StdoutPath))
+				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorGreen, "stdout"))
+				_, _ = fmt.Fprint(out, readText(r.StdoutPath))
 			}
 			if r.StderrPath != "" {
-				_, _ = fmt.Fprintln(os.Stdout, "\nstderr")
-				fmt.Print(readText(r.StderrPath))
+				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorRed, "stderr"))
+				_, _ = fmt.Fprint(out, readText(r.StderrPath))
 			}
 			return nil
 		},
@@ -94,9 +95,18 @@ func (a *app) runningCmd() *cobra.Command {
 				}
 				return writeJSON(cmd, views)
 			}
+			out := cmd.OutOrStdout()
+			c := outputColors(out)
 			for _, r := range runs {
 				ms := timeSinceMS(r.StartedAt)
-				fmt.Printf("%d  %s  %s  %s  %s\n", r.ID, r.Status, displayCommand(&r), r.CWD, formatDuration(&ms))
+				_, _ = fmt.Fprintf(
+					out, "%s  %s  %s  %s  %s\n",
+					c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
+					c.paint(statusColor(r.Status), r.Status),
+					c.paint(colorGreen, displayCommand(&r)),
+					c.paint(colorGray, r.CWD),
+					c.paint(colorCyan, formatDuration(&ms)),
+				)
 			}
 			return nil
 		},
@@ -115,13 +125,22 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			out := cmd.OutOrStdout()
+			c := outputColors(out)
 			for _, r := range runs {
 				age := ""
 				if status == store.StatusRunning {
 					ms := timeSinceMS(r.StartedAt)
 					age = "  " + formatDuration(&ms)
 				}
-				fmt.Printf("%d  %s  %s  %s%s\n", r.ID, r.Status, displayCommand(&r), r.CWD, age)
+				_, _ = fmt.Fprintf(
+					out, "%s  %s  %s  %s%s\n",
+					c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
+					c.paint(statusColor(r.Status), r.Status),
+					c.paint(colorGreen, displayCommand(&r)),
+					c.paint(colorGray, r.CWD),
+					c.paint(colorCyan, age),
+				)
 			}
 			return nil
 		},

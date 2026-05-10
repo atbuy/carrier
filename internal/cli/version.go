@@ -14,7 +14,9 @@ func (a *app) versionCmd() *cobra.Command {
 		Short: "show carrier version",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, _ = fmt.Fprintln(cmd.OutOrStdout(), version.Current().String())
+			out := cmd.OutOrStdout()
+			c := outputColors(out)
+			_, _ = fmt.Fprintln(out, c.paint(colorGreen, version.Current().String()))
 			return nil
 		},
 	}

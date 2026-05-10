@@ -2,6 +2,8 @@
 
 This page documents everyday commands.
 
+Human-readable output is colorized on TTYs. Set `NO_COLOR=1` to disable colors or `CARRIER_COLOR=always` to force colors in non-TTY output.
+
 ## `run`
 
 Run one command and record it:

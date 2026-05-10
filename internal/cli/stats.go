@@ -102,19 +102,6 @@ func failureColor(stats *store.Stats) string {
 	return colorRed
 }
 
-func statusColor(status string) string {
-	switch status {
-	case store.StatusSuccess:
-		return colorGreen
-	case store.StatusFailed, store.StatusKilled:
-		return colorRed
-	case store.StatusRunning:
-		return colorYellow
-	default:
-		return colorGray
-	}
-}
-
 func runsPerDay(stats *store.Stats) float64 {
 	if stats.ActiveDays <= 0 {
 		return 0

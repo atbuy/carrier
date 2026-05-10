@@ -84,7 +84,9 @@ func configInitCmd() *cobra.Command {
 			if err := os.WriteFile(path, []byte(defaultConfigTOML()), 0o600); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", path)
+			out := cmd.OutOrStdout()
+			c := outputColors(out)
+			_, _ = fmt.Fprintf(out, "%s %s\n", c.paint(colorGreen, "wrote"), c.paint(colorGray, path))
 			return nil
 		},
 	}
@@ -109,21 +111,38 @@ func configCheckCmd() *cobra.Command {
 			issues := config.Check(cfg)
 			errors, warnings := config.CountIssues(issues)
 			out := cmd.OutOrStdout()
-			_, _ = fmt.Fprintf(out, "config: %s\n", path)
+			c := outputColors(out)
+			printField(out, c, "Config", path, colorGray)
 			for _, issue := range issues {
-				_, _ = fmt.Fprintf(out, "%s %s: %s\n", issue.Level, issue.Field, issue.Message)
+				_, _ = fmt.Fprintf(
+					out, "%s %s: %s\n",
+					c.paint(issueColor(issue.Level), issue.Level),
+					c.paint(colorCyan, issue.Field),
+					issue.Message,
+				)
 			}
 			switch {
 			case errors > 0:
-				_, _ = fmt.Fprintf(out, "failed: %s\n", issueSummary(errors, warnings))
+				_, _ = fmt.Fprintf(out, "%s: %s\n", c.paint(colorRed, "failed"), issueSummary(errors, warnings))
 				return fmt.Errorf("config check failed")
 			case warnings > 0:
-				_, _ = fmt.Fprintf(out, "ok: %s\n", issueSummary(errors, warnings))
+				_, _ = fmt.Fprintf(out, "%s: %s\n", c.paint(colorYellow, "ok"), issueSummary(errors, warnings))
 			default:
-				_, _ = fmt.Fprintln(out, "ok")
+				_, _ = fmt.Fprintln(out, c.paint(colorGreen, "ok"))
 			}
 			return nil
 		},
+	}
+}
+
+func issueColor(level string) string {
+	switch level {
+	case config.IssueError:
+		return colorRed
+	case config.IssueWarn:
+		return colorYellow
+	default:
+		return colorGray
 	}
 }
 
