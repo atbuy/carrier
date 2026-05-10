@@ -18,8 +18,8 @@ type Config struct {
 }
 
 type StorageConfig struct {
-	DataDir          string `toml:"data_dir"`
-	MaxOutputMB      int64  `toml:"max_output_mb"`
+	DataDir           string `toml:"data_dir"`
+	MaxOutputMB       int64  `toml:"max_output_mb"`
 	StaleRunThreshold string `toml:"stale_run_threshold"`
 }
 

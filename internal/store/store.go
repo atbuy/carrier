@@ -137,7 +137,7 @@ type HistoryFilter struct {
 	CWD     string    // substring match on cwd
 	Branch  string    // exact match on git_branch
 	Command string    // substring match on command
-	Label   string   // substring match on label
+	Label   string    // substring match on label
 }
 
 func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
