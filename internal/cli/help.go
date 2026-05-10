@@ -64,7 +64,7 @@ func printRootHelp(w io.Writer, c helpColors, cmd *cobra.Command) {
 	line(w, c.paint(colorBold, "Usage"))
 	line(w, "  carrier [flags] <command>")
 	line(w)
-	printCommandGroup(w, c, "Run", cmd, []string{"run", "shell", "rerun"})
+	printCommandGroup(w, c, "Run", cmd, []string{"run", "shell", "rerun", "watch"})
 	printCommandGroup(w, c, "Inspect", cmd, []string{"last", "running", "show", "tail", "failed", "search", "stats", "export"})
 	printCommandGroup(w, c, "Maintenance", cmd, []string{"clean", "config", "doctor", "version"})
 	line(w, c.paint(colorBold, "Examples"))
