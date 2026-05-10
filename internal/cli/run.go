@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -14,27 +17,52 @@ import (
 // Required because runCmd uses DisableFlagParsing to pass arbitrary flags through
 // to the child process, which prevents cobra from parsing persistent flags that
 // appear after the "run" subcommand name.
-func (a *app) parseRunFlags(args []string) []string {
+func (a *app) parseRunFlags(args []string) ([]string, error) {
 	i := 0
 	for i < len(args) {
-		switch args[i] {
-		case "-n", "--notify":
+		arg := args[i]
+		switch {
+		case arg == "-n" || arg == "--notify":
 			a.notify = true
 			i++
-		case "-N", "--notify-always":
+		case arg == "-N" || arg == "--notify-always":
 			a.notifyAlways = true
 			i++
-		case "-q", "--quiet":
+		case arg == "-q" || arg == "--quiet":
 			a.quiet = true
 			i++
-		case "--no-redact":
+		case arg == "--no-redact":
 			a.noRedact = true
 			i++
+		case arg == "-t" || arg == "--timeout":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("flag %q requires a value", arg)
+			}
+			d, err := time.ParseDuration(args[i+1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid timeout %q: %w", args[i+1], err)
+			}
+			a.timeout = d
+			i += 2
+		case strings.HasPrefix(arg, "--timeout="):
+			d, err := time.ParseDuration(strings.TrimPrefix(arg, "--timeout="))
+			if err != nil {
+				return nil, fmt.Errorf("invalid timeout %q: %w", arg, err)
+			}
+			a.timeout = d
+			i++
+		case strings.HasPrefix(arg, "-t="):
+			d, err := time.ParseDuration(strings.TrimPrefix(arg, "-t="))
+			if err != nil {
+				return nil, fmt.Errorf("invalid timeout %q: %w", arg, err)
+			}
+			a.timeout = d
+			i++
 		default:
-			return args[i:]
+			return args[i:], nil
 		}
 	}
-	return args[i:]
+	return args[i:], nil
 }
 
 func (a *app) runCmd() *cobra.Command {
@@ -43,13 +71,17 @@ func (a *app) runCmd() *cobra.Command {
 		Short:              "run and record one command",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			args = a.parseRunFlags(args)
+			var err error
+			args, err = a.parseRunFlags(args)
+			if err != nil {
+				return err
+			}
 			if len(args) == 0 {
 				return cobra.MinimumNArgs(1)(cmd, args)
 			}
 			code, err := runner.Run(a.cfg, a.st, runner.Options{
 				Mode: store.ModeRun, Argv: args, Notify: a.notify, NotifyAlways: a.notifyAlways,
-				NoRedact: a.noRedact, Quiet: a.quiet,
+				NoRedact: a.noRedact, Quiet: a.quiet, Timeout: a.timeout,
 			})
 			if err != nil {
 				return err
@@ -80,7 +112,7 @@ func (a *app) rerunCmd() *cobra.Command {
 			}
 			code, err := runner.Run(a.cfg, a.st, runner.Options{
 				Mode: store.ModeRerun, Argv: argv, CWD: r.CWD, Notify: a.notify, NotifyAlways: a.notifyAlways,
-				NoRedact: a.noRedact, Quiet: a.quiet,
+				NoRedact: a.noRedact, Quiet: a.quiet, Timeout: a.timeout,
 			})
 			if err != nil {
 				return err

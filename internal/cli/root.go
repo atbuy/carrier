@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -18,6 +19,7 @@ type app struct {
 	notifyAlways bool
 	quiet        bool
 	noRedact     bool
+	timeout      time.Duration
 }
 
 func Execute() int {

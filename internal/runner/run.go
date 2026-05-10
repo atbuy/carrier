@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/atbuy/carrier/internal/command"
@@ -27,6 +28,7 @@ type Options struct {
 	NotifyAlways bool
 	NoRedact     bool
 	Quiet        bool
+	Timeout      time.Duration
 }
 
 func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
@@ -62,9 +64,12 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	if !opts.Quiet {
 		_, _ = os.Stderr.WriteString("carrier: run " + strconvID(id) + "\n")
 	}
-	exit, finishErr := execute(opts, cfg, stdoutPath, stderrPath)
+	exit, killed, finishErr := execute(opts, cfg, stdoutPath, stderrPath)
 	status := store.StatusSuccess
-	if exit != 0 {
+	switch {
+	case killed:
+		status = store.StatusKilled
+	case exit != 0:
 		status = store.StatusFailed
 	}
 	finished := time.Now()
@@ -80,18 +85,18 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	return exit, finishErr
 }
 
-func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (int, error) {
+func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (int, bool, error) {
 	if err := os.MkdirAll(filepath.Dir(stdoutPath), 0o755); err != nil {
-		return 1, err
+		return 1, false, err
 	}
 	stdoutFile, err := os.Create(stdoutPath)
 	if err != nil {
-		return 1, err
+		return 1, false, err
 	}
 	defer func() { _ = stdoutFile.Close() }()
 	stderrFile, err := os.Create(stderrPath)
 	if err != nil {
-		return 1, err
+		return 1, false, err
 	}
 	defer func() { _ = stderrFile.Close() }()
 
@@ -99,11 +104,11 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	cmd.Dir = opts.CWD
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return 1, err
+		return 1, false, err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return 1, err
+		return 1, false, err
 	}
 	redactor := logs.NewRedactor(cfg.Redaction.Enabled && !opts.NoRedact, cfg.Redaction.Patterns)
 	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
@@ -114,8 +119,20 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	stdoutDst := io.MultiWriter(os.Stdout, stdoutLog)
 	stderrDst := io.MultiWriter(os.Stderr, stderrLog)
 	if err := cmd.Start(); err != nil {
-		return 127, startError(opts.Argv[0], err)
+		return 127, false, startError(opts.Argv[0], err)
 	}
+
+	var killed atomic.Bool
+	if opts.Timeout > 0 {
+		timer := time.AfterFunc(opts.Timeout, func() {
+			killed.Store(true)
+			_ = cmd.Process.Signal(os.Interrupt)
+			time.Sleep(5 * time.Second)
+			_ = cmd.Process.Kill()
+		})
+		defer timer.Stop()
+	}
+
 	outCh := asyncCopy(stdoutDst, stdout)
 	errCh := asyncCopy(stderrDst, stderr)
 	copyErr := waitCopies(outCh, errCh)
@@ -128,9 +145,9 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	waitErr := cmd.Wait()
 	exit, _ := ExitCode(waitErr)
 	if copyErr != nil {
-		return exit, copyErr
+		return exit, killed.Load(), copyErr
 	}
-	return exit, nil
+	return exit, killed.Load(), nil
 }
 
 func strconvID(id int64) string {
