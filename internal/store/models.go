@@ -82,3 +82,8 @@ type SlowRun struct {
 	StartedAt  time.Time
 	DurationMS int64
 }
+
+type SearchResult struct {
+	Run     Run
+	Snippet string
+}

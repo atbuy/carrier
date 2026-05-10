@@ -28,6 +28,7 @@ c show 1
 - stdout and stderr stream live to the terminal and are stored separately.
 - persisted logs are redacted by default with buffered matching for split secrets.
 - persisted logs are capped by `storage.max_output_mb` to protect disk usage.
+- search uses SQLite FTS over commands, working directories, and output snippets.
 - SQLite metadata is stored in `~/.local/share/carrier/carrier.db`.
 - output logs are stored in `~/.local/share/carrier/runs/`.
 - optional notifications use `notify-send` on Linux.

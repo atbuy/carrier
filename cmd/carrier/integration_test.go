@@ -111,6 +111,25 @@ func TestCarrierCLIIntegrationStats(t *testing.T) {
 	}
 }
 
+func TestCarrierCLIIntegrationSearchOutput(t *testing.T) {
+	requireShell(t)
+	env := newCarrierTestEnv(t)
+
+	run := runCarrier(t, env, "run", "sh", "-c", "printf searchable-output-token")
+	run.requireExit(t, 0)
+
+	search := runCarrier(t, env, "search", "searchable-output-token")
+	search.requireExit(t, 0)
+	for _, want := range []string{
+		"1  success  sh -c 'printf searchable-output-token'",
+		"searchable-output-token",
+	} {
+		if !strings.Contains(search.stdout, want) {
+			t.Fatalf("search output missing %q:\n%s", want, search.stdout)
+		}
+	}
+}
+
 func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 	env := newCarrierTestEnv(t)
 	configPath := filepath.Join(env.xdgConfig, "carrier", "config.toml")

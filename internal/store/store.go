@@ -47,7 +47,14 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	if err := s.upsertSearch(id, r.Command, r.CWD, ""); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 func (s *Store) UpdatePaths(id int64, stdoutPath, stderrPath, terminalPath string) error {
@@ -63,7 +70,10 @@ func (s *Store) FinishRun(id int64, status string, exitCode int, finished time.T
 	duration := finished.Sub(r.StartedAt).Milliseconds()
 	_, err = s.db.Exec(`UPDATE runs SET status=?, finished_at=?, duration_ms=?, exit_code=? WHERE id=?`,
 		status, fmtTime(finished), duration, exitCode, id)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.indexRun(id)
 }
 
 func (s *Store) GetRun(id int64) (*Run, error) {
@@ -128,6 +138,9 @@ func (s *Store) DeleteOlderThan(cutoff time.Time) ([]Run, error) {
 		return nil, err
 	}
 	if _, err := s.db.Exec(`DELETE FROM runs WHERE started_at < ?`, fmtTime(cutoff)); err != nil {
+		return nil, err
+	}
+	if err := s.deleteSearchRows(runs); err != nil {
 		return nil, err
 	}
 	return runs, nil

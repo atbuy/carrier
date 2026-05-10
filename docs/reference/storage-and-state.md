@@ -40,6 +40,12 @@ Migration table:
 goose_db_version
 ```
 
+Search index:
+
+```text
+run_search
+```
+
 Migrations are embedded in the binary and applied on startup.
 
 ## Run metadata

@@ -101,7 +101,7 @@ carrier search "connection refused"
 carrier search "gcov data not found"
 ```
 
-Search is file-scan based in current versions.
+Search uses SQLite FTS over command text, working directory, and stored output snippets.
 
 ## `stats`
 
