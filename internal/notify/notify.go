@@ -54,6 +54,20 @@ func send(title, body string) error {
 			body, title,
 		)
 		return exec.Command("osascript", "-e", script).Run()
+	case "windows":
+		// PowerShell toast via BurntToast is optional; fall back to a simple
+		// balloon via the Shell.Application COM object which ships with Windows.
+		script := fmt.Sprintf(
+			`[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');`+
+				`$n = New-Object System.Windows.Forms.NotifyIcon;`+
+				`$n.Icon = [System.Drawing.SystemIcons]::Information;`+
+				`$n.Visible = $true;`+
+				`$n.ShowBalloonTip(5000, %q, %q, [System.Windows.Forms.ToolTipIcon]::None);`+
+				`Start-Sleep -Milliseconds 5500;`+
+				`$n.Dispose()`,
+			title, body,
+		)
+		return exec.Command("powershell", "-NonInteractive", "-NoProfile", "-Command", script).Run()
 	default:
 		return exec.Command("notify-send", title, body).Run()
 	}
@@ -61,12 +75,17 @@ func send(title, body string) error {
 
 // Available reports whether the platform notification tool is in PATH.
 func Available() bool {
-	tool := "notify-send"
-	if runtime.GOOS == "darwin" {
-		tool = "osascript"
+	switch runtime.GOOS {
+	case "darwin":
+		_, err := exec.LookPath("osascript")
+		return err == nil
+	case "windows":
+		_, err := exec.LookPath("powershell")
+		return err == nil
+	default:
+		_, err := exec.LookPath("notify-send")
+		return err == nil
 	}
-	_, err := exec.LookPath(tool)
-	return err == nil
 }
 
 func formatDuration(ms *int64) string {
