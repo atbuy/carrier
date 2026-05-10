@@ -19,7 +19,7 @@ func TestWriteHookDirZsh(t *testing.T) {
 		t.Fatalf("read zsh hook: %v", err)
 	}
 	text := string(contents)
-	for _, want := range []string{"add-zsh-hook preexec", "internal begin", "internal end", "/tmp/state.json"} {
+	for _, want := range []string{"add-zsh-hook preexec", "internal begin", "internal end", "/tmp/state.json", "CARRIER_HOOK_ACTIVE", "unsetopt warn_create_global", "_carrier_disable_prompt_warnings", "precmd_functions=(_carrier_disable_prompt_warnings"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("zsh hook missing %q\n%s", want, text)
 		}
@@ -38,7 +38,7 @@ func TestWriteHookDirBash(t *testing.T) {
 		t.Fatalf("read bash hook: %v", err)
 	}
 	text := string(contents)
-	for _, want := range []string{"PROMPT_COMMAND", "trap", "internal begin", "internal end"} {
+	for _, want := range []string{"PROMPT_COMMAND", "_carrier_original_prompt_command", "trap _carrier_begin DEBUG", "internal begin", "internal end", "CARRIER_HOOK_ACTIVE"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("bash hook missing %q\n%s", want, text)
 		}

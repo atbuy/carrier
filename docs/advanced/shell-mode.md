@@ -37,7 +37,11 @@ terminal/tmux
 
 For zsh, `carrier` uses `preexec` and `precmd` hooks.
 
-For bash, support is best-effort through shell hooks.
+After sourcing your `.zshrc`, `carrier` disables zsh's `warn_create_global` option inside the tracked shell. This avoids prompt helper warnings from being printed on every command when prompt functions assign globals.
+
+For bash, `carrier` starts bash with a generated `--rcfile`; support is best-effort through `DEBUG` and `PROMPT_COMMAND` hooks. Existing `PROMPT_COMMAND` content is preserved and run before `carrier` finishes the tracked command.
+
+`carrier` guards its hook internals so internal `carrier internal ...` commands and `_carrier_*` helper functions are not recorded as user commands.
 
 ## Limitations
 
@@ -46,6 +50,7 @@ For bash, support is best-effort through shell hooks.
 - aliases may change displayed commands
 - interactive programs may produce noisy terminal logs
 - hook internals may behave differently across shell versions
+- bash hook behavior can vary when other tools also modify `DEBUG` or `PROMPT_COMMAND`
 
 ## Inspect shell runs
 

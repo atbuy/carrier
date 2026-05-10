@@ -9,12 +9,41 @@ import (
 	"github.com/atbuy/carrier/internal/store"
 )
 
+// parseRunFlags scans leading carrier flags from args (before the child command)
+// and updates app fields. Returns the remaining args (the child command + its args).
+// Required because runCmd uses DisableFlagParsing to pass arbitrary flags through
+// to the child process, which prevents cobra from parsing persistent flags that
+// appear after the "run" subcommand name.
+func (a *app) parseRunFlags(args []string) []string {
+	i := 0
+	for i < len(args) {
+		switch args[i] {
+		case "-n", "--notify":
+			a.notify = true
+			i++
+		case "-N", "--notify-always":
+			a.notifyAlways = true
+			i++
+		case "-q", "--quiet":
+			a.quiet = true
+			i++
+		case "--no-redact":
+			a.noRedact = true
+			i++
+		default:
+			return args[i:]
+		}
+	}
+	return args[i:]
+}
+
 func (a *app) runCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:                "run <command...>",
 		Short:              "run and record one command",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			args = a.parseRunFlags(args)
 			if len(args) == 0 {
 				return cobra.MinimumNArgs(1)(cmd, args)
 			}

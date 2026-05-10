@@ -73,7 +73,9 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	}
 	r, err := st.GetRun(id)
 	if err == nil {
-		notify.MaybeSend(cfg, *r)
+		if notifyErr := notify.MaybeSend(cfg, *r); notifyErr != nil && !opts.Quiet {
+			_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
+		}
 	}
 	return exit, finishErr
 }

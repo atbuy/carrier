@@ -94,6 +94,15 @@ func shouldIgnore(cmd string, ignore []string) bool {
 		return true
 	}
 	base := fields[0]
+	if strings.HasPrefix(base, "_carrier_") {
+		return true
+	}
+	if base == "carrier" && len(fields) > 1 && fields[1] == "internal" {
+		return true
+	}
+	if strings.HasSuffix(base, "/carrier") && len(fields) > 1 && fields[1] == "internal" {
+		return true
+	}
 	for _, item := range ignore {
 		if base == item || strings.HasSuffix(base, "/"+item) {
 			return true

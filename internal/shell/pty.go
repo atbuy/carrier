@@ -16,6 +16,7 @@ import (
 )
 
 func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
+	warnShellAlphaOnce(cfg.Storage.DataDir)
 	program := cfg.Shell.Program
 	if program == "" {
 		program = os.Getenv("SHELL")
@@ -36,7 +37,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 	defer func() { _ = os.RemoveAll(hookDir) }()
 	defer func() { _ = os.Remove(statePath) }()
 
-	cmd := exec.Command(program, "-i")
+	cmd := exec.Command(program, shellArgs(program, hookDir)...)
 	cmd.Env = append(
 		os.Environ(),
 		"ZDOTDIR="+hookDir,
@@ -75,6 +76,29 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 		}
 	}
 	return cmd.Wait()
+}
+
+func shellArgs(program, hookDir string) []string {
+	name := filepath.Base(program)
+	if strings.Contains(name, "bash") {
+		return []string{"--rcfile", filepath.Join(hookDir, ".bashrc"), "-i"}
+	}
+	return []string{"-i"}
+}
+
+func warnShellAlphaOnce(dataDir string) {
+	if dataDir == "" {
+		return
+	}
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return
+	}
+	path := filepath.Join(dataDir, "shell-alpha-warning")
+	if _, err := os.Stat(path); err == nil {
+		return
+	}
+	_, _ = os.Stderr.WriteString("carrier: shell mode is alpha; use carrier run for precise capture\n")
+	_ = os.WriteFile(path, []byte("shown\n"), 0o600)
 }
 
 func boolEnv(k string, v bool) string {
