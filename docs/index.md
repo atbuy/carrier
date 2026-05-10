@@ -52,6 +52,9 @@ carrier search "connection refused"
 carrier export 42
 carrier rerun 42
 carrier doctor
+carrier config path
+carrier config show
+carrier config init
 carrier version
 carrier clean --older-than 30d --dry-run
 carrier clean --older-than 30d -d
