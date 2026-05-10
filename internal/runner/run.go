@@ -100,8 +100,10 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	}
 	defer func() { _ = stderrFile.Close() }()
 
-	cmd := exec.Command(opts.Argv[0], opts.Argv[1:]...)
+	argv := shellFallback(opts.Argv)
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir = opts.CWD
+	cmd.Stdin = os.Stdin
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return 1, false, err
@@ -159,4 +161,18 @@ func startError(name string, err error) error {
 		return fmt.Errorf("command not found: %s", name)
 	}
 	return fmt.Errorf("start command %s: %w", command.Quote(name), err)
+}
+
+// shellFallback returns argv unchanged when argv[0] is a known executable.
+// When argv[0] cannot be found in PATH, it wraps the command in the user's
+// shell with -i -c so that aliases and shell functions are expanded.
+func shellFallback(argv []string) []string {
+	if _, err := exec.LookPath(argv[0]); err == nil {
+		return argv
+	}
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+	return []string{shell, "-i", "-c", command.Display(argv)}
 }
