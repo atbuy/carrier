@@ -13,6 +13,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/notify"
 	"github.com/atbuy/carrier/internal/version"
 )
 
@@ -44,7 +45,7 @@ func (a *app) runDoctor(w io.Writer) error {
 	check(w, c, "max output", true, fmt.Sprintf("%d MB", a.cfg.Storage.MaxOutputMB), nil)
 	check(w, c, "redaction", a.cfg.Redaction.Enabled, fmt.Sprintf("%d patterns", len(a.cfg.Redaction.Patterns)), nil)
 	check(w, c, "git", commandAvailable("git"), "git executable available", nil)
-	check(w, c, "notify-send", commandAvailable("notify-send"), "optional desktop notifications", nil)
+	check(w, c, "notify", notify.Available(), "optional desktop notifications", nil)
 	check(w, c, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
 	check(w, c, "shell mode", false, "alpha: use carrier run for precise capture", nil)
 	check(w, c, "terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)

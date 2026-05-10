@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"time"
 
 	"github.com/atbuy/carrier/internal/config"
@@ -17,7 +18,7 @@ var ErrBelowThreshold = errors.New("duration below notify min_duration threshold
 
 // MaybeSend sends a desktop notification if one was requested and all conditions
 // are met. Returns ErrBelowThreshold when suppressed by the duration gate, or
-// the notify-send error if the send itself fails. Returns nil when not requested
+// the send error if the platform notifier fails. Returns nil when not requested
 // or when suppressed by config (success/failure flags).
 func MaybeSend(cfg config.Config, r store.Run) error {
 	if !r.NotifyRequested && !r.NotifyAlways {
@@ -41,7 +42,31 @@ func MaybeSend(cfg config.Config, r store.Run) error {
 		exit = fmt.Sprint(*r.ExitCode)
 	}
 	body := fmt.Sprintf("%s\nexit code: %s\nduration: %s", r.Command, exit, formatDuration(r.DurationMS))
-	return exec.Command("notify-send", title, body).Run()
+	return send(title, body)
+}
+
+// send dispatches to the platform-appropriate notification command.
+func send(title, body string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		script := fmt.Sprintf(
+			`display notification %q with title %q`,
+			body, title,
+		)
+		return exec.Command("osascript", "-e", script).Run()
+	default:
+		return exec.Command("notify-send", title, body).Run()
+	}
+}
+
+// Available reports whether the platform notification tool is in PATH.
+func Available() bool {
+	tool := "notify-send"
+	if runtime.GOOS == "darwin" {
+		tool = "osascript"
+	}
+	_, err := exec.LookPath(tool)
+	return err == nil
 }
 
 func formatDuration(ms *int64) string {
