@@ -38,6 +38,7 @@ type Run struct {
 	NotifyAlways       bool
 	CreatedAt          time.Time
 	Label              string
+	EnvJSON            string
 }
 
 type CreateRun struct {
@@ -58,6 +59,7 @@ type CreateRun struct {
 	TerminalOutputPath string
 	NotifyRequested    bool
 	NotifyAlways       bool
+	EnvJSON            string
 }
 
 type Stats struct {

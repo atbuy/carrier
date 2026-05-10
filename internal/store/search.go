@@ -80,7 +80,7 @@ func (s *Store) likeSearch(terms []string, limit int, seen map[int64]bool) ([]Se
 		args = append(args, pattern, pattern)
 	}
 	args = append(args, limit+len(seen))
-	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label
+	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json
 FROM runs WHERE ` + strings.Join(whereClauses, " AND ") + ` ORDER BY id DESC LIMIT ?`
 	rows, err := s.db.Query(q, args...)
 	if err != nil {

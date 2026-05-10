@@ -21,6 +21,7 @@ type StorageConfig struct {
 	DataDir           string `toml:"data_dir"`
 	MaxOutputMB       int64  `toml:"max_output_mb"`
 	StaleRunThreshold string `toml:"stale_run_threshold"`
+	CaptureEnv        bool   `toml:"capture_env"`
 }
 
 type RedactionConfig struct {
@@ -41,7 +42,7 @@ type ShellConfig struct {
 
 func Default() Config {
 	return Config{
-		Storage: StorageConfig{DataDir: "~/.local/share/carrier", MaxOutputMB: 20, StaleRunThreshold: "24h"},
+		Storage: StorageConfig{DataDir: "~/.local/share/carrier", MaxOutputMB: 20, StaleRunThreshold: "24h", CaptureEnv: true},
 		Redaction: RedactionConfig{
 			Enabled: true,
 			Patterns: []string{

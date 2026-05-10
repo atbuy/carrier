@@ -93,14 +93,14 @@ func TestOpenAppliesGooseMigrations(t *testing.T) {
 	if err := st.db.QueryRow(`SELECT version_id, is_applied FROM goose_db_version ORDER BY id DESC LIMIT 1`).Scan(&versionID, &isApplied); err != nil {
 		t.Fatalf("query goose version: %v", err)
 	}
-	if versionID != 3 || !isApplied {
+	if versionID != 4 || !isApplied {
 		t.Fatalf("goose version mismatch: version=%d applied=%v", versionID, isApplied)
 	}
 	version, err := st.MigrationVersion()
 	if err != nil {
 		t.Fatalf("migration version: %v", err)
 	}
-	if version != 3 {
+	if version != 4 {
 		t.Fatalf("migration version = %d", version)
 	}
 

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -47,11 +48,12 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	shell := os.Getenv("SHELL")
 	argvJSON, _ := json.Marshal(opts.Argv)
 	git := gitmeta.Collect(opts.CWD)
+	envJSON := captureEnv(cfg)
 	id, err := st.CreateRun(store.CreateRun{
 		Status: store.StatusRunning, Mode: opts.Mode, Command: command.Display(opts.Argv),
 		ArgvJSON: string(argvJSON), CWD: opts.CWD, StartedAt: started, Hostname: host, Shell: shell,
 		GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
-		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways,
+		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways, EnvJSON: envJSON,
 	})
 	if err != nil {
 		return 1, err
@@ -161,6 +163,26 @@ func startError(name string, err error) error {
 		return fmt.Errorf("command not found: %s", name)
 	}
 	return fmt.Errorf("start command %s: %w", command.Quote(name), err)
+}
+
+// captureEnv serialises os.Environ() as a raw JSON object.
+// Redaction is applied at display time so --no-redact on show can bypass it.
+// Returns "" when capture is disabled.
+func captureEnv(cfg config.Config) string {
+	if !cfg.Storage.CaptureEnv {
+		return ""
+	}
+	raw := os.Environ()
+	m := make(map[string]string, len(raw))
+	for _, kv := range raw {
+		k, v, _ := strings.Cut(kv, "=")
+		m[k] = v
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // shellFallback returns argv unchanged when argv[0] is a known executable.

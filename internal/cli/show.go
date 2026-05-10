@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/logs"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -35,7 +36,7 @@ func (a *app) lastCmd() *cobra.Command {
 func (a *app) showCmd() *cobra.Command {
 	var jsonOutput bool
 	var lines int
-	var onlyStdout, onlyStderr bool
+	var onlyStdout, onlyStderr, showEnv bool
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "show full run details",
@@ -50,7 +51,8 @@ func (a *app) showCmd() *cobra.Command {
 				return err
 			}
 			if jsonOutput {
-				return writeJSON(cmd, runViewFromStore(r, true))
+				redactor := logs.NewRedactor(a.cfg.Redaction.Enabled && !a.noRedact, a.cfg.Redaction.Patterns)
+				return writeJSON(cmd, runViewFromStoreOpts(r, true, redactor))
 			}
 			out := cmd.OutOrStdout()
 			c := outputColors(out)
@@ -77,6 +79,16 @@ func (a *app) showCmd() *cobra.Command {
 				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.StderrPath), lines))
 			}
+			if showEnv && r.EnvJSON != "" {
+				var env map[string]string
+				if err := json.Unmarshal([]byte(r.EnvJSON), &env); err == nil {
+					redactor := logs.NewRedactor(a.cfg.Redaction.Enabled && !a.noRedact, a.cfg.Redaction.Patterns)
+					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorMagenta, "env"))
+					for k, v := range env {
+						_, _ = fmt.Fprintf(out, "  %s=%s\n", c.paint(colorCyan, k), string(redactor.Redact([]byte(v))))
+					}
+				}
+			}
 			return nil
 		},
 	}
@@ -84,6 +96,7 @@ func (a *app) showCmd() *cobra.Command {
 	cmd.Flags().IntVar(&lines, "lines", 0, "show only the last N lines of output (0 = all)")
 	cmd.Flags().BoolVar(&onlyStdout, "stdout", false, "print only stdout (no header, no stderr)")
 	cmd.Flags().BoolVar(&onlyStderr, "stderr", false, "print only stderr (no header, no stdout)")
+	cmd.Flags().BoolVar(&showEnv, "env", false, "print captured environment variables")
 	cmd.MarkFlagsMutuallyExclusive("stdout", "stderr")
 	return cmd
 }
@@ -217,10 +230,15 @@ type runView struct {
 	NotifyRequested    bool       `json:"notify_requested"`
 	NotifyAlways       bool       `json:"notify_always"`
 	CreatedAt          time.Time  `json:"created_at"`
-	Label              string     `json:"label,omitempty"`
+	Label              string            `json:"label,omitempty"`
+	Env                map[string]string `json:"env,omitempty"`
 }
 
 func runViewFromStore(r *store.Run, includeOutput bool) runView {
+	return runViewFromStoreOpts(r, includeOutput, logs.Redactor{})
+}
+
+func runViewFromStoreOpts(r *store.Run, includeOutput bool, redactor logs.Redactor) runView {
 	argv, _ := parseArgv(r.ArgvJSON)
 	view := runView{
 		ID: r.ID, Status: r.Status, Mode: r.Mode, Command: displayCommand(r), Argv: argv, CWD: r.CWD,
@@ -234,6 +252,16 @@ func runViewFromStore(r *store.Run, includeOutput bool) runView {
 		view.Stdout = readText(r.StdoutPath)
 		view.Stderr = readText(r.StderrPath)
 		view.TerminalOutput = readText(r.TerminalOutputPath)
+		if r.EnvJSON != "" {
+			var raw map[string]string
+			if err := json.Unmarshal([]byte(r.EnvJSON), &raw); err == nil {
+				env := make(map[string]string, len(raw))
+				for k, v := range raw {
+					env[k] = string(redactor.Redact([]byte(v)))
+				}
+				view.Env = env
+			}
+		}
 	}
 	return view
 }
