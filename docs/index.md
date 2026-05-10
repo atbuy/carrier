@@ -60,6 +60,7 @@ carrier config init
 carrier version
 carrier clean --older-than 30d --dry-run
 carrier clean --older-than 30d -d
+carrier clean --older-than 30d --yes
 ```
 
 Use `--json` with `last`, `show`, and `running` when scripting against recorded runs.

@@ -11,6 +11,7 @@ import (
 func (a *app) cleanCmd() *cobra.Command {
 	var olderThan string
 	var dryRun bool
+	var yes bool
 	cmd := &cobra.Command{
 		Use:   "clean --older-than 30d",
 		Short: "delete old records and logs",
@@ -31,6 +32,9 @@ func (a *app) cleanCmd() *cobra.Command {
 				fmt.Printf("would delete %d runs\n", len(runs))
 				return nil
 			}
+			if !yes {
+				return fmt.Errorf("refusing to delete without --yes; use --dry-run to preview")
+			}
 			runs, err := a.st.DeleteOlderThan(cutoff)
 			if err != nil {
 				return err
@@ -46,6 +50,7 @@ func (a *app) cleanCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&olderThan, "older-than", "", "delete runs older than duration, e.g. 30d")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "show records that would be deleted without deleting")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "confirm deletion")
 	_ = cmd.MarkFlagRequired("older-than")
 	return cmd
 }

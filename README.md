@@ -107,9 +107,9 @@ carrier config path
 carrier config show
 carrier config init
 carrier version
-carrier clean --older-than 30d
 carrier clean --older-than 30d --dry-run
 carrier clean --older-than 30d -d
+carrier clean --older-than 30d --yes
 ```
 
 ## Configuration
