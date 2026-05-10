@@ -37,6 +37,7 @@ type Run struct {
 	NotifyRequested    bool
 	NotifyAlways       bool
 	CreatedAt          time.Time
+	Label              string
 }
 
 type CreateRun struct {

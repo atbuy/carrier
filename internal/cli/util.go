@@ -60,6 +60,9 @@ func printRun(w io.Writer, r *store.Run) {
 	if r.GitRoot != "" {
 		printField(w, c, "Git", fmt.Sprintf("%s %s %s dirty=%s", r.GitRoot, r.GitBranch, short(r.GitCommit), dirtyString(r.GitDirty)), colorGray)
 	}
+	if r.Label != "" {
+		printField(w, c, "Label", r.Label, colorMagenta)
+	}
 }
 
 func outputColors(w io.Writer) helpColors {

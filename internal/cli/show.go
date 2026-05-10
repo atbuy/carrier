@@ -217,6 +217,7 @@ type runView struct {
 	NotifyRequested    bool       `json:"notify_requested"`
 	NotifyAlways       bool       `json:"notify_always"`
 	CreatedAt          time.Time  `json:"created_at"`
+	Label              string     `json:"label,omitempty"`
 }
 
 func runViewFromStore(r *store.Run, includeOutput bool) runView {
@@ -227,6 +228,7 @@ func runViewFromStore(r *store.Run, includeOutput bool) runView {
 		Hostname: r.Hostname, Shell: r.Shell, GitRoot: r.GitRoot, GitBranch: r.GitBranch, GitCommit: r.GitCommit,
 		GitDirty: r.GitDirty, StdoutPath: r.StdoutPath, StderrPath: r.StderrPath, TerminalOutputPath: r.TerminalOutputPath,
 		NotifyRequested: r.NotifyRequested, NotifyAlways: r.NotifyAlways, CreatedAt: r.CreatedAt,
+		Label: r.Label,
 	}
 	if includeOutput {
 		view.Stdout = readText(r.StdoutPath)

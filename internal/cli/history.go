@@ -18,6 +18,7 @@ func (a *app) historyCmd() *cobra.Command {
 		cwd        string
 		branch     string
 		command    string
+		label      string
 	)
 	cmd := &cobra.Command{
 		Use:   "history",
@@ -29,7 +30,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
   carrier history | fzf | awk '{print $1}' | xargs carrier rerun`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch, Command: command}
+			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch, Command: command, Label: label}
 			if since != "" {
 				d, err := parseAge(since)
 				if err != nil {
@@ -51,13 +52,18 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 			out := cmd.OutOrStdout()
 			c := outputColors(out)
 			for _, r := range runs {
+				labelSuffix := ""
+				if r.Label != "" {
+					labelSuffix = "  " + c.paint(colorMagenta, r.Label)
+				}
 				_, _ = fmt.Fprintf(
-					out, "%s  %s  %s  %s  %s\n",
+					out, "%s  %s  %s  %s  %s%s\n",
 					c.paint(colorCyan, fmt.Sprintf("%6d", r.ID)),
 					c.paint(statusColor(r.Status), padRight(r.Status, 7)),
 					c.paint(colorGray, formatTime(r.StartedAt)),
 					c.paint(colorGreen, displayCommand(&r)),
 					c.paint(colorGray, r.CWD),
+					labelSuffix,
 				)
 			}
 			return nil
@@ -70,5 +76,6 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVar(&cwd, "cwd", "", "filter by working directory (substring match)")
 	cmd.Flags().StringVar(&branch, "branch", "", "filter by git branch (exact match)")
 	cmd.Flags().StringVarP(&command, "command", "c", "", "filter by command (substring match)")
+	cmd.Flags().StringVar(&label, "label", "", "filter by label (substring match)")
 	return cmd
 }

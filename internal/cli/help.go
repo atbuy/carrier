@@ -18,8 +18,9 @@ const (
 	colorCyan   = "\x1b[36m"
 	colorGreen  = "\x1b[32m"
 	colorRed    = "\x1b[31m"
-	colorYellow = "\x1b[33m"
-	colorGray   = "\x1b[90m"
+	colorYellow  = "\x1b[33m"
+	colorGray    = "\x1b[90m"
+	colorMagenta = "\x1b[35m"
 )
 
 func installHelp(root *cobra.Command) {
