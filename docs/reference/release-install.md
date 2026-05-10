@@ -84,3 +84,14 @@ PowerShell hash check:
 ```powershell
 Get-FileHash .\carrier-windows-amd64.zip -Algorithm SHA256
 ```
+
+## Maintainer release workflow
+
+Publishing a `v*` tag builds Linux, macOS, and Windows assets, then publishes a GitHub release with generated release notes and `checksums.txt`.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow also supports manual dispatch for rebuilding assets from an existing tag. Set the `tag` input to the release tag, leave `ref` empty to build that tag, and use the draft or prerelease inputs when needed.

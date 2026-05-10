@@ -4,12 +4,73 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, for example v0.1.0"
+        required: true
+        type: string
+      ref:
+        description: "Git ref to build; defaults to the tag input"
+        required: false
+        type: string
+      draft:
+        description: "Create or update the release as a draft"
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: "Mark the release as a prerelease"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && (inputs.ref || inputs.tag) || github.ref }}
+
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install tools
+        run: |
+          go install mvdan.cc/gofumpt@latest
+          go install github.com/incu6us/goimports-reviser/v3@latest
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Check formatting
+        run: |
+          gofumpt -w .
+          goimports-reviser -recursive -rm-unused -format -project-name github.com/atbuy/carrier ./...
+          git diff --exit-code
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
+
   build:
+    needs: verify
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -33,6 +94,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -47,7 +110,13 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           mkdir -p dist
-          go build -trimpath -ldflags="-s -w -X github.com/atbuy/carrier/internal/version.Version=${GITHUB_REF_NAME} -X github.com/atbuy/carrier/internal/version.Commit=${GITHUB_SHA} -X github.com/atbuy/carrier/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o "dist/carrier-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/carrier
+          commit="$(git rev-parse HEAD)"
+          date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go build -trimpath -ldflags="-s -w -X github.com/atbuy/carrier/internal/version.Version=${RELEASE_TAG} -X github.com/atbuy/carrier/internal/version.Commit=${commit} -X github.com/atbuy/carrier/internal/version.Date=${date}" -o "dist/carrier-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/carrier
+
+      - name: Smoke test
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: dist/carrier-linux-amd64 version
 
       - name: Package
         run: |
@@ -84,6 +153,12 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          overwrite_files: true
           files: |
             dist/*.tar.gz
             dist/*.zip
