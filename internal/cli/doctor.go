@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -30,11 +31,20 @@ func (a *app) runDoctor() error {
 	configPath, err := config.Path()
 	check("config path", err == nil, configPath, err)
 	check("data dir", dirWritable(a.cfg.Storage.DataDir), a.cfg.Storage.DataDir, nil)
+	check("data size", true, formatBytes(dirSize(a.cfg.Storage.DataDir)), nil)
 	check("runs dir", dirWritable(filepath.Join(a.cfg.Storage.DataDir, "runs")), filepath.Join(a.cfg.Storage.DataDir, "runs"), nil)
 	check("sqlite db", fileParentWritable(filepath.Join(a.cfg.Storage.DataDir, "carrier.db")), filepath.Join(a.cfg.Storage.DataDir, "carrier.db"), nil)
+	if version, err := a.st.MigrationVersion(); err == nil {
+		check("migration", true, strconv.FormatInt(version, 10), nil)
+	} else {
+		check("migration", false, "", err)
+	}
+	check("max output", true, fmt.Sprintf("%d MB", a.cfg.Storage.MaxOutputMB), nil)
+	check("redaction", a.cfg.Redaction.Enabled, fmt.Sprintf("%d patterns", len(a.cfg.Redaction.Patterns)), nil)
 	check("git", commandAvailable("git"), "git executable available", nil)
 	check("notify-send", commandAvailable("notify-send"), "optional desktop notifications", nil)
 	check("shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
+	check("shell mode", false, "alpha: use carrier run for precise capture", nil)
 	check("terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
 	return nil
 }
@@ -87,4 +97,35 @@ func shellProgram(configured string) string {
 func shellSupported(configured string) bool {
 	name := filepath.Base(shellProgram(configured))
 	return strings.Contains(name, "zsh") || strings.Contains(name, "bash")
+}
+
+func dirSize(path string) int64 {
+	var total int64
+	_ = filepath.WalkDir(path, func(_ string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err == nil {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total
+}
+
+func formatBytes(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	value := float64(size)
+	units := []string{"KiB", "MiB", "GiB", "TiB"}
+	for _, suffix := range units {
+		value /= unit
+		if value < unit {
+			return fmt.Sprintf("%.1f %s", value, suffix)
+		}
+	}
+	return fmt.Sprintf("%.1f PiB", value/unit)
 }

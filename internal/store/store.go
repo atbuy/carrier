@@ -31,6 +31,12 @@ func Open(dataDir string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+func (s *Store) MigrationVersion() (int64, error) {
+	var version int64
+	err := s.db.QueryRow(`SELECT COALESCE(MAX(version_id), 0) FROM goose_db_version WHERE is_applied = 1`).Scan(&version)
+	return version, err
+}
+
 func (s *Store) CreateRun(r CreateRun) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO runs
 (status, mode, command, argv_json, cwd, started_at, hostname, shell, git_root, git_branch, git_commit, git_dirty, stdout_path, stderr_path, terminal_output_path, notify_requested, notify_always)

@@ -96,6 +96,13 @@ func TestOpenAppliesGooseMigrations(t *testing.T) {
 	if versionID != 1 || !isApplied {
 		t.Fatalf("goose version mismatch: version=%d applied=%v", versionID, isApplied)
 	}
+	version, err := st.MigrationVersion()
+	if err != nil {
+		t.Fatalf("migration version: %v", err)
+	}
+	if version != 1 {
+		t.Fatalf("migration version = %d", version)
+	}
 
 	if reopened, err := Open(dir); err != nil {
 		t.Fatalf("reopen migrated store: %v", err)

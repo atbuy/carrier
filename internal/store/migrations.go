@@ -12,6 +12,7 @@ var migrationFS embed.FS
 
 func migrate(db *sql.DB) error {
 	goose.SetBaseFS(migrationFS)
+	goose.SetLogger(goose.NopLogger())
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		return err
 	}
