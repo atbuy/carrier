@@ -35,6 +35,7 @@ func (a *app) lastCmd() *cobra.Command {
 func (a *app) showCmd() *cobra.Command {
 	var jsonOutput bool
 	var lines int
+	var onlyStdout, onlyStderr bool
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "show full run details",
@@ -53,18 +54,27 @@ func (a *app) showCmd() *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			c := outputColors(out)
-			printRun(out, r)
-			if r.TerminalOutputPath != "" {
-				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorCyan, "terminal"))
+			streamOnly := onlyStdout || onlyStderr
+			if !streamOnly {
+				printRun(out, r)
+			}
+			if r.TerminalOutputPath != "" && !onlyStderr {
+				if !streamOnly {
+					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorCyan, "terminal"))
+				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.TerminalOutputPath), lines))
 				return nil
 			}
-			if r.StdoutPath != "" {
-				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorGreen, "stdout"))
+			if r.StdoutPath != "" && !onlyStderr {
+				if !streamOnly {
+					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorGreen, "stdout"))
+				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.StdoutPath), lines))
 			}
-			if r.StderrPath != "" {
-				_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorRed, "stderr"))
+			if r.StderrPath != "" && !onlyStdout {
+				if !streamOnly {
+					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorRed, "stderr"))
+				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.StderrPath), lines))
 			}
 			return nil
@@ -72,6 +82,9 @@ func (a *app) showCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
 	cmd.Flags().IntVar(&lines, "lines", 0, "show only the last N lines of output (0 = all)")
+	cmd.Flags().BoolVar(&onlyStdout, "stdout", false, "print only stdout (no header, no stderr)")
+	cmd.Flags().BoolVar(&onlyStderr, "stderr", false, "print only stderr (no header, no stdout)")
+	cmd.MarkFlagsMutuallyExclusive("stdout", "stderr")
 	return cmd
 }
 
