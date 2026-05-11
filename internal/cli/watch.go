@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -13,20 +14,76 @@ import (
 	"github.com/atbuy/carrier/internal/store"
 )
 
+// parseWatchFlags scans leading watch flags from args and returns the remaining
+// args (the child command). Mirrors parseRunFlags so that DisableFlagParsing can
+// be used on watchCmd, allowing arbitrary child-command flags to pass through.
+func parseWatchFlags(args []string) (pattern string, debounce time.Duration, rest []string, err error) {
+	debounce = 200 * time.Millisecond
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+		switch {
+		case arg == "-p" || arg == "--pattern":
+			if i+1 >= len(args) {
+				return "", 0, nil, fmt.Errorf("flag %q requires a value", arg)
+			}
+			pattern = args[i+1]
+			i += 2
+		case strings.HasPrefix(arg, "--pattern="):
+			pattern = strings.TrimPrefix(arg, "--pattern=")
+			i++
+		case strings.HasPrefix(arg, "-p="):
+			pattern = strings.TrimPrefix(arg, "-p=")
+			i++
+		case arg == "-d" || arg == "--debounce":
+			if i+1 >= len(args) {
+				return "", 0, nil, fmt.Errorf("flag %q requires a value", arg)
+			}
+			d, parseErr := time.ParseDuration(args[i+1])
+			if parseErr != nil {
+				return "", 0, nil, fmt.Errorf("invalid debounce %q: %w", args[i+1], parseErr)
+			}
+			debounce = d
+			i += 2
+		case strings.HasPrefix(arg, "--debounce="):
+			d, parseErr := time.ParseDuration(strings.TrimPrefix(arg, "--debounce="))
+			if parseErr != nil {
+				return "", 0, nil, fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
+			}
+			debounce = d
+			i++
+		case strings.HasPrefix(arg, "-d="):
+			d, parseErr := time.ParseDuration(strings.TrimPrefix(arg, "-d="))
+			if parseErr != nil {
+				return "", 0, nil, fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
+			}
+			debounce = d
+			i++
+		default:
+			return pattern, debounce, args[i:], nil
+		}
+	}
+	return pattern, debounce, args[i:], nil
+}
+
 func (a *app) watchCmd() *cobra.Command {
-	var (
-		pattern  string
-		debounce time.Duration
-	)
 	cmd := &cobra.Command{
-		Use:   "watch <command...>",
-		Short: "re-run command on file changes in CWD",
+		Use:                "watch <command...>",
+		Short:              "re-run command on file changes in CWD",
+		DisableFlagParsing: true,
 		Long: `Re-runs the command whenever files in the current directory change.
 
   carrier watch go test ./...
   carrier watch --pattern '*.go' go build ./...`,
-		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			pattern, debounce, rest, err := parseWatchFlags(args)
+			if err != nil {
+				return err
+			}
+			if len(rest) == 0 {
+				return cobra.MinimumNArgs(1)(cmd, rest)
+			}
+
 			cwd, err := os.Getwd()
 			if err != nil {
 				return err
@@ -47,7 +104,7 @@ func (a *app) watchCmd() *cobra.Command {
 			}
 
 			// run once immediately
-			runWatch(a, args, cwd)
+			runWatch(a, rest, cwd)
 
 			var timer *time.Timer
 			for {
@@ -69,10 +126,10 @@ func (a *app) watchCmd() *cobra.Command {
 							timer.Stop()
 						}
 						timer = time.AfterFunc(debounce, func() {
-							runWatch(a, args, cwd)
+							runWatch(a, rest, cwd)
 						})
 					} else {
-						runWatch(a, args, cwd)
+						runWatch(a, rest, cwd)
 					}
 				case watchErr, ok := <-watcher.Errors:
 					if !ok {
@@ -85,8 +142,6 @@ func (a *app) watchCmd() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only react to files matching this glob pattern (e.g. '*.go')")
-	cmd.Flags().DurationVarP(&debounce, "debounce", "d", 200*time.Millisecond, "wait this long after last change before re-running")
 	return cmd
 }
 
