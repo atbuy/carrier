@@ -451,6 +451,36 @@ func TestRunningCmd(t *testing.T) {
 	}
 }
 
+func TestListStatusCmdRunningShowsAge(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st := openCmdStore(t)
+	defer func() { _ = st.Close() }()
+
+	_, err := st.CreateRun(store.CreateRun{
+		Status:    store.StatusRunning,
+		Mode:      store.ModeRun,
+		Command:   "sleep 999",
+		ArgvJSON:  `["sleep","999"]`,
+		CWD:       "/tmp",
+		StartedAt: time.Now().Add(-5 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	a := &app{st: st}
+	cmd := listStatusCmd("running", store.StatusRunning, a)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("listStatusCmd running: %v", err)
+	}
+	if !strings.Contains(out.String(), "sleep 999") {
+		t.Fatalf("missing command in output:\n%s", out.String())
+	}
+}
+
 func TestRunningCmdJSON(t *testing.T) {
 	st := openCmdStore(t)
 	defer func() { _ = st.Close() }()

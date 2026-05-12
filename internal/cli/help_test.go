@@ -117,6 +117,56 @@ func TestPrintHelp(t *testing.T) {
 	}
 }
 
+func TestInstallHelpFuncIsInvoked(t *testing.T) {
+	root := testRootCommand()
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	// Invoke the custom HelpFunc that installHelp registered.
+	root.HelpFunc()(root, nil)
+	if !strings.Contains(buf.String(), "carrier") {
+		t.Fatalf("help func output missing 'carrier':\n%s", buf.String())
+	}
+}
+
+func TestPrintFlagSetWithDefaultValue(t *testing.T) {
+	var buf bytes.Buffer
+	c := helpColors{}
+	fs := (&cobra.Command{}).Flags()
+	fs.String("output", "text", "output format")
+	printFlagSet(&buf, c, "Flags", fs)
+	out := buf.String()
+	if !strings.Contains(out, "--output") {
+		t.Fatalf("missing --output flag:\n%s", out)
+	}
+	if !strings.Contains(out, "(default text)") {
+		t.Fatalf("missing default value annotation:\n%s", out)
+	}
+}
+
+func TestPrintFlagSetWithShorthandAndDefault(t *testing.T) {
+	var buf bytes.Buffer
+	c := helpColors{}
+	fs := (&cobra.Command{}).Flags()
+	fs.StringP("format", "f", "json", "output format")
+	printFlagSet(&buf, c, "Flags", fs)
+	out := buf.String()
+	if !strings.Contains(out, "-f,") {
+		t.Fatalf("missing shorthand -f:\n%s", out)
+	}
+	if !strings.Contains(out, "(default json)") {
+		t.Fatalf("missing default json:\n%s", out)
+	}
+}
+
+func TestPrintFlagSetNilFlags(t *testing.T) {
+	var buf bytes.Buffer
+	// nil flags → should not panic, should write nothing
+	printFlagSet(&buf, helpColors{}, "Flags", nil)
+	if buf.Len() != 0 {
+		t.Fatalf("expected no output for nil flags, got %q", buf.String())
+	}
+}
+
 func testRootCommand() *cobra.Command {
 	root := &cobra.Command{Use: "carrier"}
 	root.PersistentFlags().BoolP("notify", "n", false, "request notification when command finishes")

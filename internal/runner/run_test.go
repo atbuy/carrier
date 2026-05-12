@@ -363,6 +363,16 @@ func TestCaptureEnvEnabled(t *testing.T) {
 // shellFallback
 // ---------------------------------------------------------------------------
 
+func TestShellFallbackNoShellEnv(t *testing.T) {
+	t.Setenv("SHELL", "")
+	argv := []string{"carrier-binary-not-in-path-xyz"}
+	got := shellFallback(argv)
+	// SHELL unset → falls back to /bin/sh
+	if got[0] != "/bin/sh" {
+		t.Errorf("expected /bin/sh, got %q", got[0])
+	}
+}
+
 func TestShellFallbackKnownBinary(t *testing.T) {
 	// "sh" is universally available; shellFallback should return argv unchanged.
 	argv := []string{"sh", "-c", "echo hi"}

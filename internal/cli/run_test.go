@@ -158,6 +158,51 @@ func TestRerunCmdRunsStoredArgvAndUsesExitProcess(t *testing.T) {
 	}
 }
 
+func TestRerunCmdWithEditFlag(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	originalID := createFinishedRun(t, st, store.StatusSuccess, "true", `["true"]`, t.TempDir())
+
+	scriptDir := t.TempDir()
+	script := filepath.Join(scriptDir, "editor.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '[\"echo\",\"edited\"]' > \"$1\"\n"), 0o755); err != nil {
+		t.Fatalf("write editor script: %v", err)
+	}
+	t.Setenv("EDITOR", script)
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = dir
+	a := &app{st: st, cfg: cfg, quiet: true}
+	cmd := a.rerunCmd()
+
+	var exitCode int
+	oldExit := exitProcess
+	exitProcess = func(code int) { exitCode = code }
+	t.Cleanup(func() { exitProcess = oldExit })
+
+	if err := cmd.Flags().Set("edit", "true"); err != nil {
+		t.Fatalf("set edit flag: %v", err)
+	}
+	if err := cmd.RunE(cmd, []string{strconv.FormatInt(originalID, 10)}); err != nil {
+		t.Fatalf("rerun --edit: %v", err)
+	}
+	if exitCode != 0 {
+		t.Fatalf("exit code = %d, want 0", exitCode)
+	}
+	latest, err := st.Latest()
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if latest.Command != "echo edited" {
+		t.Fatalf("command = %q, want 'echo edited'", latest.Command)
+	}
+}
+
 func TestEditArgvEditorNotSet(t *testing.T) {
 	t.Setenv("EDITOR", "")
 	t.Setenv("VISUAL", "")
