@@ -4,11 +4,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/creack/pty"
 	"golang.org/x/term"
@@ -65,19 +63,8 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 	}
 
-	sigwinch := make(chan os.Signal, 1)
-	signal.Notify(sigwinch, syscall.SIGWINCH)
-	go func() {
-		for range sigwinch {
-			if cols, rows, err := term.GetSize(int(os.Stdin.Fd())); err == nil {
-				_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
-			}
-		}
-	}()
-	defer func() {
-		signal.Stop(sigwinch)
-		close(sigwinch)
-	}()
+	stopResize := watchResize(ptmx)
+	defer stopResize()
 
 	if oldState, err := term.MakeRaw(int(os.Stdin.Fd())); err == nil {
 		defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
