@@ -40,8 +40,15 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 	defer func() { _ = os.Remove(statePath) }()
 
 	cmd := exec.Command(program, shellArgs(program, hookDir)...)
+	env := os.Environ()
+	if os.Getenv("TERM") == "" {
+		env = append(env, "TERM=xterm-256color")
+	}
+	if os.Getenv("COLORTERM") == "" {
+		env = append(env, "COLORTERM=truecolor")
+	}
 	cmd.Env = append(
-		os.Environ(),
+		env,
 		"ZDOTDIR="+hookDir,
 		"CARRIER_SHELL_STATE="+statePath,
 		boolEnv("CARRIER_NOTIFY", notify),
