@@ -28,10 +28,10 @@ func zshHooks(carrierPath, statePath string) string {
 [[ -f "$HOME/.zshrc" ]] && source "$HOME/.zshrc"
 unsetopt warn_create_global 2>/dev/null
 autoload -Uz add-zsh-hook
-_carrier_disable_prompt_warnings() {
+_carrier_zle_init() {
   unsetopt warn_create_global 2>/dev/null
 }
-precmd_functions=(_carrier_disable_prompt_warnings ${precmd_functions:#_carrier_disable_prompt_warnings})
+zle -N zle-line-init _carrier_zle_init
 _carrier_preexec() {
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
   export CARRIER_HOOK_ACTIVE=1
