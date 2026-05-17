@@ -39,6 +39,19 @@ type Run struct {
 	CreatedAt          time.Time
 	Label              string
 	EnvJSON            string
+	SessionID          *int64
+}
+
+type Session struct {
+	ID        int64
+	Label     string
+	StartedAt time.Time
+	EndedAt   *time.Time
+}
+
+type CreateSession struct {
+	Label     string
+	StartedAt time.Time
 }
 
 type CreateRun struct {
@@ -60,6 +73,7 @@ type CreateRun struct {
 	NotifyRequested    bool
 	NotifyAlways       bool
 	EnvJSON            string
+	SessionID          *int64
 }
 
 type Stats struct {

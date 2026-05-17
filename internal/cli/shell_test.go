@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func TestShellCmdRunsConfiguredProgram(t *testing.T) {
@@ -24,7 +25,13 @@ func TestShellCmdRunsConfiguredProgram(t *testing.T) {
 	cfg.Storage.DataDir = filepath.Join(dir, "data")
 	cfg.Shell.Program = program
 
-	a := &app{cfg: cfg}
+	st, err := store.Open(cfg.Storage.DataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	a := &app{cfg: cfg, st: st}
 	cmd := a.shellCmd()
 	if err := cmd.Args(cmd, []string{"extra"}); err == nil {
 		t.Fatal("expected no-args validation error")

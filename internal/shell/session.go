@@ -9,6 +9,7 @@ import (
 type State struct {
 	CurrentID  int64  `json:"current_id"`
 	CurrentLog string `json:"current_log"`
+	SessionID  int64  `json:"session_id"`
 }
 
 type StateFile struct {

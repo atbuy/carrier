@@ -40,11 +40,11 @@ func (s *Store) MigrationVersion() (int64, error) {
 
 func (s *Store) CreateRun(r CreateRun) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO runs
-(status, mode, command, argv_json, cwd, started_at, hostname, shell, git_root, git_branch, git_commit, git_dirty, stdout_path, stderr_path, terminal_output_path, notify_requested, notify_always, env_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+(status, mode, command, argv_json, cwd, started_at, hostname, shell, git_root, git_branch, git_commit, git_dirty, stdout_path, stderr_path, terminal_output_path, notify_requested, notify_always, env_json, session_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		r.Status, r.Mode, r.Command, r.ArgvJSON, r.CWD, fmtTime(r.StartedAt), r.Hostname, r.Shell,
 		r.GitRoot, r.GitBranch, r.GitCommit, nullableBool(r.GitDirty), r.StdoutPath, r.StderrPath,
-		r.TerminalOutputPath, boolInt(r.NotifyRequested), boolInt(r.NotifyAlways), nullableString(r.EnvJSON))
+		r.TerminalOutputPath, boolInt(r.NotifyRequested), boolInt(r.NotifyAlways), nullableString(r.EnvJSON), nullableInt64(r.SessionID))
 	if err != nil {
 		return 0, err
 	}
@@ -78,7 +78,7 @@ func (s *Store) FinishRun(id int64, status string, exitCode int, finished time.T
 }
 
 func (s *Store) GetRun(id int64) (*Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs WHERE id=?`, id)
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE id=?`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (s *Store) GetRun(id int64) (*Run, error) {
 }
 
 func (s *Store) Latest() (*Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs ORDER BY id DESC LIMIT 1`)
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs ORDER BY id DESC LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (s *Store) Latest() (*Run, error) {
 }
 
 func (s *Store) ListByStatus(status string, limit int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs WHERE status=? ORDER BY id DESC LIMIT ?`, status, limit)
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE status=? ORDER BY id DESC LIMIT ?`, status, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *Store) ListByStatus(status string, limit int) ([]Run, error) {
 }
 
 func (s *Store) All(limit int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs ORDER BY id DESC LIMIT ?`, limit)
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (s *Store) All(limit int) ([]Run, error) {
 
 // AllRuns returns every run ordered by id descending with no limit.
 func (s *Store) AllRuns() ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs ORDER BY id DESC`)
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs ORDER BY id DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -132,12 +132,13 @@ func (s *Store) AllRuns() ([]Run, error) {
 // HistoryFilter holds optional filter criteria for ListHistory.
 // Zero values mean "no filter" for that field.
 type HistoryFilter struct {
-	Status  string    // exact match on status column
-	Since   time.Time // only runs started at or after this time
-	CWD     string    // substring match on cwd
-	Branch  string    // exact match on git_branch
-	Command string    // substring match on command
-	Label   string    // substring match on label
+	Status    string    // exact match on status column
+	Since     time.Time // only runs started at or after this time
+	CWD       string    // substring match on cwd
+	Branch    string    // exact match on git_branch
+	Command   string    // substring match on command
+	Label     string    // substring match on label
+	SessionID *int64    // exact match on session_id
 }
 
 func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
@@ -167,7 +168,11 @@ func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
 		where = append(where, "label LIKE ?")
 		args = append(args, "%"+f.Label+"%")
 	}
-	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs`
+	if f.SessionID != nil {
+		where = append(where, "session_id = ?")
+		args = append(args, *f.SessionID)
+	}
+	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs`
 	if len(where) > 0 {
 		q += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -182,7 +187,7 @@ func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
 }
 
 func (s *Store) ListOlderThan(cutoff time.Time) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs WHERE started_at < ? ORDER BY id`, fmtTime(cutoff))
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE started_at < ? ORDER BY id`, fmtTime(cutoff))
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +196,7 @@ func (s *Store) ListOlderThan(cutoff time.Time) ([]Run, error) {
 }
 
 func (s *Store) DeleteOlderThan(cutoff time.Time) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs WHERE started_at < ?`, fmtTime(cutoff))
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE started_at < ?`, fmtTime(cutoff))
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +252,7 @@ func (s *Store) MarkStaleRunsKilled(threshold time.Duration) (int64, error) {
 	if n > 0 {
 		// Re-index affected rows so FTS reflects the new status.
 		rows, err := s.db.Query(
-			`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs WHERE status=? AND started_at < ?`,
+			`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE status=? AND started_at < ?`,
 			StatusKilled, cutoff,
 		)
 		if err == nil {
@@ -263,7 +268,7 @@ func (s *Store) MarkStaleRunsKilled(threshold time.Duration) (int64, error) {
 
 // ListOutsideKeepLast returns runs that would be deleted by DeleteKeepLast.
 func (s *Store) ListOutsideKeepLast(n int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?) ORDER BY id DESC`, n)
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?) ORDER BY id DESC`, n)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +278,7 @@ func (s *Store) ListOutsideKeepLast(n int) ([]Run, error) {
 
 // DeleteKeepLast deletes all runs except the n most recent (by id).
 func (s *Store) DeleteKeepLast(n int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?)`, n)
+	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?)`, n)
 	if err != nil {
 		return nil, err
 	}
@@ -315,9 +320,10 @@ func scanRun(rows rowScanner) (*Run, error) {
 	var dirty sql.NullInt64
 	var notifyRequested, notifyAlways int
 	var label, envJSON sql.NullString
+	var sessionID sql.NullInt64
 	err := rows.Scan(&r.ID, &r.Status, &r.Mode, &r.Command, &r.ArgvJSON, &r.CWD, &started, &finished,
 		&duration, &exitCode, &r.Hostname, &r.Shell, &r.GitRoot, &r.GitBranch, &r.GitCommit, &dirty,
-		&r.StdoutPath, &r.StderrPath, &r.TerminalOutputPath, &notifyRequested, &notifyAlways, &created, &label, &envJSON)
+		&r.StdoutPath, &r.StderrPath, &r.TerminalOutputPath, &notifyRequested, &notifyAlways, &created, &label, &envJSON, &sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -346,6 +352,10 @@ func scanRun(rows rowScanner) (*Run, error) {
 	}
 	if envJSON.Valid {
 		r.EnvJSON = envJSON.String
+	}
+	if sessionID.Valid {
+		v := sessionID.Int64
+		r.SessionID = &v
 	}
 	return &r, nil
 }
@@ -378,4 +388,73 @@ func nullableString(s string) any {
 		return nil
 	}
 	return s
+}
+
+func nullableInt64(v *int64) any {
+	if v == nil {
+		return nil
+	}
+	return *v
+}
+
+func (s *Store) CreateSession(r CreateSession) (int64, error) {
+	res, err := s.db.Exec(`INSERT INTO shell_sessions (label, started_at) VALUES (?, ?)`,
+		r.Label, fmtTime(r.StartedAt))
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (s *Store) EndSession(id int64, endedAt time.Time) error {
+	_, err := s.db.Exec(`UPDATE shell_sessions SET ended_at=? WHERE id=?`, fmtTime(endedAt), id)
+	return err
+}
+
+func (s *Store) UpdateSessionLabel(id int64, label string) error {
+	_, err := s.db.Exec(`UPDATE shell_sessions SET label=? WHERE id=?`, label, id)
+	return err
+}
+
+func (s *Store) GetSession(id int64) (*Session, error) {
+	row := s.db.QueryRow(`SELECT id, label, started_at, ended_at FROM shell_sessions WHERE id=?`, id)
+	return scanSession(row)
+}
+
+func (s *Store) ListSessions(limit int) ([]Session, error) {
+	rows, err := s.db.Query(`SELECT id, label, started_at, ended_at FROM shell_sessions ORDER BY id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var sessions []Session
+	for rows.Next() {
+		sess, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, *sess)
+	}
+	return sessions, rows.Err()
+}
+
+type sessionScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanSession(row sessionScanner) (*Session, error) {
+	var sess Session
+	var started sql.NullString
+	var ended sql.NullString
+	var label string
+	if err := row.Scan(&sess.ID, &label, &started, &ended); err != nil {
+		return nil, err
+	}
+	sess.Label = label
+	sess.StartedAt, _ = parseTime(started.String)
+	if ended.Valid && ended.String != "" {
+		t, _ := parseTime(ended.String)
+		sess.EndedAt = &t
+	}
+	return &sess, nil
 }

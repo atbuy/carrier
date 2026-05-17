@@ -28,19 +28,27 @@ func (a *app) internalBeginCmd() *cobra.Command {
 		Use:    "begin",
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			sf := &carriershell.StateFile{Path: statePath}
+			state := sf.Read()
 			if shouldIgnore(command, a.cfg.Shell.IgnoreCommands) {
-				_ = (&carriershell.StateFile{Path: statePath}).Write(carriershell.State{})
+				_ = sf.Write(carriershell.State{SessionID: state.SessionID})
 				return nil
 			}
 			started := time.Now()
 			host, _ := os.Hostname()
 			git := gitmeta.Collect(cwd)
 			argvJSON, _ := json.Marshal([]string{command})
+			var sessionID *int64
+			if state.SessionID != 0 {
+				v := state.SessionID
+				sessionID = &v
+			}
 			id, err := a.st.CreateRun(store.CreateRun{
 				Status: store.StatusRunning, Mode: store.ModeShell, Command: command, ArgvJSON: string(argvJSON),
 				CWD: cwd, StartedAt: started, Hostname: host, Shell: os.Getenv("SHELL"),
 				GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
 				NotifyRequested: os.Getenv("CARRIER_NOTIFY") == "1", NotifyAlways: os.Getenv("CARRIER_NOTIFY_ALWAYS") == "1",
+				SessionID: sessionID,
 			})
 			if err != nil {
 				return err
@@ -49,7 +57,7 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			if err := a.st.UpdatePaths(id, "", "", path); err != nil {
 				return err
 			}
-			return (&carriershell.StateFile{Path: statePath}).Write(carriershell.State{CurrentID: id, CurrentLog: path})
+			return sf.Write(carriershell.State{CurrentID: id, CurrentLog: path, SessionID: state.SessionID})
 		},
 	}
 	cmd.Flags().StringVar(&statePath, "state", "", "state file")
@@ -83,7 +91,7 @@ func (a *app) internalEndCmd() *cobra.Command {
 					_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
 				}
 			}
-			return sf.Write(carriershell.State{})
+			return sf.Write(carriershell.State{SessionID: state.SessionID})
 		},
 	}
 	cmd.Flags().StringVar(&statePath, "state", "", "state file")

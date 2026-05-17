@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -15,7 +17,7 @@ import (
 	"github.com/atbuy/carrier/internal/logs"
 )
 
-func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
+func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64) error {
 	warnShellAlphaOnce(cfg.Storage.DataDir)
 	program := cfg.Shell.Program
 	if program == "" {
@@ -29,7 +31,8 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 		return err
 	}
 	statePath := filepath.Join(os.TempDir(), "carrier-shell-"+strconvPID()+".json")
-	_ = os.WriteFile(statePath, []byte(`{}`), 0o600)
+	initState, _ := json.Marshal(State{SessionID: sessionID})
+	_ = os.WriteFile(statePath, initState, 0o600)
 	hookDir, err := WriteHookDir(carrierPath, statePath, program)
 	if err != nil {
 		return err
@@ -49,6 +52,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool) error {
 		env,
 		"ZDOTDIR="+hookDir,
 		"CARRIER_SHELL_STATE="+statePath,
+		fmt.Sprintf("CARRIER_SESSION_ID=%d", sessionID),
 		boolEnv("CARRIER_NOTIFY", notify),
 		boolEnv("CARRIER_NOTIFY_ALWAYS", notifyAlways),
 		boolEnv("CARRIER_NO_REDACT", noRedact),
