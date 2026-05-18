@@ -16,8 +16,11 @@ func (a *app) shellCmd() *cobra.Command {
 		Use:   "shell",
 		Short: "start tracked shell (alpha)",
 		Long:  "Start a PTY-backed tracked shell session. This command is alpha-quality and currently best-effort for zsh and bash.",
-		Args:  cobra.NoArgs,
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 && label == "" {
+				label = args[0]
+			}
 			sessionID, err := a.st.CreateSession(store.CreateSession{
 				Label:     strings.TrimSpace(label),
 				StartedAt: time.Now(),

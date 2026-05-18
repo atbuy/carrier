@@ -25,6 +25,10 @@ func (a *app) labelCmd() *cobra.Command {
 			if err := a.st.SetLabel(id, label); err != nil {
 				return err
 			}
+			// Propagate label to the session this run belongs to, if any.
+			if run, err := a.st.GetRun(id); err == nil && run.SessionID != nil {
+				_ = a.st.UpdateSessionLabel(*run.SessionID, label)
+			}
 			out := cmd.OutOrStdout()
 			if label == "" {
 				_, _ = fmt.Fprintf(out, "carrier: run %d label cleared\n", id)
