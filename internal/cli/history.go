@@ -27,7 +27,7 @@ func (a *app) historyCmd() *cobra.Command {
 		branch       string
 		command      string
 		label        string
-		sessionID    int64
+		session      string
 		sessionsOnly bool
 	)
 	cmd := &cobra.Command{
@@ -41,8 +41,12 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch, Command: command, Label: label}
-			if sessionID != 0 {
-				f.SessionID = &sessionID
+			if session != "" {
+				sess, err := resolveSession(a.st, session)
+				if err != nil {
+					return err
+				}
+				f.SessionID = &sess.ID
 			}
 			if since != "" {
 				d, err := parseAge(since)
@@ -156,7 +160,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVar(&branch, "branch", "", "filter by git branch (exact match)")
 	cmd.Flags().StringVarP(&command, "command", "c", "", "filter by command (substring match)")
 	cmd.Flags().StringVar(&label, "label", "", "filter by label (substring match)")
-	cmd.Flags().Int64Var(&sessionID, "session", 0, "filter by shell session ID")
+	cmd.Flags().StringVar(&session, "session", "", "filter by session ID or label")
 	cmd.Flags().BoolVar(&sessionsOnly, "sessions-only", false, "show only session headers, no individual runs")
 	return cmd
 }
