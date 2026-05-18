@@ -1,10 +1,15 @@
 package store
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/logs"
 )
 
 func TestStoreRunLifecycle(t *testing.T) {
@@ -969,6 +974,232 @@ func TestDeleteOlderThanAllMatch(t *testing.T) {
 	if len(results) != 0 {
 		t.Fatalf("SearchRuns after full delete: want 0, got %d", len(results))
 	}
+}
+
+// ---------------------------------------------------------------------------
+// InsertOrGetEnvironment / PruneOrphanedEnvironments
+// ---------------------------------------------------------------------------
+
+func TestInsertOrGetEnvironmentDedup(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	env := `{"HOME":"/root","SHELL":"/bin/zsh"}`
+	id1, err := st.InsertOrGetEnvironment(env)
+	if err != nil {
+		t.Fatalf("first insert: %v", err)
+	}
+	id2, err := st.InsertOrGetEnvironment(env)
+	if err != nil {
+		t.Fatalf("second insert: %v", err)
+	}
+	if id1 != id2 {
+		t.Fatalf("same env should return same id: %d != %d", id1, id2)
+	}
+
+	// different env gets a new row
+	id3, err := st.InsertOrGetEnvironment(`{"HOME":"/home/user"}`)
+	if err != nil {
+		t.Fatalf("third insert: %v", err)
+	}
+	if id3 == id1 {
+		t.Fatalf("different env should get different id")
+	}
+}
+
+func TestInsertOrGetEnvironmentRoundTrip(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	env := `{"TOKEN":"[REDACTED]","HOME":"/root"}`
+	envID, err := st.InsertOrGetEnvironment(env)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusRunning, Mode: ModeRun, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(), EnvID: &envID,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	run, err := st.GetRun(id)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if run.EnvJSON != env {
+		t.Fatalf("env mismatch: got %q, want %q", run.EnvJSON, env)
+	}
+}
+
+func TestPruneOrphanedEnvironments(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	envID, err := st.InsertOrGetEnvironment(`{"HOME":"/root"}`)
+	if err != nil {
+		t.Fatalf("insert env: %v", err)
+	}
+
+	// run linked to env
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusSuccess, Mode: ModeRun, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(), EnvID: &envID,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	// env still referenced — prune should delete 0
+	pruned, err := st.PruneOrphanedEnvironments()
+	if err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	if pruned != 0 {
+		t.Fatalf("prune with live ref: want 0, got %d", pruned)
+	}
+
+	// delete the run
+	if _, err := st.DeleteOlderThan(time.Now().Add(time.Second)); err != nil {
+		t.Fatalf("delete run: %v", err)
+	}
+	if _, err := st.GetRun(id); err == nil {
+		t.Fatal("run should be deleted")
+	}
+
+	// now prune should remove the orphaned env
+	pruned, err = st.PruneOrphanedEnvironments()
+	if err != nil {
+		t.Fatalf("prune after delete: %v", err)
+	}
+	if pruned != 1 {
+		t.Fatalf("prune after delete: want 1, got %d", pruned)
+	}
+
+	// second prune is a no-op
+	pruned, err = st.PruneOrphanedEnvironments()
+	if err != nil {
+		t.Fatalf("second prune: %v", err)
+	}
+	if pruned != 0 {
+		t.Fatalf("second prune: want 0, got %d", pruned)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// redactEnvJSON
+// ---------------------------------------------------------------------------
+
+func TestRedactEnvJSON(t *testing.T) {
+	// pattern matches the raw value (redactEnvJSON applies the redactor per-value)
+	redactor := logs.NewRedactor(true, []string{`hunter\d+`})
+
+	// matching value is redacted; non-matching value is preserved
+	out, err := redactEnvJSON(`{"SECRET_KEY":"hunter2","HOME":"/root"}`, redactor)
+	if err != nil {
+		t.Fatalf("redactEnvJSON: %v", err)
+	}
+	if strings.Contains(out, "hunter2") {
+		t.Fatalf("secret not redacted: %s", out)
+	}
+	if !strings.Contains(out, `"/root"`) {
+		t.Fatalf("HOME unexpectedly redacted: %s", out)
+	}
+
+	// invalid JSON returns error
+	_, err = redactEnvJSON(`not-json`, redactor)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+
+	// disabled redactor leaves values unchanged
+	noop := logs.NewRedactor(false, []string{`hunter\d+`})
+	out2, err := redactEnvJSON(`{"SECRET_KEY":"hunter2"}`, noop)
+	if err != nil {
+		t.Fatalf("redactEnvJSON noop: %v", err)
+	}
+	if !strings.Contains(out2, "hunter2") {
+		t.Fatalf("noop redactor should not redact: %s", out2)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// migrateEnvData backfill via OpenWith
+// ---------------------------------------------------------------------------
+
+func TestMigrateEnvDataBackfill(t *testing.T) {
+	dir := t.TempDir()
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+
+	// create a run, then manually inject old-style env_json (pre-migration data)
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusRunning, Mode: ModeRun, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	rawEnv := `{"AWS_SECRET_ACCESS_KEY":"AKIAIOSFODNN7EXAMPLEKEY","HOME":"/root"}`
+	if _, err := st.db.Exec(`UPDATE runs SET env_json=? WHERE id=?`, rawEnv, id); err != nil {
+		t.Fatalf("inject env_json: %v", err)
+	}
+	_ = st.Close()
+
+	// reopen with config — triggers migrateEnvData with builtin redaction
+	cfg := config.Default()
+	st2, err := OpenWith(dir, cfg)
+	if err != nil {
+		t.Fatalf("OpenWith: %v", err)
+	}
+	defer func() { _ = st2.Close() }()
+
+	// env_json on run should be NULL after backfill
+	var envJSON sql.NullString
+	if err := st2.db.QueryRow(`SELECT env_json FROM runs WHERE id=?`, id).Scan(&envJSON); err != nil {
+		t.Fatalf("query env_json: %v", err)
+	}
+	if envJSON.Valid {
+		t.Fatalf("env_json should be NULL after migration, got %q", envJSON.String)
+	}
+
+	// env_id should now be set
+	var envID sql.NullInt64
+	if err := st2.db.QueryRow(`SELECT env_id FROM runs WHERE id=?`, id).Scan(&envID); err != nil {
+		t.Fatalf("query env_id: %v", err)
+	}
+	if !envID.Valid {
+		t.Fatal("env_id should be set after migration")
+	}
+
+	// environments row should have redacted value
+	var storedEnv string
+	if err := st2.db.QueryRow(`SELECT env_json FROM environments WHERE id=?`, envID.Int64).Scan(&storedEnv); err != nil {
+		t.Fatalf("query environments: %v", err)
+	}
+	if strings.Contains(storedEnv, "AKIAIOSFODNN7EXAMPLEKEY") {
+		t.Fatalf("migrated env still contains raw secret: %s", storedEnv)
+	}
+
+	// second open is a no-op (already migrated)
+	st3, err := OpenWith(dir, cfg)
+	if err != nil {
+		t.Fatalf("second OpenWith: %v", err)
+	}
+	_ = st3.Close()
 }
 
 // ---------------------------------------------------------------------------
