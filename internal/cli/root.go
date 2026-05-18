@@ -64,7 +64,7 @@ func (a *app) open() error {
 	if err != nil {
 		return err
 	}
-	st, err := store.Open(cfg.Storage.DataDir)
+	st, err := store.OpenWith(cfg.Storage.DataDir, cfg)
 	if err != nil {
 		return err
 	}

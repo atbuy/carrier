@@ -319,6 +319,10 @@ func TestShowCmdEnvFlag(t *testing.T) {
 
 	// Create run with env JSON.
 	started := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	envID, err := st.InsertOrGetEnvironment(`{"MY_VAR":"my_value","HOME":"/home/user"}`)
+	if err != nil {
+		t.Fatalf("insert env: %v", err)
+	}
 	id, err := st.CreateRun(store.CreateRun{
 		Status:    store.StatusRunning,
 		Mode:      store.ModeRun,
@@ -326,7 +330,7 @@ func TestShowCmdEnvFlag(t *testing.T) {
 		ArgvJSON:  `["echo","hi"]`,
 		CWD:       "/tmp",
 		StartedAt: started,
-		EnvJSON:   `{"MY_VAR":"my_value","HOME":"/home/user"}`,
+		EnvID:     &envID,
 	})
 	if err != nil {
 		t.Fatalf("create run: %v", err)

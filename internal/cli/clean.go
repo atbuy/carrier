@@ -56,6 +56,9 @@ func (a *app) cleanCmd() *cobra.Command {
 				removeIfSet(r.TerminalOutputPath)
 			}
 			_, _ = fmt.Fprintf(out, "%s %s %s\n", t.Danger.Render("deleted"), t.ID.Render(fmt.Sprintf("%d", len(runs))), "runs")
+			if pruned, err := a.st.PruneOrphanedEnvironments(); err == nil && pruned > 0 {
+				_, _ = fmt.Fprintf(out, "%s %s %s\n", t.Danger.Render("pruned"), t.ID.Render(fmt.Sprintf("%d", pruned)), "orphaned environments")
+			}
 			return nil
 		},
 	}
