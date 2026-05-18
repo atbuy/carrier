@@ -421,6 +421,42 @@ func (s *Store) GetSession(id int64) (*Session, error) {
 	return scanSession(row)
 }
 
+func (s *Store) FindSessionByLabel(label string) (*Session, error) {
+	row := s.db.QueryRow(`SELECT id, label, started_at, ended_at FROM shell_sessions WHERE label=? ORDER BY id DESC LIMIT 1`, label)
+	return scanSession(row)
+}
+
+func (s *Store) GetSessionsByIDs(ids []int64) (map[int64]Session, error) {
+	if len(ids) == 0 {
+		return map[int64]Session{}, nil
+	}
+	placeholders := strings.Repeat("?,", len(ids))
+	placeholders = placeholders[:len(placeholders)-1]
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := s.db.Query(`SELECT id, label, started_at, ended_at FROM shell_sessions WHERE id IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	result := make(map[int64]Session)
+	for rows.Next() {
+		sess, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		result[sess.ID] = *sess
+	}
+	return result, rows.Err()
+}
+
+func (s *Store) ReopenSession(id int64) error {
+	_, err := s.db.Exec(`UPDATE shell_sessions SET ended_at=NULL WHERE id=?`, id)
+	return err
+}
+
 func (s *Store) ListSessions(limit int) ([]Session, error) {
 	rows, err := s.db.Query(`SELECT id, label, started_at, ended_at FROM shell_sessions ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
