@@ -35,7 +35,7 @@ func printRootHelp(w io.Writer, t theme, cmd *cobra.Command) {
 
 	printCommandGroup(w, t, "RUN", cmd, []string{"run", "shell", "attach", "rerun", "watch"})
 	printCommandGroup(w, t, "INSPECT", cmd, []string{"last", "running", "show", "tail", "failed", "search", "history", "stats", "export"})
-	printCommandGroup(w, t, "MANAGE", cmd, []string{"label", "session", "clean", "config", "doctor", "version"})
+	printCommandGroup(w, t, "MANAGE", cmd, []string{"label", "session", "clean", "config", "doctor", "version", "help"})
 
 	line(w, t.Header.Render("EXAMPLES"))
 	line(w)
