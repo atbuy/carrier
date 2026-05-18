@@ -66,7 +66,14 @@ func printCommandHelp(w io.Writer, t theme, cmd *cobra.Command) {
 	if cmd.Example != "" {
 		line(w)
 		line(w, t.Header.Render("EXAMPLES"))
-		line(w, cmd.Example)
+		line(w)
+		for _, ex := range strings.Split(cmd.Example, "\n") {
+			trimmed := strings.TrimSpace(ex)
+			if trimmed == "" {
+				continue
+			}
+			linef(w, "  %s\n", t.Command.Render(trimmed))
+		}
 	}
 
 	printFlagSet(w, t, "FLAGS", cmd.LocalFlags())

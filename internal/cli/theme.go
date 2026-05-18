@@ -37,8 +37,8 @@ func newTheme(w io.Writer) theme {
 		Success: r.NewStyle().Foreground(lipgloss.Color("#6AAF6A")),
 		Danger:  r.NewStyle().Foreground(lipgloss.Color("#D75F5F")),
 		Warning: r.NewStyle().Foreground(lipgloss.Color("#D7AF5F")),
-		Accent:  r.NewStyle().Foreground(lipgloss.Color("#8866CC")),
-		Label:   r.NewStyle().Foreground(lipgloss.Color("#9E7CC0")),
+		Accent:  r.NewStyle().Foreground(lipgloss.Color("#5B8DEF")),
+		Label:   r.NewStyle().Foreground(lipgloss.Color("#7AADF4")),
 	}
 }
 
