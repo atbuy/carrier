@@ -70,7 +70,7 @@ carrier last --json
 
 ## `history`
 
-List recorded runs newest-first:
+List recorded runs oldest-first:
 
 ```bash title="List recent runs"
 carrier history

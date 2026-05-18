@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 type historyItem struct {
 	isSession bool
 	session   store.Session
-	runs      []store.Run // session children, desc order
+	runs      []store.Run // session children, display order
 	run       store.Run   // standalone run
 }
 
@@ -33,8 +34,8 @@ func (a *app) historyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "history",
 		Aliases: []string{"h"},
-		Short:   "list recorded runs newest-first",
-		Long: `List recorded runs newest-first, one per line.
+		Short:   "list recorded runs oldest-first",
+		Long: `List recorded runs oldest-first, one per line.
 
 Pipe to fzf to fuzzy-search and extract an ID for rerun:
 
@@ -64,6 +65,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 			if err != nil {
 				return err
 			}
+			slices.Reverse(runs)
 			if jsonOutput {
 				views := make([]runView, 0, len(runs))
 				for _, r := range runs {
@@ -89,7 +91,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 			}
 
 			// Build ordered items. Session runs are bucketed under their session
-			// header at the position of the first (newest) run seen for that session.
+			// header at the position of the first (oldest displayed) run seen for that session.
 			var items []historyItem
 			sessItemIdx := map[int64]int{}
 
@@ -171,6 +173,7 @@ func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter strin
 	if err != nil {
 		return err
 	}
+	slices.Reverse(sessions)
 	out := cmd.OutOrStdout()
 	t := newTheme(out)
 	for _, sess := range sessions {

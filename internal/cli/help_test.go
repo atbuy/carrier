@@ -130,7 +130,7 @@ func testRootCommand() *cobra.Command {
 		&cobra.Command{Use: "tail <id>", Short: "stream captured output"},
 		&cobra.Command{Use: "failed", Short: "list failed runs"},
 		&cobra.Command{Use: "search <text>", Short: "search commands and output"},
-		&cobra.Command{Use: "history", Short: "list recorded runs newest-first"},
+		&cobra.Command{Use: "history", Short: "list recorded runs oldest-first"},
 		&cobra.Command{Use: "stats", Short: "show run totals and slow commands"},
 		&cobra.Command{Use: "export <id>", Short: "export run as Markdown"},
 		&cobra.Command{Use: "clean --older-than 30d", Short: "delete old records and logs"},

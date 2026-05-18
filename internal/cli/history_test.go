@@ -65,6 +65,19 @@ func TestHistoryCmd(t *testing.T) {
 			t.Fatalf("history output missing %q:\n%s", want, out.String())
 		}
 	}
+	assertInOrder(t, out.String(), "go test ./...", "make lint", "npm run dev")
+}
+
+func assertInOrder(t *testing.T, haystack string, needles ...string) {
+	t.Helper()
+	pos := -1
+	for _, needle := range needles {
+		next := strings.Index(haystack[pos+1:], needle)
+		if next < 0 {
+			t.Fatalf("missing %q in output:\n%s", needle, haystack)
+		}
+		pos += next + 1
+	}
 }
 
 func TestHistoryCmdJSON(t *testing.T) {
@@ -90,6 +103,12 @@ func TestHistoryCmdJSON(t *testing.T) {
 	}
 	if len(views) != 3 {
 		t.Fatalf("expected 3 views, got %d", len(views))
+	}
+	if got := views[0].Command; got != "go test ./..." {
+		t.Fatalf("first JSON history command = %q, want oldest run", got)
+	}
+	if got := views[2].Command; got != "npm run dev" {
+		t.Fatalf("last JSON history command = %q, want newest run", got)
 	}
 }
 
