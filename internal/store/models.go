@@ -72,7 +72,7 @@ type CreateRun struct {
 	TerminalOutputPath string
 	NotifyRequested    bool
 	NotifyAlways       bool
-	EnvJSON            string
+	EnvID              *int64
 	SessionID          *int64
 }
 

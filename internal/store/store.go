@@ -1,7 +1,10 @@
 package store
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +12,17 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/logs"
+)
+
+// runCols and runFrom are used by every run SELECT to keep queries consistent.
+// All run queries LEFT JOIN environments so Run.EnvJSON is always populated.
+const (
+	runCols   = `r.id,r.status,r.mode,r.command,r.argv_json,r.cwd,r.started_at,r.finished_at,r.duration_ms,r.exit_code,r.hostname,r.shell,r.git_root,r.git_branch,r.git_commit,r.git_dirty,r.stdout_path,r.stderr_path,r.terminal_output_path,r.notify_requested,r.notify_always,r.created_at,r.label,e.env_json,r.session_id`
+	runFrom   = `FROM runs r LEFT JOIN environments e ON r.env_id=e.id`
+	runSelect = `SELECT ` + runCols + ` ` + runFrom
 )
 
 type Store struct {
@@ -16,6 +30,12 @@ type Store struct {
 }
 
 func Open(dataDir string) (*Store, error) {
+	return OpenWith(dataDir, config.Config{})
+}
+
+// OpenWith opens (or creates) the store and runs all migrations, including the
+// Go-level env backfill which redacts values using cfg before writing to disk.
+func OpenWith(dataDir string, cfg config.Config) (*Store, error) {
 	if err := os.MkdirAll(filepath.Join(dataDir, "runs"), 0o755); err != nil {
 		return nil, err
 	}
@@ -24,6 +44,12 @@ func Open(dataDir string) (*Store, error) {
 		return nil, err
 	}
 	if err := migrate(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	// Always redact env values regardless of cfg.Redaction.Enabled.
+	redactor := logs.NewRedactor(true, append(logs.BuiltinPatterns(), cfg.Redaction.Patterns...))
+	if err := migrateEnvData(db, redactor); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -40,11 +66,11 @@ func (s *Store) MigrationVersion() (int64, error) {
 
 func (s *Store) CreateRun(r CreateRun) (int64, error) {
 	res, err := s.db.Exec(`INSERT INTO runs
-(status, mode, command, argv_json, cwd, started_at, hostname, shell, git_root, git_branch, git_commit, git_dirty, stdout_path, stderr_path, terminal_output_path, notify_requested, notify_always, env_json, session_id)
+(status, mode, command, argv_json, cwd, started_at, hostname, shell, git_root, git_branch, git_commit, git_dirty, stdout_path, stderr_path, terminal_output_path, notify_requested, notify_always, env_id, session_id)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		r.Status, r.Mode, r.Command, r.ArgvJSON, r.CWD, fmtTime(r.StartedAt), r.Hostname, r.Shell,
 		r.GitRoot, r.GitBranch, r.GitCommit, nullableBool(r.GitDirty), r.StdoutPath, r.StderrPath,
-		r.TerminalOutputPath, boolInt(r.NotifyRequested), boolInt(r.NotifyAlways), nullableString(r.EnvJSON), nullableInt64(r.SessionID))
+		r.TerminalOutputPath, boolInt(r.NotifyRequested), boolInt(r.NotifyAlways), nullableInt64(r.EnvID), nullableInt64(r.SessionID))
 	if err != nil {
 		return 0, err
 	}
@@ -78,7 +104,7 @@ func (s *Store) FinishRun(id int64, status string, exitCode int, finished time.T
 }
 
 func (s *Store) GetRun(id int64) (*Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE id=?`, id)
+	rows, err := s.db.Query(`SELECT `+runCols+` `+runFrom+` WHERE r.id=?`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +116,7 @@ func (s *Store) GetRun(id int64) (*Run, error) {
 }
 
 func (s *Store) Latest() (*Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs ORDER BY id DESC LIMIT 1`)
+	rows, err := s.db.Query(runSelect + ` ORDER BY r.id DESC LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +128,7 @@ func (s *Store) Latest() (*Run, error) {
 }
 
 func (s *Store) ListByStatus(status string, limit int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE status=? ORDER BY id DESC LIMIT ?`, status, limit)
+	rows, err := s.db.Query(runSelect+` WHERE r.status=? ORDER BY r.id DESC LIMIT ?`, status, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +137,7 @@ func (s *Store) ListByStatus(status string, limit int) ([]Run, error) {
 }
 
 func (s *Store) All(limit int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs ORDER BY id DESC LIMIT ?`, limit)
+	rows, err := s.db.Query(runSelect+` ORDER BY r.id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +147,7 @@ func (s *Store) All(limit int) ([]Run, error) {
 
 // AllRuns returns every run ordered by id descending with no limit.
 func (s *Store) AllRuns() ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs ORDER BY id DESC`)
+	rows, err := s.db.Query(runSelect + ` ORDER BY r.id DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +198,11 @@ func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
 		where = append(where, "session_id = ?")
 		args = append(args, *f.SessionID)
 	}
-	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs`
+	q := runSelect
 	if len(where) > 0 {
 		q += " WHERE " + strings.Join(where, " AND ")
 	}
-	q += " ORDER BY id DESC LIMIT ?"
+	q += " ORDER BY r.id DESC LIMIT ?"
 	args = append(args, limit)
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
@@ -187,7 +213,7 @@ func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
 }
 
 func (s *Store) ListOlderThan(cutoff time.Time) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE started_at < ? ORDER BY id`, fmtTime(cutoff))
+	rows, err := s.db.Query(runSelect+` WHERE r.started_at < ? ORDER BY r.id`, fmtTime(cutoff))
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +222,7 @@ func (s *Store) ListOlderThan(cutoff time.Time) ([]Run, error) {
 }
 
 func (s *Store) DeleteOlderThan(cutoff time.Time) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE started_at < ?`, fmtTime(cutoff))
+	rows, err := s.db.Query(runSelect+` WHERE r.started_at < ?`, fmtTime(cutoff))
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +278,7 @@ func (s *Store) MarkStaleRunsKilled(threshold time.Duration) (int64, error) {
 	if n > 0 {
 		// Re-index affected rows so FTS reflects the new status.
 		rows, err := s.db.Query(
-			`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE status=? AND started_at < ?`,
+			runSelect+` WHERE r.status=? AND r.started_at < ?`,
 			StatusKilled, cutoff,
 		)
 		if err == nil {
@@ -268,7 +294,7 @@ func (s *Store) MarkStaleRunsKilled(threshold time.Duration) (int64, error) {
 
 // ListOutsideKeepLast returns runs that would be deleted by DeleteKeepLast.
 func (s *Store) ListOutsideKeepLast(n int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?) ORDER BY id DESC`, n)
+	rows, err := s.db.Query(runSelect+` WHERE r.id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?) ORDER BY r.id DESC`, n)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +304,7 @@ func (s *Store) ListOutsideKeepLast(n int) ([]Run, error) {
 
 // DeleteKeepLast deletes all runs except the n most recent (by id).
 func (s *Store) DeleteKeepLast(n int) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?)`, n)
+	rows, err := s.db.Query(runSelect+` WHERE r.id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT ?)`, n)
 	if err != nil {
 		return nil, err
 	}
@@ -395,6 +421,91 @@ func nullableInt64(v *int64) any {
 		return nil
 	}
 	return *v
+}
+
+// InsertOrGetEnvironment stores env JSON (already redacted at call site) and
+// returns its ID. Deduplicates by SHA-256 hash so identical envs share one row.
+func (s *Store) InsertOrGetEnvironment(envJSON string) (int64, error) {
+	h := sha256.Sum256([]byte(envJSON))
+	hash := hex.EncodeToString(h[:])
+	if _, err := s.db.Exec(`INSERT OR IGNORE INTO environments(hash, env_json) VALUES (?,?)`, hash, envJSON); err != nil {
+		return 0, err
+	}
+	var id int64
+	err := s.db.QueryRow(`SELECT id FROM environments WHERE hash=?`, hash).Scan(&id)
+	return id, err
+}
+
+// PruneOrphanedEnvironments deletes environment rows no longer referenced by any run.
+// Call this after deleting runs to reclaim space.
+func (s *Store) PruneOrphanedEnvironments() (int64, error) {
+	res, err := s.db.Exec(`DELETE FROM environments WHERE id NOT IN (SELECT env_id FROM runs WHERE env_id IS NOT NULL)`)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// migrateEnvData is a one-time Go-level migration that moves existing env_json
+// values from the runs table into the environments dedup table and back-fills env_id.
+// Values are redacted via redactor before being written to environments.
+// Runs with env_json already null or with env_id already set are skipped.
+func migrateEnvData(db *sql.DB, redactor logs.Redactor) error {
+	rows, err := db.Query(`SELECT id, env_json FROM runs WHERE env_json IS NOT NULL AND env_id IS NULL`)
+	if err != nil {
+		return err
+	}
+	type pending struct {
+		id      int64
+		envJSON string
+	}
+	var items []pending
+	for rows.Next() {
+		var p pending
+		if err := rows.Scan(&p.id, &p.envJSON); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		items = append(items, p)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, p := range items {
+		redacted, err := redactEnvJSON(p.envJSON, redactor)
+		if err != nil {
+			redacted = p.envJSON
+		}
+		h := sha256.Sum256([]byte(redacted))
+		hash := hex.EncodeToString(h[:])
+		if _, err := db.Exec(`INSERT OR IGNORE INTO environments(hash, env_json) VALUES (?,?)`, hash, redacted); err != nil {
+			return err
+		}
+		var envID int64
+		if err := db.QueryRow(`SELECT id FROM environments WHERE hash=?`, hash).Scan(&envID); err != nil {
+			return err
+		}
+		if _, err := db.Exec(`UPDATE runs SET env_id=?, env_json=NULL WHERE id=?`, envID, p.id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// redactEnvJSON parses a JSON object of env vars, redacts each value, and re-serialises.
+func redactEnvJSON(envJSON string, redactor logs.Redactor) (string, error) {
+	var m map[string]string
+	if err := json.Unmarshal([]byte(envJSON), &m); err != nil {
+		return "", err
+	}
+	for k, v := range m {
+		m[k] = string(redactor.Redact([]byte(v)))
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (s *Store) CreateSession(r CreateSession) (int64, error) {
