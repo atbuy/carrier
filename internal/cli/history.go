@@ -19,15 +19,16 @@ type historyItem struct {
 
 func (a *app) historyCmd() *cobra.Command {
 	var (
-		limit      int
-		jsonOutput bool
-		status     string
-		since      string
-		cwd        string
-		branch     string
-		command    string
-		label      string
-		sessionID  int64
+		limit        int
+		jsonOutput   bool
+		status       string
+		since        string
+		cwd          string
+		branch       string
+		command      string
+		label        string
+		sessionID    int64
+		sessionsOnly bool
 	)
 	cmd := &cobra.Command{
 		Use:   "history",
@@ -50,6 +51,10 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				}
 				f.Since = time.Now().Add(-d)
 			}
+			if sessionsOnly {
+				return a.printSessionsOnly(cmd, limit, label)
+			}
+
 			runs, err := a.st.ListHistory(limit, f)
 			if err != nil {
 				return err
@@ -152,7 +157,41 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVarP(&command, "command", "c", "", "filter by command (substring match)")
 	cmd.Flags().StringVar(&label, "label", "", "filter by label (substring match)")
 	cmd.Flags().Int64Var(&sessionID, "session", 0, "filter by shell session ID")
+	cmd.Flags().BoolVar(&sessionsOnly, "sessions-only", false, "show only session headers, no individual runs")
 	return cmd
+}
+
+func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter string) error {
+	sessions, err := a.st.ListSessions(limit)
+	if err != nil {
+		return err
+	}
+	out := cmd.OutOrStdout()
+	c := outputColors(out)
+	for _, sess := range sessions {
+		if labelFilter != "" && !containsFold(sess.Label, labelFilter) {
+			continue
+		}
+		sessLabel := sess.Label
+		if sessLabel == "" {
+			sessLabel = "(unlabeled)"
+		}
+		sessStatus := "ended"
+		sessStatusColor := colorGray
+		if sess.EndedAt == nil {
+			sessStatus = "active"
+			sessStatusColor = colorGreen
+		}
+		_, _ = fmt.Fprintf(
+			out, "%s %s %s  %s  %s\n",
+			c.paint(colorYellow, fmt.Sprintf("%6d", sess.ID)),
+			c.paint(colorYellow, "┬──"),
+			c.paint(sessStatusColor, padRight(sessStatus, 7)),
+			c.paint(colorGray, formatTime(sess.StartedAt)),
+			c.paint(colorMagenta, sessLabel),
+		)
+	}
+	return nil
 }
 
 // printRunLine renders one run. connector is one of "├──", "└──", or "" (standalone).
