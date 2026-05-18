@@ -138,7 +138,7 @@ func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 	help.requireExit(t, 0)
 	for _, want := range []string{
 		"config <command>",
-		"Commands",
+		"COMMANDS",
 		"path       show config file path",
 		"show       show active config",
 		"check      validate active config",

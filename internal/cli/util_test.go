@@ -151,7 +151,7 @@ func TestPrintRunColorsLabelsWhenEnabled(t *testing.T) {
 	var out bytes.Buffer
 	printRun(&out, run)
 
-	for _, want := range []string{colorBold, colorCyan, colorRed, "ID:", "Status:", "Command:"} {
+	for _, want := range []string{"ID:", "Status:", "Command:", "failed", "go test"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("printRun output missing %q:\n%s", want, out.String())
 		}

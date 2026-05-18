@@ -114,11 +114,11 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 			}
 
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
+			t := newTheme(out)
 
 			for _, item := range items {
 				if !item.isSession {
-					printRunLine(out, c, &item.run, "")
+					printRunLine(out, t, &item.run, "")
 					continue
 				}
 				sess := item.session
@@ -126,19 +126,19 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				if sessLabel == "" {
 					sessLabel = "(unlabeled)"
 				}
+				sessStatusStyle := t.Muted
 				sessStatus := "ended"
-				sessStatusColor := colorGray
 				if sess.EndedAt == nil {
 					sessStatus = "active"
-					sessStatusColor = colorGreen
+					sessStatusStyle = t.Success
 				}
 				_, _ = fmt.Fprintf(
 					out, "%s %s %s  %s  %s\n",
-					c.paint(colorYellow, fmt.Sprintf("%6d", sess.ID)),
-					c.paint(colorYellow, "┬──"),
-					c.paint(sessStatusColor, padRight(sessStatus, 7)),
-					c.paint(colorGray, formatTime(sess.StartedAt)),
-					c.paint(colorMagenta, sessLabel),
+					t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
+					t.Accent.Render("┬──"),
+					sessStatusStyle.Render(padRight(sessStatus, 7)),
+					t.Muted.Render(formatTime(sess.StartedAt)),
+					t.Label.Render(sessLabel),
 				)
 				for i, r := range item.runs {
 					r := r
@@ -146,7 +146,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 					if i == len(item.runs)-1 {
 						connector = "└──"
 					}
-					printRunLine(out, c, &r, connector)
+					printRunLine(out, t, &r, connector)
 				}
 			}
 			return nil
@@ -171,7 +171,7 @@ func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter strin
 		return err
 	}
 	out := cmd.OutOrStdout()
-	c := outputColors(out)
+	t := newTheme(out)
 	for _, sess := range sessions {
 		if labelFilter != "" && !containsFold(sess.Label, labelFilter) {
 			continue
@@ -180,19 +180,19 @@ func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter strin
 		if sessLabel == "" {
 			sessLabel = "(unlabeled)"
 		}
+		sessStatusStyle := t.Muted
 		sessStatus := "ended"
-		sessStatusColor := colorGray
 		if sess.EndedAt == nil {
 			sessStatus = "active"
-			sessStatusColor = colorGreen
+			sessStatusStyle = t.Success
 		}
 		_, _ = fmt.Fprintf(
 			out, "%s %s %s  %s  %s\n",
-			c.paint(colorYellow, fmt.Sprintf("%6d", sess.ID)),
-			c.paint(colorYellow, "┬──"),
-			c.paint(sessStatusColor, padRight(sessStatus, 7)),
-			c.paint(colorGray, formatTime(sess.StartedAt)),
-			c.paint(colorMagenta, sessLabel),
+			t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
+			t.Accent.Render("┬──"),
+			sessStatusStyle.Render(padRight(sessStatus, 7)),
+			t.Muted.Render(formatTime(sess.StartedAt)),
+			t.Label.Render(sessLabel),
 		)
 	}
 	return nil
@@ -200,23 +200,23 @@ func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter strin
 
 // printRunLine renders one run. connector is one of "├──", "└──", or "" (standalone).
 // All three render to the same display width so status/time/command columns stay aligned.
-func printRunLine(out io.Writer, c helpColors, r *store.Run, connector string) {
+func printRunLine(out io.Writer, t theme, r *store.Run, connector string) {
 	labelSuffix := ""
 	if r.Label != "" {
-		labelSuffix = "  " + c.paint(colorMagenta, r.Label)
+		labelSuffix = "  " + t.Label.Render(r.Label)
 	}
 	conn := "   " // 3 spaces — same display width as ├── / └──
 	if connector != "" {
-		conn = c.paint(colorYellow, connector)
+		conn = t.Accent.Render(connector)
 	}
 	_, _ = fmt.Fprintf(
 		out, "%s %s %s  %s  %s  %s%s\n",
-		c.paint(colorCyan, fmt.Sprintf("%6d", r.ID)),
+		t.ID.Render(fmt.Sprintf("%6d", r.ID)),
 		conn,
-		c.paint(statusColor(r.Status), padRight(r.Status, 7)),
-		c.paint(colorGray, formatTime(r.StartedAt)),
-		c.paint(colorGreen, displayCommand(r)),
-		c.paint(colorGray, r.CWD),
+		t.statusStyle(r.Status).Render(padRight(r.Status, 7)),
+		t.Muted.Render(formatTime(r.StartedAt)),
+		t.Command.Render(displayCommand(r)),
+		t.Muted.Render(r.CWD),
 		labelSuffix,
 	)
 }

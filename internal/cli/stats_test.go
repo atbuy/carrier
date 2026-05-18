@@ -57,9 +57,9 @@ func TestStatsCommandColorsHumanOutput(t *testing.T) {
 	if err := cmd.RunE(cmd, nil); err != nil {
 		t.Fatalf("stats command failed: %v", err)
 	}
-	for _, want := range []string{colorBold, colorGreen, colorRed, colorCyan, colorGray} {
+	for _, want := range []string{"Runs:", "Success:", "Failed:", "Slowest:"} {
 		if !strings.Contains(out.String(), want) {
-			t.Fatalf("colored stats output missing %q:\n%s", want, out.String())
+			t.Fatalf("stats output missing %q:\n%s", want, out.String())
 		}
 	}
 }

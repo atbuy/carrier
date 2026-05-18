@@ -99,8 +99,7 @@ func TestRunDoctor(t *testing.T) {
 
 func TestCheckOk(t *testing.T) {
 	var out bytes.Buffer
-	c := outputColors(&out)
-	check(&out, c, "mycheck", true, "all good", nil)
+	check(&out, newTheme(&out), "mycheck", true, "all good", nil)
 	if !strings.Contains(out.String(), "mycheck") {
 		t.Fatalf("check output missing name:\n%s", out.String())
 	}
@@ -111,8 +110,7 @@ func TestCheckOk(t *testing.T) {
 
 func TestCheckWarn(t *testing.T) {
 	var out bytes.Buffer
-	c := outputColors(&out)
-	check(&out, c, "badcheck", false, "some warning", nil)
+	check(&out, newTheme(&out), "badcheck", false, "some warning", nil)
 	if !strings.Contains(out.String(), "warn") {
 		t.Fatalf("check output should show 'warn':\n%s", out.String())
 	}
@@ -120,8 +118,7 @@ func TestCheckWarn(t *testing.T) {
 
 func TestCheckError(t *testing.T) {
 	var out bytes.Buffer
-	c := outputColors(&out)
-	check(&out, c, "errcheck", false, "detail", os.ErrNotExist)
+	check(&out, newTheme(&out), "errcheck", false, "detail", os.ErrNotExist)
 	if !strings.Contains(out.String(), os.ErrNotExist.Error()) {
 		t.Fatalf("check output should show error detail:\n%s", out.String())
 	}

@@ -46,7 +46,7 @@ func (a *app) tailCmd() *cobra.Command {
 					return fmt.Errorf("invalid stream %q: use both, stdout, stderr, or terminal", stream)
 				}
 			}
-			_, _ = io.WriteString(os.Stderr, outputColors(os.Stderr).paint(colorYellow, "carrier: no output logs")+"\n")
+			_, _ = io.WriteString(os.Stderr, newTheme(os.Stderr).Warning.Render("carrier: no output logs")+"\n")
 			return nil
 		},
 	}
@@ -57,16 +57,16 @@ func (a *app) tailCmd() *cobra.Command {
 func tailRunOutput(stdoutPath, stderrPath string, follow bool) error {
 	errs := make(chan error, 2)
 	out := &lockedWriter{w: os.Stdout}
-	c := outputColors(os.Stdout)
+	t := newTheme(os.Stdout)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		errs <- logs.TailFile(stdoutPath, newPrefixWriter(out, c.paint(colorGreen, "stdout")+" | "), follow)
+		errs <- logs.TailFile(stdoutPath, newPrefixWriter(out, t.Success.Render("stdout")+" | "), follow)
 	}()
 	go func() {
 		defer wg.Done()
-		errs <- logs.TailFile(stderrPath, newPrefixWriter(out, c.paint(colorRed, "stderr")+" | "), follow)
+		errs <- logs.TailFile(stderrPath, newPrefixWriter(out, t.Danger.Render("stderr")+" | "), follow)
 	}()
 	wg.Wait()
 	close(errs)

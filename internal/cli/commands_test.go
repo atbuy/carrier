@@ -643,19 +643,12 @@ func TestExportJSONWithID(t *testing.T) {
 // statusColor / short helpers
 // ---------------------------------------------------------------------------
 
-func TestStatusColor(t *testing.T) {
-	cases := map[string]string{
-		store.StatusSuccess: colorGreen,
-		store.StatusFailed:  colorRed,
-		store.StatusRunning: colorYellow,
-		store.StatusKilled:  colorRed,
-		"unknown":           colorGray,
-	}
-	for status, want := range cases {
-		got := statusColor(status)
-		if got != want {
-			t.Errorf("statusColor(%q) = %q, want %q", status, got, want)
-		}
+func TestStatusStyleDistinct(t *testing.T) {
+	th := newTheme(&bytes.Buffer{})
+	successFg := fmt.Sprint(th.statusStyle(store.StatusSuccess).GetForeground())
+	failedFg := fmt.Sprint(th.statusStyle(store.StatusFailed).GetForeground())
+	if successFg == failedFg {
+		t.Fatal("success and failed styles have identical foreground color")
 	}
 }
 

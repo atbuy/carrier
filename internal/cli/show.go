@@ -55,27 +55,27 @@ func (a *app) showCmd() *cobra.Command {
 				return writeJSON(cmd, runViewFromStoreOpts(r, true, redactor))
 			}
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
+			t := newTheme(out)
 			streamOnly := onlyStdout || onlyStderr
 			if !streamOnly {
 				printRun(out, r)
 			}
 			if r.TerminalOutputPath != "" && !onlyStderr {
 				if !streamOnly {
-					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorCyan, "terminal"))
+					_, _ = fmt.Fprintln(out, "\n"+t.Bold.Render("terminal"))
 				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.TerminalOutputPath), lines))
 				return nil
 			}
 			if r.StdoutPath != "" && !onlyStderr {
 				if !streamOnly {
-					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorGreen, "stdout"))
+					_, _ = fmt.Fprintln(out, "\n"+t.Success.Bold(true).Render("stdout"))
 				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.StdoutPath), lines))
 			}
 			if r.StderrPath != "" && !onlyStdout {
 				if !streamOnly {
-					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorRed, "stderr"))
+					_, _ = fmt.Fprintln(out, "\n"+t.Danger.Bold(true).Render("stderr"))
 				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.StderrPath), lines))
 			}
@@ -83,9 +83,9 @@ func (a *app) showCmd() *cobra.Command {
 				var env map[string]string
 				if err := json.Unmarshal([]byte(r.EnvJSON), &env); err == nil {
 					redactor := logs.NewRedactor(a.cfg.Redaction.Enabled && !a.noRedact, a.cfg.Redaction.Patterns)
-					_, _ = fmt.Fprintln(out, "\n"+c.paint(colorBold+colorMagenta, "env"))
+					_, _ = fmt.Fprintln(out, "\n"+t.Label.Bold(true).Render("env"))
 					for k, v := range env {
-						_, _ = fmt.Fprintf(out, "  %s=%s\n", c.paint(colorCyan, k), string(redactor.Redact([]byte(v))))
+						_, _ = fmt.Fprintf(out, "  %s=%s\n", t.Muted.Render(k), string(redactor.Redact([]byte(v))))
 					}
 				}
 			}
@@ -149,16 +149,16 @@ func (a *app) runningCmd() *cobra.Command {
 				return writeJSON(cmd, views)
 			}
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
+			t := newTheme(out)
 			for _, r := range runs {
 				ms := timeSinceMS(r.StartedAt)
 				_, _ = fmt.Fprintf(
 					out, "%s  %s  %s  %s  %s\n",
-					c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
-					c.paint(statusColor(r.Status), r.Status),
-					c.paint(colorGreen, displayCommand(&r)),
-					c.paint(colorGray, r.CWD),
-					c.paint(colorCyan, formatDuration(&ms)),
+					t.ID.Render(fmt.Sprintf("%d", r.ID)),
+					t.statusStyle(r.Status).Render(r.Status),
+					t.Command.Render(displayCommand(&r)),
+					t.Muted.Render(r.CWD),
+					t.Muted.Render(formatDuration(&ms)),
 				)
 			}
 			return nil
@@ -179,7 +179,7 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 				return err
 			}
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
+			t := newTheme(out)
 			for _, r := range runs {
 				age := ""
 				if status == store.StatusRunning {
@@ -188,11 +188,11 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 				}
 				_, _ = fmt.Fprintf(
 					out, "%s  %s  %s  %s%s\n",
-					c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
-					c.paint(statusColor(r.Status), r.Status),
-					c.paint(colorGreen, displayCommand(&r)),
-					c.paint(colorGray, r.CWD),
-					c.paint(colorCyan, age),
+					t.ID.Render(fmt.Sprintf("%d", r.ID)),
+					t.statusStyle(r.Status).Render(r.Status),
+					t.Command.Render(displayCommand(&r)),
+					t.Muted.Render(r.CWD),
+					t.Muted.Render(age),
 				)
 			}
 			return nil

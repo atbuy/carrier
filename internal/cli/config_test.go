@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,15 +101,12 @@ func TestConfigShowCommand(t *testing.T) {
 	}
 }
 
-func TestIssueColor(t *testing.T) {
-	if got := issueColor("error"); got != colorRed {
-		t.Fatalf("error color = %q", got)
-	}
-	if got := issueColor("warn"); got != colorYellow {
-		t.Fatalf("warn color = %q", got)
-	}
-	if got := issueColor("unknown"); got != colorGray {
-		t.Fatalf("unknown color = %q", got)
+func TestIssueStyleDistinct(t *testing.T) {
+	th := newTheme(&bytes.Buffer{})
+	errFg := fmt.Sprint(issueStyle(th, "error").GetForeground())
+	warnFg := fmt.Sprint(issueStyle(th, "warn").GetForeground())
+	if errFg == warnFg {
+		t.Fatal("error and warn styles have identical foreground color")
 	}
 }
 

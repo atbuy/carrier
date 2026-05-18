@@ -50,8 +50,7 @@ func Execute() int {
 	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.searchCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.internalCmd(), a.labelCmd(), a.sessionCmd())
 	installHelp(root)
 	if err := root.Execute(); err != nil {
-		c := outputColors(os.Stderr)
-		fmt.Fprintln(os.Stderr, c.paint(colorRed, "carrier:"), err)
+		fmt.Fprintln(os.Stderr, newTheme(os.Stderr).Danger.Render("carrier:"), err)
 		return 1
 	}
 	return 0

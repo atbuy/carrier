@@ -29,47 +29,47 @@ func (a *app) doctorCmd() *cobra.Command {
 }
 
 func (a *app) runDoctor(w io.Writer) error {
-	c := outputColors(w)
-	check(w, c, "version", true, version.Current().Version, nil)
+	t := newTheme(w)
+	check(w, t, "version", true, version.Current().Version, nil)
 	configPath, err := config.Path()
-	check(w, c, "config path", err == nil, configPath, err)
-	check(w, c, "data dir", dirWritable(a.cfg.Storage.DataDir), a.cfg.Storage.DataDir, nil)
-	check(w, c, "data size", true, formatBytes(dirSize(a.cfg.Storage.DataDir)), nil)
-	check(w, c, "runs dir", dirWritable(filepath.Join(a.cfg.Storage.DataDir, "runs")), filepath.Join(a.cfg.Storage.DataDir, "runs"), nil)
-	check(w, c, "sqlite db", fileParentWritable(filepath.Join(a.cfg.Storage.DataDir, "carrier.db")), filepath.Join(a.cfg.Storage.DataDir, "carrier.db"), nil)
+	check(w, t, "config path", err == nil, configPath, err)
+	check(w, t, "data dir", dirWritable(a.cfg.Storage.DataDir), a.cfg.Storage.DataDir, nil)
+	check(w, t, "data size", true, formatBytes(dirSize(a.cfg.Storage.DataDir)), nil)
+	check(w, t, "runs dir", dirWritable(filepath.Join(a.cfg.Storage.DataDir, "runs")), filepath.Join(a.cfg.Storage.DataDir, "runs"), nil)
+	check(w, t, "sqlite db", fileParentWritable(filepath.Join(a.cfg.Storage.DataDir, "carrier.db")), filepath.Join(a.cfg.Storage.DataDir, "carrier.db"), nil)
 	if version, err := a.st.MigrationVersion(); err == nil {
-		check(w, c, "migration", true, strconv.FormatInt(version, 10), nil)
+		check(w, t, "migration", true, strconv.FormatInt(version, 10), nil)
 	} else {
-		check(w, c, "migration", false, "", err)
+		check(w, t, "migration", false, "", err)
 	}
-	check(w, c, "max output", true, fmt.Sprintf("%d MB", a.cfg.Storage.MaxOutputMB), nil)
-	check(w, c, "redaction", a.cfg.Redaction.Enabled, fmt.Sprintf("%d patterns", len(a.cfg.Redaction.Patterns)), nil)
+	check(w, t, "max output", true, fmt.Sprintf("%d MB", a.cfg.Storage.MaxOutputMB), nil)
+	check(w, t, "redaction", a.cfg.Redaction.Enabled, fmt.Sprintf("%d patterns", len(a.cfg.Redaction.Patterns)), nil)
 	staleCount, _ := a.st.CountStaleRuns(a.cfg.StaleRunThreshold())
-	check(w, c, "stale runs", staleCount == 0, fmt.Sprintf("%d stuck in running (threshold %s)", staleCount, a.cfg.Storage.StaleRunThreshold), nil)
-	check(w, c, "git", commandAvailable("git"), "git executable available", nil)
-	check(w, c, "notify", notify.Available(), "optional desktop notifications", nil)
-	check(w, c, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
-	check(w, c, "shell mode", false, "alpha: use carrier run for precise capture", nil)
-	check(w, c, "terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
+	check(w, t, "stale runs", staleCount == 0, fmt.Sprintf("%d stuck in running (threshold %s)", staleCount, a.cfg.Storage.StaleRunThreshold), nil)
+	check(w, t, "git", commandAvailable("git"), "git executable available", nil)
+	check(w, t, "notify", notify.Available(), "optional desktop notifications", nil)
+	check(w, t, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
+	check(w, t, "shell mode", false, "alpha: use carrier run for precise capture", nil)
+	check(w, t, "terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
 	return nil
 }
 
-func check(w io.Writer, c helpColors, name string, ok bool, detail string, err error) {
+func check(w io.Writer, t theme, name string, ok bool, detail string, err error) {
+	statusStyle := t.Success
 	status := "ok"
-	statusColor := colorGreen
 	if !ok {
 		status = "warn"
-		statusColor = colorYellow
+		statusStyle = t.Warning
 	}
 	if err != nil {
 		detail = err.Error()
-		statusColor = colorRed
+		statusStyle = t.Danger
 	}
 	_, _ = fmt.Fprintf(
 		w, "%s %s  %s\n",
-		c.paint(colorBold+colorCyan, padRight(name, 12)),
-		c.paint(statusColor, status),
-		c.paint(colorGray, detail),
+		t.Bold.Render(padRight(name, 12)),
+		statusStyle.Render(status),
+		t.Muted.Render(detail),
 	)
 }
 

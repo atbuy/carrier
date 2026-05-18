@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/atbuy/carrier/internal/command"
 	"github.com/atbuy/carrier/internal/store"
 )
@@ -40,53 +42,33 @@ func formatTime(t time.Time) string {
 }
 
 func printRun(w io.Writer, r *store.Run) {
-	c := outputColors(w)
-	printField(w, c, "ID", fmt.Sprintf("%d", r.ID), colorCyan)
-	printField(w, c, "Status", r.Status, statusColor(r.Status))
-	printField(w, c, "Command", displayCommand(r), colorGreen)
-	printField(w, c, "CWD", r.CWD, colorGray)
+	t := newTheme(w)
+	printField(w, t, "ID", fmt.Sprintf("%d", r.ID), t.ID)
+	printField(w, t, "Status", r.Status, t.statusStyle(r.Status))
+	printField(w, t, "Command", displayCommand(r), t.Command)
+	printField(w, t, "CWD", r.CWD, t.Muted)
 	if r.ExitCode != nil {
-		exitColor := colorGreen
+		exitStyle := t.Success
 		if *r.ExitCode != 0 {
-			exitColor = colorRed
+			exitStyle = t.Danger
 		}
-		printField(w, c, "Exit", fmt.Sprintf("%d", *r.ExitCode), exitColor)
+		printField(w, t, "Exit", fmt.Sprintf("%d", *r.ExitCode), exitStyle)
 	}
-	printField(w, c, "Duration", formatDuration(r.DurationMS), colorCyan)
-	printField(w, c, "Started", formatTime(r.StartedAt), colorGray)
+	printField(w, t, "Duration", formatDuration(r.DurationMS), t.Muted)
+	printField(w, t, "Started", formatTime(r.StartedAt), t.Muted)
 	if r.FinishedAt != nil {
-		printField(w, c, "Finished", formatTime(*r.FinishedAt), colorGray)
+		printField(w, t, "Finished", formatTime(*r.FinishedAt), t.Muted)
 	}
 	if r.GitRoot != "" {
-		printField(w, c, "Git", fmt.Sprintf("%s %s %s dirty=%s", r.GitRoot, r.GitBranch, short(r.GitCommit), dirtyString(r.GitDirty)), colorGray)
+		printField(w, t, "Git", fmt.Sprintf("%s %s %s dirty=%s", r.GitRoot, r.GitBranch, short(r.GitCommit), dirtyString(r.GitDirty)), t.Muted)
 	}
 	if r.Label != "" {
-		printField(w, c, "Label", r.Label, colorMagenta)
+		printField(w, t, "Label", r.Label, t.Label)
 	}
 }
 
-func outputColors(w io.Writer) helpColors {
-	return helpColors{enabled: shouldColor(w)}
-}
-
-func printField(w io.Writer, c helpColors, label, value, valueColor string) {
-	if valueColor != "" {
-		value = c.paint(valueColor, value)
-	}
-	_, _ = fmt.Fprintf(w, "%s%s\n", c.paint(colorBold+colorCyan, padRight(label+":", fieldLabelWidth)), value)
-}
-
-func statusColor(status string) string {
-	switch status {
-	case store.StatusSuccess:
-		return colorGreen
-	case store.StatusFailed, store.StatusKilled:
-		return colorRed
-	case store.StatusRunning:
-		return colorYellow
-	default:
-		return colorGray
-	}
+func printField(w io.Writer, t theme, label, value string, style lipgloss.Style) {
+	_, _ = fmt.Fprintf(w, "%s%s\n", t.Bold.Render(padRight(label+":", fieldLabelWidth)), style.Render(value))
 }
 
 func dirtyString(v *bool) string {

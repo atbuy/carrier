@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"github.com/atbuy/carrier/internal/config"
@@ -85,8 +86,8 @@ func configInitCmd() *cobra.Command {
 				return err
 			}
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
-			_, _ = fmt.Fprintf(out, "%s %s\n", c.paint(colorGreen, "wrote"), c.paint(colorGray, path))
+			t2 := newTheme(out)
+			_, _ = fmt.Fprintf(out, "%s %s\n", t2.Success.Render("wrote"), t2.Muted.Render(path))
 			return nil
 		},
 	}
@@ -111,38 +112,38 @@ func configCheckCmd() *cobra.Command {
 			issues := config.Check(cfg)
 			errors, warnings := config.CountIssues(issues)
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
-			printField(out, c, "Config", path, colorGray)
+			t := newTheme(out)
+			printField(out, t, "Config", path, t.Muted)
 			for _, issue := range issues {
 				_, _ = fmt.Fprintf(
 					out, "%s %s: %s\n",
-					c.paint(issueColor(issue.Level), issue.Level),
-					c.paint(colorCyan, issue.Field),
+					issueStyle(t, issue.Level).Render(issue.Level),
+					t.Bold.Render(issue.Field),
 					issue.Message,
 				)
 			}
 			switch {
 			case errors > 0:
-				_, _ = fmt.Fprintf(out, "%s: %s\n", c.paint(colorRed, "failed"), issueSummary(errors, warnings))
+				_, _ = fmt.Fprintf(out, "%s: %s\n", t.Danger.Render("failed"), issueSummary(errors, warnings))
 				return fmt.Errorf("config check failed")
 			case warnings > 0:
-				_, _ = fmt.Fprintf(out, "%s: %s\n", c.paint(colorYellow, "ok"), issueSummary(errors, warnings))
+				_, _ = fmt.Fprintf(out, "%s: %s\n", t.Warning.Render("ok"), issueSummary(errors, warnings))
 			default:
-				_, _ = fmt.Fprintln(out, c.paint(colorGreen, "ok"))
+				_, _ = fmt.Fprintln(out, t.Success.Render("ok"))
 			}
 			return nil
 		},
 	}
 }
 
-func issueColor(level string) string {
+func issueStyle(t theme, level string) lipgloss.Style {
 	switch level {
 	case config.IssueError:
-		return colorRed
+		return t.Danger
 	case config.IssueWarn:
-		return colorYellow
+		return t.Warning
 	default:
-		return colorGray
+		return t.Muted
 	}
 }
 

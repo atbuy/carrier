@@ -34,18 +34,18 @@ func (a *app) searchCmd() *cobra.Command {
 				return writeJSON(cmd, views)
 			}
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
+			t := newTheme(out)
 			for _, result := range results {
 				r := result.Run
 				_, _ = fmt.Fprintf(
 					out, "%s  %s  %s  %s\n",
-					c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
-					c.paint(statusColor(r.Status), r.Status),
-					c.paint(colorGreen, displayCommand(&r)),
-					c.paint(colorGray, r.CWD),
+					t.ID.Render(fmt.Sprintf("%d", r.ID)),
+					t.statusStyle(r.Status).Render(r.Status),
+					t.Command.Render(displayCommand(&r)),
+					t.Muted.Render(r.CWD),
 				)
 				if snippet := cleanSnippet(result.Snippet); snippet != "" {
-					_, _ = fmt.Fprintf(out, "    %s\n", c.paint(colorGray, snippet))
+					_, _ = fmt.Fprintf(out, "    %s\n", t.Muted.Render(snippet))
 				}
 			}
 			return nil

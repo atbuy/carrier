@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"github.com/atbuy/carrier/internal/store"
@@ -36,23 +37,23 @@ func (a *app) statsCmd() *cobra.Command {
 
 func printStats(cmd *cobra.Command, stats *store.Stats) {
 	out := cmd.OutOrStdout()
-	c := helpColors{enabled: shouldColor(out)}
-	printStatsLine(out, c, "Runs", fmt.Sprintf("%d", stats.TotalRuns), "")
-	printStatsLine(out, c, "Completed", fmt.Sprintf("%d", stats.CompletedRuns), "")
-	printStatsLine(out, c, "Success", fmt.Sprintf("%d", stats.SuccessfulRuns), colorGreen)
-	printStatsLine(out, c, "Failed", fmt.Sprintf("%d", stats.FailedRuns), nonZeroColor(stats.FailedRuns, colorRed))
-	printStatsLine(out, c, "Running", fmt.Sprintf("%d", stats.RunningRuns), nonZeroColor(stats.RunningRuns, colorYellow))
-	printStatsLine(out, c, "Runs/day", fmt.Sprintf("%.2f", runsPerDay(stats)), colorCyan)
-	printStatsLine(out, c, "Failure", fmt.Sprintf("%.1f%%", failureRate(stats)), failureColor(stats))
-	printStatsLine(out, c, "Avg duration", paddedDuration(stats.AvgDurationMS), colorCyan)
+	t := newTheme(out)
+	printStatsLine(out, t, "Runs", fmt.Sprintf("%d", stats.TotalRuns), t.Bold)
+	printStatsLine(out, t, "Completed", fmt.Sprintf("%d", stats.CompletedRuns), t.Bold)
+	printStatsLine(out, t, "Success", fmt.Sprintf("%d", stats.SuccessfulRuns), t.Success)
+	printStatsLine(out, t, "Failed", fmt.Sprintf("%d", stats.FailedRuns), nonZeroStyle(t, stats.FailedRuns, t.Danger))
+	printStatsLine(out, t, "Running", fmt.Sprintf("%d", stats.RunningRuns), nonZeroStyle(t, stats.RunningRuns, t.Warning))
+	printStatsLine(out, t, "Runs/day", fmt.Sprintf("%.2f", runsPerDay(stats)), t.Bold)
+	printStatsLine(out, t, "Failure", fmt.Sprintf("%.1f%%", failureRate(stats)), failureStyle(t, stats))
+	printStatsLine(out, t, "Avg duration", paddedDuration(stats.AvgDurationMS), t.Muted)
 	if stats.FirstStartedAt != nil {
-		printStatsLine(out, c, "First run", formatTime(*stats.FirstStartedAt), colorGray)
+		printStatsLine(out, t, "First run", formatTime(*stats.FirstStartedAt), t.Muted)
 	}
 	if stats.LastStartedAt != nil {
-		printStatsLine(out, c, "Last run", formatTime(*stats.LastStartedAt), colorGray)
+		printStatsLine(out, t, "Last run", formatTime(*stats.LastStartedAt), t.Muted)
 	}
 	_, _ = fmt.Fprintln(out)
-	_, _ = fmt.Fprintln(out, c.paint(colorBold, "Slowest:"))
+	_, _ = fmt.Fprintln(out, t.Bold.Render("Slowest:"))
 	if len(stats.SlowestRuns) == 0 {
 		_, _ = fmt.Fprintln(out, "  none")
 		return
@@ -69,37 +70,34 @@ func printStats(cmd *cobra.Command, stats *store.Stats) {
 			DurationMS: &run.DurationMS,
 		}
 		_, _ = fmt.Fprintf(
-			out, "  %d  %s  %s  %s  %s\n",
-			run.ID,
-			c.paint(colorCyan, formatDuration(&run.DurationMS)),
-			c.paint(statusColor(run.Status), run.Status),
-			displayCommand(storeRun),
-			c.paint(colorGray, run.CWD),
+			out, "  %s  %s  %s  %s  %s\n",
+			t.ID.Render(fmt.Sprintf("%d", run.ID)),
+			t.Muted.Render(formatDuration(&run.DurationMS)),
+			t.statusStyle(run.Status).Render(run.Status),
+			t.Command.Render(displayCommand(storeRun)),
+			t.Muted.Render(run.CWD),
 		)
 	}
 }
 
 const statsLabelWidth = 13
 
-func printStatsLine(out io.Writer, c helpColors, label, value, valueColor string) {
-	if valueColor != "" {
-		value = c.paint(valueColor, value)
-	}
-	_, _ = fmt.Fprintf(out, "%s%s\n", c.paint(colorBold, padRight(label+":", statsLabelWidth)), value)
+func printStatsLine(out io.Writer, t theme, label, value string, style lipgloss.Style) {
+	_, _ = fmt.Fprintf(out, "%s%s\n", t.Bold.Render(padRight(label+":", statsLabelWidth)), style.Render(value))
 }
 
-func nonZeroColor(count int64, color string) string {
+func nonZeroStyle(t theme, count int64, active lipgloss.Style) lipgloss.Style {
 	if count == 0 {
-		return ""
+		return t.Muted
 	}
-	return color
+	return active
 }
 
-func failureColor(stats *store.Stats) string {
+func failureStyle(t theme, stats *store.Stats) lipgloss.Style {
 	if stats.FailedRuns == 0 {
-		return colorGreen
+		return t.Success
 	}
-	return colorRed
+	return t.Danger
 }
 
 func runsPerDay(stats *store.Stats) float64 {

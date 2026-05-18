@@ -62,7 +62,7 @@ func (a *app) sessionListCmd() *cobra.Command {
 				return err
 			}
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
+			t := newTheme(out)
 			for _, sess := range sessions {
 				label := sess.Label
 				if label == "" {
@@ -70,15 +70,15 @@ func (a *app) sessionListCmd() *cobra.Command {
 				}
 				duration := ""
 				if sess.EndedAt != nil {
-					duration = " " + c.paint(colorGray, formatSessionDuration(sess.EndedAt.Sub(sess.StartedAt)))
+					duration = " " + t.Muted.Render(formatSessionDuration(sess.EndedAt.Sub(sess.StartedAt)))
 				} else {
-					duration = " " + c.paint(colorGreen, "active")
+					duration = " " + t.Success.Render("active")
 				}
 				_, _ = fmt.Fprintf(
 					out, "%s  %s  %s%s\n",
-					c.paint(colorCyan, fmt.Sprintf("%6d", sess.ID)),
-					c.paint(colorGray, formatTime(sess.StartedAt)),
-					c.paint(colorMagenta, label),
+					t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
+					t.Muted.Render(formatTime(sess.StartedAt)),
+					t.Label.Render(label),
 					duration,
 				)
 			}

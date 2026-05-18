@@ -23,7 +23,7 @@ func (a *app) cleanCmd() *cobra.Command {
 				return fmt.Errorf("at least one of --older-than or --keep-last is required")
 			}
 			out := cmd.OutOrStdout()
-			c := outputColors(out)
+			t := newTheme(out)
 
 			if dryRun {
 				runs, err := a.previewClean(olderThan, keepLast)
@@ -33,13 +33,13 @@ func (a *app) cleanCmd() *cobra.Command {
 				for _, r := range runs {
 					_, _ = fmt.Fprintf(
 						out, "%s  %s  %s  %s\n",
-						c.paint(colorCyan, fmt.Sprintf("%d", r.ID)),
-						c.paint(statusColor(r.Status), r.Status),
-						c.paint(colorGreen, displayCommand(&r)),
-						c.paint(colorGray, r.CWD),
+						t.ID.Render(fmt.Sprintf("%d", r.ID)),
+						t.statusStyle(r.Status).Render(r.Status),
+						t.Command.Render(displayCommand(&r)),
+						t.Muted.Render(r.CWD),
 					)
 				}
-				_, _ = fmt.Fprintf(out, "%s %s %s\n", c.paint(colorYellow, "would delete"), c.paint(colorCyan, fmt.Sprintf("%d", len(runs))), "runs")
+				_, _ = fmt.Fprintf(out, "%s %s %s\n", t.Warning.Render("would delete"), t.ID.Render(fmt.Sprintf("%d", len(runs))), "runs")
 				return nil
 			}
 			if !yes {
@@ -54,7 +54,7 @@ func (a *app) cleanCmd() *cobra.Command {
 				removeIfSet(r.StderrPath)
 				removeIfSet(r.TerminalOutputPath)
 			}
-			_, _ = fmt.Fprintf(out, "%s %s %s\n", c.paint(colorRed, "deleted"), c.paint(colorCyan, fmt.Sprintf("%d", len(runs))), "runs")
+			_, _ = fmt.Fprintf(out, "%s %s %s\n", t.Danger.Render("deleted"), t.ID.Render(fmt.Sprintf("%d", len(runs))), "runs")
 			return nil
 		},
 	}
