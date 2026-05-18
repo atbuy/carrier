@@ -29,7 +29,7 @@ func (a *app) shellCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sessionID)
+			runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sessionID, strings.TrimSpace(label))
 			_ = a.st.EndSession(sessionID, time.Now())
 			return runErr
 		},

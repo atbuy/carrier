@@ -17,7 +17,7 @@ import (
 	"github.com/atbuy/carrier/internal/logs"
 )
 
-func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64) error {
+func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64, label string) error {
 	warnShellAlphaOnce(cfg.Storage.DataDir)
 	program := cfg.Shell.Program
 	if program == "" {
@@ -33,7 +33,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 	statePath := filepath.Join(os.TempDir(), "carrier-shell-"+strconvPID()+".json")
 	initState, _ := json.Marshal(State{SessionID: sessionID})
 	_ = os.WriteFile(statePath, initState, 0o600)
-	hookDir, err := WriteHookDir(carrierPath, statePath, program)
+	hookDir, err := WriteHookDir(carrierPath, statePath, program, sessionID, label)
 	if err != nil {
 		return err
 	}
@@ -53,6 +53,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 		"ZDOTDIR="+hookDir,
 		"CARRIER_SHELL_STATE="+statePath,
 		fmt.Sprintf("CARRIER_SESSION_ID=%d", sessionID),
+		"CARRIER_SESSION_LABEL="+label,
 		boolEnv("CARRIER_NOTIFY", notify),
 		boolEnv("CARRIER_NOTIFY_ALWAYS", notifyAlways),
 		boolEnv("CARRIER_NO_REDACT", noRedact),
@@ -99,10 +100,14 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 
 func shellArgs(program, hookDir string) []string {
 	name := filepath.Base(program)
-	if strings.Contains(name, "bash") {
+	switch {
+	case strings.Contains(name, "bash"):
 		return []string{"--rcfile", filepath.Join(hookDir, ".bashrc"), "-i"}
+	case strings.Contains(name, "fish"):
+		return []string{"--init-command", "source " + filepath.Join(hookDir, "carrier.fish")}
+	default:
+		return []string{"-i"}
 	}
-	return []string{"-i"}
 }
 
 func warnShellAlphaOnce(dataDir string) {
