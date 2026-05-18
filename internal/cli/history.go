@@ -2,12 +2,20 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/atbuy/carrier/internal/store"
 )
+
+type historyItem struct {
+	isSession bool
+	session   store.Session
+	runs      []store.Run // session children, desc order
+	run       store.Run   // standalone run
+}
 
 func (a *app) historyCmd() *cobra.Command {
 	var (
@@ -53,22 +61,83 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				}
 				return writeJSON(cmd, views)
 			}
+
+			// Batch-fetch sessions for all session_ids in the result set.
+			sessIDSet := map[int64]bool{}
+			for _, r := range runs {
+				if r.SessionID != nil {
+					sessIDSet[*r.SessionID] = true
+				}
+			}
+			sessIDs := make([]int64, 0, len(sessIDSet))
+			for id := range sessIDSet {
+				sessIDs = append(sessIDs, id)
+			}
+			sessions, err := a.st.GetSessionsByIDs(sessIDs)
+			if err != nil {
+				return err
+			}
+
+			// Build ordered items. Session runs are bucketed under their session
+			// header at the position of the first (newest) run seen for that session.
+			var items []historyItem
+			sessItemIdx := map[int64]int{}
+
+			for _, r := range runs {
+				r := r
+				if r.SessionID == nil {
+					items = append(items, historyItem{run: r})
+				} else {
+					sessID := *r.SessionID
+					if idx, ok := sessItemIdx[sessID]; ok {
+						items[idx].runs = append(items[idx].runs, r)
+					} else {
+						sess := sessions[sessID]
+						idx = len(items)
+						sessItemIdx[sessID] = idx
+						items = append(items, historyItem{
+							isSession: true,
+							session:   sess,
+							runs:      []store.Run{r},
+						})
+					}
+				}
+			}
+
 			out := cmd.OutOrStdout()
 			c := outputColors(out)
-			for _, r := range runs {
-				labelSuffix := ""
-				if r.Label != "" {
-					labelSuffix = "  " + c.paint(colorMagenta, r.Label)
+
+			for _, item := range items {
+				if !item.isSession {
+					printRunLine(out, c, &item.run, "")
+					continue
 				}
-				_, _ = fmt.Fprintf(
-					out, "%s  %s  %s  %s  %s%s\n",
-					c.paint(colorCyan, fmt.Sprintf("%6d", r.ID)),
-					c.paint(statusColor(r.Status), padRight(r.Status, 7)),
-					c.paint(colorGray, formatTime(r.StartedAt)),
-					c.paint(colorGreen, displayCommand(&r)),
-					c.paint(colorGray, r.CWD),
-					labelSuffix,
+				sess := item.session
+				sessLabel := sess.Label
+				if sessLabel == "" {
+					sessLabel = "(unlabeled)"
+				}
+				sessStatus := "ended"
+				sessStatusColor := colorGray
+				if sess.EndedAt == nil {
+					sessStatus = "active"
+					sessStatusColor = colorGreen
+				}
+				_, _ = fmt.Fprintf(out, "%s %s %s  %s  %s\n",
+					c.paint(colorYellow, fmt.Sprintf("%6d", sess.ID)),
+					c.paint(colorYellow, "┬──"),
+					c.paint(sessStatusColor, padRight(sessStatus, 7)),
+					c.paint(colorGray, formatTime(sess.StartedAt)),
+					c.paint(colorMagenta, sessLabel),
 				)
+				for i, r := range item.runs {
+					r := r
+					connector := "├──"
+					if i == len(item.runs)-1 {
+						connector = "└──"
+					}
+					printRunLine(out, c, &r, connector)
+				}
 			}
 			return nil
 		},
@@ -83,4 +152,27 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVar(&label, "label", "", "filter by label (substring match)")
 	cmd.Flags().Int64Var(&sessionID, "session", 0, "filter by shell session ID")
 	return cmd
+}
+
+// printRunLine renders one run. connector is one of "├──", "└──", or "" (standalone).
+// All three render to the same display width so status/time/command columns stay aligned.
+func printRunLine(out io.Writer, c helpColors, r *store.Run, connector string) {
+	labelSuffix := ""
+	if r.Label != "" {
+		labelSuffix = "  " + c.paint(colorMagenta, r.Label)
+	}
+	conn := "   " // 3 spaces — same display width as ├── / └──
+	if connector != "" {
+		conn = c.paint(colorYellow, connector)
+	}
+	_, _ = fmt.Fprintf(
+		out, "%s %s %s  %s  %s  %s%s\n",
+		c.paint(colorCyan, fmt.Sprintf("%6d", r.ID)),
+		conn,
+		c.paint(statusColor(r.Status), padRight(r.Status, 7)),
+		c.paint(colorGray, formatTime(r.StartedAt)),
+		c.paint(colorGreen, displayCommand(r)),
+		c.paint(colorGray, r.CWD),
+		labelSuffix,
+	)
 }
