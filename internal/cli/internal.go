@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/gitmeta"
 	"github.com/atbuy/carrier/internal/logs"
 	"github.com/atbuy/carrier/internal/notify"
@@ -43,12 +44,18 @@ func (a *app) internalBeginCmd() *cobra.Command {
 				v := state.SessionID
 				sessionID = &v
 			}
+			var envID *int64
+			if envJSON := captureEnvCLI(a.cfg); envJSON != "" {
+				if eid, err := a.st.InsertOrGetEnvironment(envJSON); err == nil {
+					envID = &eid
+				}
+			}
 			id, err := a.st.CreateRun(store.CreateRun{
 				Status: store.StatusRunning, Mode: store.ModeShell, Command: command, ArgvJSON: string(argvJSON),
 				CWD: cwd, StartedAt: started, Hostname: host, Shell: os.Getenv("SHELL"),
 				GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
 				NotifyRequested: os.Getenv("CARRIER_NOTIFY") == "1", NotifyAlways: os.Getenv("CARRIER_NOTIFY_ALWAYS") == "1",
-				SessionID: sessionID,
+				SessionID: sessionID, EnvID: envID,
 			})
 			if err != nil {
 				return err
@@ -97,6 +104,27 @@ func (a *app) internalEndCmd() *cobra.Command {
 	cmd.Flags().StringVar(&statePath, "state", "", "state file")
 	cmd.Flags().IntVar(&exitCode, "exit", 0, "exit code")
 	return cmd
+}
+
+func captureEnvCLI(cfg config.Config) string {
+	if !cfg.Storage.CaptureEnv {
+		return ""
+	}
+	// Always redact env values with builtin + custom patterns regardless of
+	// cfg.Redaction.Enabled — that flag governs stdout/stderr, not DB storage.
+	allPatterns := append(logs.BuiltinPatterns(), cfg.Redaction.Patterns...)
+	redactor := logs.NewRedactor(true, allPatterns)
+	raw := os.Environ()
+	m := make(map[string]string, len(raw))
+	for _, kv := range raw {
+		k, v, _ := strings.Cut(kv, "=")
+		m[k] = string(redactor.Redact([]byte(v)))
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 func shouldIgnore(cmd string, ignore []string) bool {

@@ -48,12 +48,18 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	shell := os.Getenv("SHELL")
 	argvJSON, _ := json.Marshal(opts.Argv)
 	git := gitmeta.Collect(opts.CWD)
-	envJSON := captureEnv(cfg)
+	var envID *int64
+	if envJSON := captureEnv(cfg); envJSON != "" {
+		eid, err := st.InsertOrGetEnvironment(envJSON)
+		if err == nil {
+			envID = &eid
+		}
+	}
 	id, err := st.CreateRun(store.CreateRun{
 		Status: store.StatusRunning, Mode: opts.Mode, Command: command.Display(opts.Argv),
 		ArgvJSON: string(argvJSON), CWD: opts.CWD, StartedAt: started, Hostname: host, Shell: shell,
 		GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
-		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways, EnvJSON: envJSON,
+		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways, EnvID: envID,
 	})
 	if err != nil {
 		return 1, err
@@ -166,18 +172,22 @@ func startError(name string, err error) error {
 	return fmt.Errorf("start command %s: %w", command.Quote(name), err)
 }
 
-// captureEnv serialises os.Environ() as a raw JSON object.
-// Redaction is applied at display time so --no-redact on show can bypass it.
+// captureEnv serialises os.Environ() as a JSON object with values redacted.
+// Redaction is applied before storage so secrets never reach disk.
 // Returns "" when capture is disabled.
 func captureEnv(cfg config.Config) string {
 	if !cfg.Storage.CaptureEnv {
 		return ""
 	}
+	// Always redact env values with builtin + custom patterns regardless of
+	// cfg.Redaction.Enabled — that flag governs stdout/stderr, not DB storage.
+	allPatterns := append(logs.BuiltinPatterns(), cfg.Redaction.Patterns...)
+	redactor := logs.NewRedactor(true, allPatterns)
 	raw := os.Environ()
 	m := make(map[string]string, len(raw))
 	for _, kv := range raw {
 		k, v, _ := strings.Cut(kv, "=")
-		m[k] = v
+		m[k] = string(redactor.Redact([]byte(v)))
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
