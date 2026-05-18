@@ -56,6 +56,33 @@ Shell mode needs PTY recording and shell hooks. Prompt plugins, aliases, tmux, s
 
 Use `carrier run` for important records.
 
+## What is a shell session?
+
+When you run `carrier shell` or `carrier attach`, carrier creates a session record. Every command detected during that shell is linked to the session. Sessions appear as tree headers in `carrier history`, grouping their runs together.
+
+Label a session to find it later:
+
+```bash
+carrier shell 'incident-123'
+carrier history --session incident-123
+```
+
+## What is the difference between `shell` and `attach`?
+
+`carrier shell` creates a new session.
+
+`carrier attach <id-or-label>` re-opens an existing session. Runs recorded in the attached shell are added to the same session, so they appear together in history.
+
+## Can I continue a session from a different terminal?
+
+Yes, use `carrier attach`:
+
+```bash
+carrier attach incident-123
+```
+
+This is useful if you disconnected, moved to a different window, or want to continue labeled work from another session.
+
 ## When should I use `watch`?
 
 Use `carrier watch` for local feedback loops, such as rerunning tests on file changes.

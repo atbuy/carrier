@@ -54,15 +54,22 @@ Disable capture:
 capture_env = false
 ```
 
-## Internal shell-mode variables
+## Shell-mode variables
 
-`carrier shell` uses internal environment variables to coordinate generated shell hooks and child `carrier internal ...` commands:
+`carrier shell` and `carrier attach` set these variables in the child shell environment:
 
-| Variable                 | Purpose                                               |
-| ------------------------ | ----------------------------------------------------- |
-| `CARRIER_SHELL_STATE`    | Path to temporary shell state JSON.                   |
-| `CARRIER_NOTIFY`         | Passes notification request into shell hook runs.     |
-| `CARRIER_NOTIFY_ALWAYS`  | Passes always-notify request into shell hook runs.    |
-| `CARRIER_NO_REDACT`      | Passes redaction override into shell hook runs.       |
+| Variable                | Purpose                                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `CARRIER_SESSION_ID`    | Integer ID of the current shell session. Used by `carrier session label` to identify the current session. |
+| `CARRIER_SHELL_STATE`   | Path to temporary shell state JSON.                                                          |
+| `CARRIER_NOTIFY`        | Passes notification request into shell hook runs.                                            |
+| `CARRIER_NOTIFY_ALWAYS` | Passes always-notify request into shell hook runs.                                           |
+| `CARRIER_NO_REDACT`     | Passes redaction override into shell hook runs.                                              |
 
-These variables are implementation details. Do not set them manually unless you are debugging shell mode internals.
+`CARRIER_SESSION_ID` is the only variable intended for direct use. When running inside a tracked shell, omit the session ID argument to `carrier session label` and it will read from this variable:
+
+```bash title="Label current session from inside the shell"
+carrier session label backend-debug
+```
+
+The remaining variables are implementation details. Do not set them manually unless you are debugging shell mode internals.

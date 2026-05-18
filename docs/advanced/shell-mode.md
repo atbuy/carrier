@@ -2,7 +2,7 @@
 
 `carrier shell` is alpha-quality.
 
-It starts your shell inside a PTY and injects shell hooks so `carrier` can detect command start and end.
+It starts your shell inside a PTY and injects shell hooks so `carrier` can detect command start and end. Each detected command becomes a run grouped under the current session.
 
 ```bash title="Start shell mode"
 carrier shell
@@ -16,7 +16,7 @@ carrier shell
 
 Use shell mode when:
 
-- you want to try multi-command tracking
+- you want multi-command tracking under a single session
 - commands are interactive
 - stdout/stderr separation is not important
 - convenience matters more than precision
@@ -56,6 +56,84 @@ For bash, `carrier` starts bash with a generated `--rcfile`; support is best-eff
 
 `carrier` guards its hook internals so internal `carrier internal ...` commands and `_carrier_*` helper functions are not recorded as user commands.
 
+## Sessions
+
+Every `carrier shell` invocation creates a shell session. All runs recorded during that shell are linked to the session.
+
+### Label a session at start
+
+Pass a label as a positional argument or with `--label`:
+
+```bash title="Named session"
+carrier shell 'backend-debug'
+carrier shell --label backend-debug
+```
+
+### View sessions
+
+```bash title="List sessions"
+carrier session list
+```
+
+Output includes session ID, start time, label, and duration:
+
+```text
+     5  2026-05-18 12:01  backend-debug  42m15s
+     3  2026-05-17 09:30  (unlabeled)    1h02m33s
+```
+
+### Label a session after starting
+
+From inside the tracked shell, `$CARRIER_SESSION_ID` is set automatically. Omit the ID argument to target the current session:
+
+```bash title="Label current session"
+carrier session label backend-debug
+carrier session label               # clear the label
+```
+
+From outside, pass the session ID explicitly:
+
+```bash title="Label a session by ID"
+carrier session label 5 backend-debug
+```
+
+Labeling a run with `carrier label` also propagates the label to the run's session automatically.
+
+### Grouped history
+
+`carrier history` shows session runs as a tree:
+
+```text
+   5  ┬──  2026-05-18 12:01  session: backend-debug
+   3  ├──  failed   1.2s  make test
+   2  └──  success  0.4s  go vet ./...
+   1       failed   2.1s  make lint
+```
+
+Filter to one session:
+
+```bash title="Filter history by session"
+carrier history --session 5
+carrier history --session backend-debug
+```
+
+Show only session headers:
+
+```bash title="Sessions only"
+carrier history --sessions-only
+```
+
+## Attaching to an existing session
+
+`carrier attach` re-opens a session and starts a new PTY shell that records into it:
+
+```bash title="Attach by ID or label"
+carrier attach 5
+carrier attach backend-debug
+```
+
+This is useful when you want to continue a labeled debugging session from a different terminal, or after a disconnect. Runs recorded during the attached shell appear under the same session in history.
+
 ## What gets recorded
 
 Shell mode creates one run per detected command. Shell runs use:
@@ -66,6 +144,7 @@ Shell mode creates one run per detected command. Shell runs use:
 - cwd
 - Git metadata
 - terminal output log path
+- session ID
 
 Unlike `carrier run`, shell mode stores terminal output instead of separate stdout and stderr logs.
 
@@ -99,7 +178,7 @@ carrier tail 42 --stream terminal
 
 ## Ignore noisy commands
 
-Configure commands that shell mode should ignore:
+Configure commands that shell mode should not track:
 
 ```toml title="Config"
 [shell]
@@ -126,4 +205,4 @@ program = "/bin/zsh"
 
 ## Current recommendation
 
-Use `carrier run` for important records. Treat `carrier shell` as an experimental convenience layer.
+Use `carrier run` for important records. Treat `carrier shell` as an experimental convenience layer. When a session matters, label it at start and use `carrier attach` to return to it.

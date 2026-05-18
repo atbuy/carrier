@@ -33,7 +33,11 @@ c show 1
 - output logs are stored in `~/.local/share/carrier/runs/`.
 - optional notifications use `notify-send` on Linux.
 - human-readable output is colorized on TTYs; use `NO_COLOR=1` to disable or `CARRIER_COLOR=always` to force.
-- `carrier shell` starts a PTY-backed tracked shell session. This mode is alpha-quality and best-effort for zsh/bash.
+- `carrier shell` starts a PTY-backed tracked shell session (alpha). Each shell session groups its runs in `carrier history
+carrier history --session my-session
+carrier history --sessions-only`. Label sessions with `carrier shell 'label'` or `carrier shell --label label`.
+- `carrier attach <id-or-label>` re-opens an existing shell session from a different terminal.
+- `carrier session list` lists shell sessions; `carrier session label` sets or clears a session label.
 
 ## Install
 
@@ -118,7 +122,11 @@ Add it to your shell config, for example `~/.zshrc` or `~/.bashrc`.
 carrier run go test ./...
 carrier -n run docker compose build
 carrier -N run ls
-carrier shell # alpha
+carrier shell                      # alpha: start tracked shell session
+carrier shell 'my-session'         # alpha: start named session
+carrier attach my-session          # alpha: re-join existing session
+carrier session list               # list sessions
+carrier session label 5 my-label   # label a session
 carrier last
 carrier last --json
 carrier show 42

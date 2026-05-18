@@ -146,8 +146,31 @@ Actually delete:
 c clean --older-than 30d --yes
 ```
 
+## Shell sessions (alpha)
+
+`carrier shell` starts a tracked shell where every command is recorded automatically and grouped under a session. Label it so you can find it later:
+
+```bash title="Start a named session"
+c shell 'my-debug-session'
+```
+
+Inside the shell, run commands normally. Exit when done. Then review:
+
+```bash title="Review session history"
+c history --session my-debug-session
+```
+
+Use `carrier attach` to re-open a session from a different terminal:
+
+```bash title="Re-join a session"
+c attach my-debug-session
+```
+
+Shell mode is alpha and best-effort for zsh/bash. See [Shell mode](../advanced/shell-mode.md) for details.
+
 ## Next steps
 
 - Read [First run tutorial](first-run.md) for a realistic build/test example.
 - Read [Commands](../guide/commands.md) for full command coverage.
+- Read [Shell mode](../advanced/shell-mode.md) to learn about sessions and `carrier attach`.
 - Read [Configuration reference](../reference/configuration.md) before changing storage, redaction, or notifications.

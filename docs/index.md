@@ -34,7 +34,7 @@ It is designed for normal terminal work: local projects, long-running build/test
 - Learn every command and flag: [Commands](guide/commands.md)
 - Build daily workflows with history, labels, export, rerun, and search: [Workflows](guide/workflows.md)
 - Script against JSON output and log paths: [Power-user workflows](advanced/power-user-workflows.md)
-- Understand alpha shell mode: [Shell mode](advanced/shell-mode.md)
+- Understand alpha shell mode, sessions, and `carrier attach`: [Shell mode](advanced/shell-mode.md)
 - Configure storage, redaction, notifications, and shell behavior: [Configuration reference](reference/configuration.md)
 - Check environment variables: [Environment variables](reference/environment.md)
 - Understand SQLite and log files: [Storage and state](reference/storage-and-state.md)
@@ -49,6 +49,8 @@ It is designed for normal terminal work: local projects, long-running build/test
 - original argv is stored separately from the display string, so `rerun` does not parse shell-looking text
 - logs stay local on disk and are redacted before persistence by default
 - optional notifications help with slow builds without making every command noisy
+- shell sessions group related commands under a named label, visible as a tree in `carrier history`
+- `carrier attach` re-opens a labeled session from any terminal
 
 ## Core concepts
 

@@ -1,6 +1,6 @@
 # Commands
 
-This page documents everyday `carrier` commands and the flags users usually need.
+This page documents every `carrier` command and the flags users usually need.
 
 Human-readable output is colorized on TTYs. Set `NO_COLOR=1` to disable colors or `CARRIER_COLOR=always` to force colors in non-TTY output.
 
@@ -10,7 +10,7 @@ Human-readable output is colorized on TTYs. Set `NO_COLOR=1` to disable colors o
 
 ## Global flags
 
-These flags can be used with commands that execute or inspect runs.
+These flags apply to any command that runs or inspects commands.
 
 | Flag                    | Meaning                                                                       |
 | ----------------------- | ----------------------------------------------------------------------------- |
@@ -42,13 +42,13 @@ carrier run bash -c 'make clean && make'
 
 Useful flags:
 
-| Flag                           | Meaning                                                               |
-| ------------------------------ | --------------------------------------------------------------------- |
-| `-t`, `--timeout <duration>`   | Interrupt the child after the duration, then kill if it does not exit. |
-| `-n`, `--notify`               | Notify only when command duration meets `notify.min_duration`.        |
-| `-N`, `--notify-always`        | Always notify.                                                        |
-| `-q`, `--quiet`                | Hide `carrier: run <id>` status output.                               |
-| `--no-redact`                  | Persist logs without redaction for this run.                          |
+| Flag                         | Meaning                                                               |
+| ---------------------------- | --------------------------------------------------------------------- |
+| `-t`, `--timeout <duration>` | Interrupt child after the duration, then kill if it does not exit.    |
+| `-n`, `--notify`             | Notify only when command duration meets `notify.min_duration`.        |
+| `-N`, `--notify-always`      | Always notify.                                                        |
+| `-q`, `--quiet`              | Hide `carrier: run <id>` status output.                               |
+| `--no-redact`                | Persist logs without redaction for this run.                          |
 
 Behavior:
 
@@ -89,7 +89,31 @@ carrier history --label deploy
 carrier history --json
 ```
 
-Use it with `fzf`:
+### Session grouping
+
+When runs belong to shell sessions, `history` displays them as a tree with session headers:
+
+```text
+   5  ┬──  2026-05-18 12:01  session: backend-debug
+   3  ├──  failed   1.2s  make test
+   2  └──  success  0.4s  go vet ./...
+   1       failed   2.1s  make lint
+```
+
+Filter to a specific session by ID or label:
+
+```bash title="Filter by session"
+carrier history --session 5
+carrier history --session backend-debug
+```
+
+Show only session headers, no individual runs:
+
+```bash title="Sessions only"
+carrier history --sessions-only
+```
+
+Use with `fzf`:
 
 ```bash title="Pick a run and rerun it"
 carrier history | fzf | awk '{print $1}' | xargs carrier rerun
@@ -229,6 +253,8 @@ Clear a label by omitting text:
 carrier label 42
 ```
 
+When a run belongs to a shell session, `label` also updates the session label. This keeps the history tree consistent: runs and their session share the same label.
+
 ## `watch`
 
 Re-run a command when files in the current directory change:
@@ -240,6 +266,69 @@ carrier watch --debounce 500ms go test ./...
 ```
 
 `watch` recursively watches the current directory and skips `.git`, `node_modules`, and `vendor`.
+
+## `shell`
+
+Start an alpha tracked shell session:
+
+```bash title="Shell mode"
+carrier shell
+```
+
+Attach a label at start with `--label` or a positional argument:
+
+```bash title="Labeled session"
+carrier shell --label backend-debug
+carrier shell 'backend-debug'
+```
+
+The label appears in `carrier history` session headers and in `carrier session list`.
+
+Use `carrier run` when precise stdout/stderr capture matters. See [Shell mode](../advanced/shell-mode.md).
+
+## `attach`
+
+Attach to an existing shell session by session ID or label:
+
+```bash title="Attach to a session"
+carrier attach 5
+carrier attach backend-debug
+```
+
+`attach` re-opens the session, starts a new PTY shell that records commands into it, then closes the session when you exit. Runs recorded during the attached shell appear grouped under the same session in `carrier history`.
+
+This is useful when you need to return to a named session after disconnecting, or when you want to continue work in a labeled debugging context from a different terminal.
+
+## `session`
+
+Manage shell session labels and history.
+
+### `session list`
+
+List sessions newest-first:
+
+```bash title="List sessions"
+carrier session list
+carrier session list --limit 20
+```
+
+Output includes session ID, start time, label, and duration (or `active` for open sessions).
+
+### `session label`
+
+Set or clear a session label:
+
+```bash title="Label a session"
+carrier session label 3 backend-debug
+carrier session label 3               # clear label
+```
+
+When inside a tracked shell (`carrier shell` or `carrier attach`), the session ID is available as `$CARRIER_SESSION_ID`. Omit the ID argument to target the current session:
+
+```bash title="Label current session from inside the shell"
+carrier session label backend-debug
+carrier session label               # clear current session label
+```
 
 ## `clean`
 
@@ -287,16 +376,6 @@ carrier config check
 carrier config init
 carrier config init --force
 ```
-
-## `shell`
-
-Start alpha tracked shell mode:
-
-```bash title="Shell mode"
-carrier shell
-```
-
-Use `carrier run` when precise stdout/stderr capture matters. See [Shell mode](../advanced/shell-mode.md).
 
 ## `version`
 

@@ -68,6 +68,44 @@ carrier shell
 
     Use `carrier run` for reliable stdout/stderr separation. Shell mode is a convenience layer around PTY output and shell hooks.
 
+## Shell session workflow
+
+Use a labeled session to group related exploratory work:
+
+```bash title="Start a named session"
+carrier shell 'incident-123'
+```
+
+Inside the shell, all commands are recorded under that session. Check the current session label anytime:
+
+```bash title="Check sessions"
+carrier session list
+```
+
+If you need to return to the session from a different terminal, use `attach`:
+
+```bash title="Re-join a session"
+carrier attach incident-123
+```
+
+Review the full session tree in history:
+
+```bash title="Review session history"
+carrier history --session incident-123
+```
+
+See only session headers across all history:
+
+```bash title="Overview of all sessions"
+carrier history --sessions-only
+```
+
+Label a session retroactively (from outside the shell):
+
+```bash title="Label by ID"
+carrier session label 5 incident-123
+```
+
 ## Failure report
 
 ```bash title="Create a report"
