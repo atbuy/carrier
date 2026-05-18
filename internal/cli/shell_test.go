@@ -33,8 +33,11 @@ func TestShellCmdRunsConfiguredProgram(t *testing.T) {
 
 	a := &app{cfg: cfg, st: st}
 	cmd := a.shellCmd()
-	if err := cmd.Args(cmd, []string{"extra"}); err == nil {
-		t.Fatal("expected no-args validation error")
+	if err := cmd.Args(cmd, []string{"label1", "label2"}); err == nil {
+		t.Fatal("expected max-one-arg validation error")
+	}
+	if err := cmd.Args(cmd, []string{"mylabel"}); err != nil {
+		t.Fatalf("expected one arg to be valid: %v", err)
 	}
 	if err := cmd.RunE(cmd, nil); err != nil {
 		t.Fatalf("shell command: %v", err)

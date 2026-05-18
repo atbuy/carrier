@@ -123,7 +123,8 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 					sessStatus = "active"
 					sessStatusColor = colorGreen
 				}
-				_, _ = fmt.Fprintf(out, "%s %s %s  %s  %s\n",
+				_, _ = fmt.Fprintf(
+					out, "%s %s %s  %s  %s\n",
 					c.paint(colorYellow, fmt.Sprintf("%6d", sess.ID)),
 					c.paint(colorYellow, "┬──"),
 					c.paint(sessStatusColor, padRight(sessStatus, 7)),
