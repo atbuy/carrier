@@ -499,7 +499,7 @@ func redactEnvJSON(envJSON string, redactor logs.Redactor) (string, error) {
 		return "", err
 	}
 	for k, v := range m {
-		m[k] = string(redactor.Redact([]byte(v)))
+		m[k] = logs.RedactEnvValue(k, v, redactor)
 	}
 	b, err := json.Marshal(m)
 	if err != nil {

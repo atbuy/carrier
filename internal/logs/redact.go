@@ -8,6 +8,26 @@ import (
 
 const redactionWindowBytes = 64 * 1024
 
+// SensitiveEnvKey reports whether an env var key name looks like it holds a secret.
+func SensitiveEnvKey(key string) bool {
+	return sensitiveEnvKey(key)
+}
+
+// RedactEnvValue redacts an env var value using both key-name heuristics and
+// the redactor's compiled patterns. Respects the redactor's enabled state.
+func RedactEnvValue(key, value string, r Redactor) string {
+	if !r.Enabled() {
+		return value
+	}
+	if SensitiveEnvKey(key) {
+		return "[REDACTED]"
+	}
+	if sensitiveEnvValue(key, value) {
+		return "[REDACTED]"
+	}
+	return string(r.Redact([]byte(value)))
+}
+
 type Redactor struct {
 	enabled  bool
 	patterns []*regexp.Regexp
@@ -23,6 +43,8 @@ func NewRedactor(enabled bool, patterns []string) Redactor {
 	}
 	return r
 }
+
+func (r Redactor) Enabled() bool { return r.enabled }
 
 func (r Redactor) Redact(b []byte) []byte {
 	if !r.enabled || len(r.patterns) == 0 {

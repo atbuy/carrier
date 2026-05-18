@@ -53,7 +53,8 @@ func (a *app) showCmd() *cobra.Command {
 				return err
 			}
 			if jsonOutput {
-				redactor := logs.NewRedactor(a.cfg.Redaction.Enabled && !a.noRedact, a.cfg.Redaction.Patterns)
+				allPatterns := append(logs.BuiltinPatterns(), a.cfg.Redaction.Patterns...)
+				redactor := logs.NewRedactor(!a.noRedact, allPatterns)
 				return writeJSON(cmd, runViewFromStoreOpts(r, true, redactor))
 			}
 			out := cmd.OutOrStdout()
@@ -67,27 +68,32 @@ func (a *app) showCmd() *cobra.Command {
 					_, _ = fmt.Fprintln(out, "\n"+t.Bold.Render("terminal"))
 				}
 				_, _ = fmt.Fprint(out, lastNLines(readText(r.TerminalOutputPath), lines))
-				return nil
-			}
-			if r.StdoutPath != "" && !onlyStderr {
-				if !streamOnly {
-					_, _ = fmt.Fprintln(out, "\n"+t.Success.Bold(true).Render("stdout"))
+			} else {
+				if r.StdoutPath != "" && !onlyStderr {
+					if !streamOnly {
+						_, _ = fmt.Fprintln(out, "\n"+t.Success.Bold(true).Render("stdout"))
+					}
+					_, _ = fmt.Fprint(out, lastNLines(readText(r.StdoutPath), lines))
 				}
-				_, _ = fmt.Fprint(out, lastNLines(readText(r.StdoutPath), lines))
-			}
-			if r.StderrPath != "" && !onlyStdout {
-				if !streamOnly {
-					_, _ = fmt.Fprintln(out, "\n"+t.Danger.Bold(true).Render("stderr"))
+				if r.StderrPath != "" && !onlyStdout {
+					if !streamOnly {
+						_, _ = fmt.Fprintln(out, "\n"+t.Danger.Bold(true).Render("stderr"))
+					}
+					_, _ = fmt.Fprint(out, lastNLines(readText(r.StderrPath), lines))
 				}
-				_, _ = fmt.Fprint(out, lastNLines(readText(r.StderrPath), lines))
 			}
-			if showEnv && r.EnvJSON != "" {
-				var env map[string]string
-				if err := json.Unmarshal([]byte(r.EnvJSON), &env); err == nil {
-					redactor := logs.NewRedactor(a.cfg.Redaction.Enabled && !a.noRedact, a.cfg.Redaction.Patterns)
-					_, _ = fmt.Fprintln(out, "\n"+t.Label.Bold(true).Render("env"))
-					for k, v := range env {
-						_, _ = fmt.Fprintf(out, "  %s=%s\n", t.Muted.Render(k), string(redactor.Redact([]byte(v))))
+			if showEnv {
+				if r.EnvJSON == "" {
+					_, _ = fmt.Fprintln(out, "\n"+t.Muted.Render("no environment captured for this run"))
+				} else {
+					var env map[string]string
+					if err := json.Unmarshal([]byte(r.EnvJSON), &env); err == nil {
+						allPatterns := append(logs.BuiltinPatterns(), a.cfg.Redaction.Patterns...)
+						redactor := logs.NewRedactor(!a.noRedact, allPatterns)
+						_, _ = fmt.Fprintln(out, "\n"+t.Label.Bold(true).Render("env"))
+						for k, v := range env {
+							_, _ = fmt.Fprintf(out, "  %s=%s\n", t.Muted.Render(k), logs.RedactEnvValue(k, v, redactor))
+						}
 					}
 				}
 			}
@@ -262,7 +268,7 @@ func runViewFromStoreOpts(r *store.Run, includeOutput bool, redactor logs.Redact
 			if err := json.Unmarshal([]byte(r.EnvJSON), &raw); err == nil {
 				env := make(map[string]string, len(raw))
 				for k, v := range raw {
-					env[k] = string(redactor.Redact([]byte(v)))
+					env[k] = logs.RedactEnvValue(k, v, redactor)
 				}
 				view.Env = env
 			}

@@ -187,7 +187,7 @@ func captureEnv(cfg config.Config) string {
 	m := make(map[string]string, len(raw))
 	for _, kv := range raw {
 		k, v, _ := strings.Cut(kv, "=")
-		m[k] = string(redactor.Redact([]byte(v)))
+		m[k] = logs.RedactEnvValue(k, v, redactor)
 	}
 	b, err := json.Marshal(m)
 	if err != nil {

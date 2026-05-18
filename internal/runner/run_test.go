@@ -338,7 +338,7 @@ func TestCaptureEnvEnabled(t *testing.T) {
 	cfg.Storage.CaptureEnv = true
 
 	// Set a known env var so we can verify it appears in the output.
-	key := "CARRIER_TEST_CAPTUREENV_KEY"
+	key := "CARRIER_TEST_CAPTUREENV_VALUE"
 	val := "carrier_test_value_123"
 	t.Setenv(key, val)
 

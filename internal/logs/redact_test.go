@@ -161,3 +161,61 @@ func TestRedactingWriterRedactsMultilinePrivateKey(t *testing.T) {
 		t.Fatalf("private key redaction mismatch: %q", got)
 	}
 }
+
+func TestSensitiveEnvKeyKnownSecretNames(t *testing.T) {
+	tests := []string{
+		"DB_PASS",
+		"MONGO_PASSWORD",
+		"STRIPE_SK",
+		"SENDGRID_KEY",
+		"GH_TOKEN",
+		"NPM_TOKEN",
+		"HEROKU_API_KEY",
+		"TWILIO_AUTH_TOKEN",
+		"VAULT_TOKEN",
+		"PG_PASSWORD",
+		"AWS_SECRET_ACCESS_KEY",
+	}
+	for _, tt := range tests {
+		if !SensitiveEnvKey(tt) {
+			t.Fatalf("SensitiveEnvKey(%q) = false, want true", tt)
+		}
+	}
+}
+
+func TestSensitiveEnvKeyAvoidsBenignKeySubstrings(t *testing.T) {
+	for _, tt := range []string{"MONKEY", "KEYBOARD_LAYOUT", "PUBLIC_URL", "HOME"} {
+		if SensitiveEnvKey(tt) {
+			t.Fatalf("SensitiveEnvKey(%q) = true, want false", tt)
+		}
+	}
+}
+
+func TestRedactEnvValueConnectionStringsAndEntropy(t *testing.T) {
+	redactor := NewRedactor(true, nil)
+
+	tests := []struct {
+		key   string
+		value string
+		want  string
+	}{
+		{key: "CACHE_URL", value: "redis://user:pass@localhost:6379/0", want: "[REDACTED]"},
+		{key: "PUBLIC_URL", value: "https://example.com/app", want: "https://example.com/app"},
+		{key: "PATH", value: "/usr/local/bin:/usr/bin:/bin", want: "/usr/local/bin:/usr/bin:/bin"},
+		{key: "SESSION_ID", value: "mF9xQ2pL8zR4vT7nB6cD3eH1jK5w", want: "[REDACTED]"},
+	}
+
+	for _, tt := range tests {
+		if got := RedactEnvValue(tt.key, tt.value, redactor); got != tt.want {
+			t.Fatalf("RedactEnvValue(%q, %q) = %q, want %q", tt.key, tt.value, got, tt.want)
+		}
+	}
+}
+
+func TestRedactEnvValueDisabledSkipsKeyAndEntropyHeuristics(t *testing.T) {
+	redactor := NewRedactor(false, []string{`secret`})
+	got := RedactEnvValue("TOKEN", "secret", redactor)
+	if got != "secret" {
+		t.Fatalf("disabled RedactEnvValue = %q, want original value", got)
+	}
+}
