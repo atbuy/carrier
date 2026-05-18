@@ -15,9 +15,10 @@ func (a *app) statsCmd() *cobra.Command {
 	var jsonOutput bool
 	var slowestLimit int
 	cmd := &cobra.Command{
-		Use:   "stats",
-		Short: "show run totals and slow commands",
-		Args:  cobra.NoArgs,
+		Use:     "stats",
+		Aliases: []string{"st"},
+		Short:   "show run totals and slow commands",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			stats, err := a.st.Stats(slowestLimit)
 			if err != nil {

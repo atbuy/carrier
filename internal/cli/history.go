@@ -31,8 +31,9 @@ func (a *app) historyCmd() *cobra.Command {
 		sessionsOnly bool
 	)
 	cmd := &cobra.Command{
-		Use:   "history",
-		Short: "list recorded runs newest-first",
+		Use:     "history",
+		Aliases: []string{"h"},
+		Short:   "list recorded runs newest-first",
 		Long: `List recorded runs newest-first, one per line.
 
 Pipe to fzf to fuzzy-search and extract an ID for rerun:

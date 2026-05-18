@@ -15,9 +15,10 @@ import (
 func (a *app) tailCmd() *cobra.Command {
 	var stream string
 	cmd := &cobra.Command{
-		Use:   "tail <id>",
-		Short: "stream captured output",
-		Args:  cobra.ExactArgs(1),
+		Use:     "tail <id>",
+		Aliases: []string{"t"},
+		Short:   "stream captured output",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := parseID(args[0])
 			if err != nil {

@@ -16,8 +16,9 @@ func (a *app) cleanCmd() *cobra.Command {
 	var dryRun bool
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "clean",
-		Short: "delete old records and logs",
+		Use:     "clean",
+		Aliases: []string{"cl"},
+		Short:   "delete old records and logs",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if olderThan == "" && keepLast == 0 {
 				return fmt.Errorf("at least one of --older-than or --keep-last is required")

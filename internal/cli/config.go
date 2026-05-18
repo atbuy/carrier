@@ -16,8 +16,9 @@ import (
 
 func (a *app) configCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config <command>",
-		Short: "inspect and create config",
+		Use:     "config <command>",
+		Aliases: []string{"cfg"},
+		Short:   "inspect and create config",
 		Example: strings.Join([]string{
 			"  carrier config path",
 			"  carrier config init",

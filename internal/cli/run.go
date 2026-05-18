@@ -73,6 +73,7 @@ func (a *app) parseRunFlags(args []string) ([]string, error) {
 func (a *app) runCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:                "run <command...>",
+		Aliases:            []string{"r"},
 		Short:              "run and record one command",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -100,9 +101,10 @@ func (a *app) runCmd() *cobra.Command {
 func (a *app) rerunCmd() *cobra.Command {
 	var edit bool
 	cmd := &cobra.Command{
-		Use:   "rerun <id>",
-		Short: "rerun original command from original cwd",
-		Args:  cobra.ExactArgs(1),
+		Use:     "rerun <id>",
+		Aliases: []string{"rr"},
+		Short:   "rerun original command from original cwd",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := parseID(args[0])
 			if err != nil {

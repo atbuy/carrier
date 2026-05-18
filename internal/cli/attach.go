@@ -12,8 +12,9 @@ import (
 
 func (a *app) attachCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "attach <id-or-label>",
-		Short: "attach to an existing shell session",
+		Use:     "attach <id-or-label>",
+		Aliases: []string{"a"},
+		Short:   "attach to an existing shell session",
 		Long: `Start a new PTY shell that records commands into an existing session.
 
   carrier attach 5          # attach by session ID

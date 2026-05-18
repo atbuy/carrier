@@ -9,8 +9,9 @@ import (
 
 func (a *app) labelCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "label <id> [text...]",
-		Short: "set or clear a label on a run",
+		Use:     "label <id> [text...]",
+		Aliases: []string{"lb"},
+		Short:   "set or clear a label on a run",
 		Long: `Attach a short label to a run for later reference.
 
   carrier label 42 prod deploy   # set label "prod deploy"

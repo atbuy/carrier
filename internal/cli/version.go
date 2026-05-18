@@ -10,9 +10,10 @@ import (
 
 func (a *app) versionCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "show carrier version",
-		Args:  cobra.NoArgs,
+		Use:     "version",
+		Aliases: []string{"v"},
+		Short:   "show carrier version",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 			t := newTheme(out)

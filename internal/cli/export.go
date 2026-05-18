@@ -19,9 +19,10 @@ var csvHeader = []string{
 func (a *app) exportCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
-		Use:   "export [id]",
-		Short: "export runs as markdown, json, or csv",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "export [id]",
+		Aliases: []string{"e"},
+		Short:   "export runs as markdown, json, or csv",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if format == "csv" {
 				return a.exportCSV(cmd, args)

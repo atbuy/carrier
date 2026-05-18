@@ -12,8 +12,9 @@ import (
 
 func (a *app) sessionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "session",
-		Short: "manage shell session labels and history",
+		Use:     "session",
+		Aliases: []string{"se"},
+		Short:   "manage shell session labels and history",
 	}
 	cmd.AddCommand(a.sessionLabelCmd(), a.sessionListCmd())
 	return cmd

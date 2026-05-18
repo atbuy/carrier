@@ -19,9 +19,10 @@ import (
 
 func (a *app) doctorCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "doctor",
-		Short: "check local carrier setup",
-		Args:  cobra.NoArgs,
+		Use:     "doctor",
+		Aliases: []string{"d"},
+		Short:   "check local carrier setup",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return a.runDoctor(cmd.OutOrStdout())
 		},

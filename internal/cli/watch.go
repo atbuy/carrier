@@ -69,6 +69,7 @@ func parseWatchFlags(args []string) (pattern string, debounce time.Duration, res
 func (a *app) watchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "watch <command...>",
+		Aliases:            []string{"w"},
 		Short:              "re-run command on file changes in CWD",
 		DisableFlagParsing: true,
 		Long: `Re-runs the command whenever files in the current directory change.

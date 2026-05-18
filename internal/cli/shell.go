@@ -13,10 +13,11 @@ import (
 func (a *app) shellCmd() *cobra.Command {
 	var label string
 	cmd := &cobra.Command{
-		Use:   "shell",
-		Short: "start tracked shell (alpha)",
-		Long:  "Start a PTY-backed tracked shell session. This command is alpha-quality and currently best-effort for zsh and bash.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "shell",
+		Aliases: []string{"s"},
+		Short:   "start tracked shell (alpha)",
+		Long:    "Start a PTY-backed tracked shell session. This command is alpha-quality and currently best-effort for zsh and bash.",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 && label == "" {
 				label = args[0]

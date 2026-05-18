@@ -14,9 +14,10 @@ import (
 func (a *app) lastCmd() *cobra.Command {
 	var jsonOutput bool
 	cmd := &cobra.Command{
-		Use:   "last",
-		Short: "show latest run",
-		Args:  cobra.NoArgs,
+		Use:     "last",
+		Aliases: []string{"l"},
+		Short:   "show latest run",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := a.st.Latest()
 			if err != nil {
@@ -38,9 +39,10 @@ func (a *app) showCmd() *cobra.Command {
 	var lines int
 	var onlyStdout, onlyStderr, showEnv bool
 	cmd := &cobra.Command{
-		Use:   "show <id>",
-		Short: "show full run details",
-		Args:  cobra.ExactArgs(1),
+		Use:     "show <id>",
+		Aliases: []string{"sh"},
+		Short:   "show full run details",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := parseID(args[0])
 			if err != nil {
@@ -127,15 +129,18 @@ func lastNLines(s string, n int) string {
 }
 
 func (a *app) failedCmd() *cobra.Command {
-	return listStatusCmd("failed", store.StatusFailed, a)
+	cmd := listStatusCmd("failed", store.StatusFailed, a)
+	cmd.Aliases = []string{"f"}
+	return cmd
 }
 
 func (a *app) runningCmd() *cobra.Command {
 	var jsonOutput bool
 	cmd := &cobra.Command{
-		Use:   "running",
-		Short: "list running runs",
-		Args:  cobra.NoArgs,
+		Use:     "running",
+		Aliases: []string{"rn"},
+		Short:   "list running runs",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runs, err := a.st.ListByStatus(store.StatusRunning, 100)
 			if err != nil {

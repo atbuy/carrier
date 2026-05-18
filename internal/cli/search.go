@@ -11,9 +11,10 @@ func (a *app) searchCmd() *cobra.Command {
 	var jsonOutput bool
 	var limit int
 	cmd := &cobra.Command{
-		Use:   "search <text>...",
-		Short: "search commands and output",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "search <text>...",
+		Aliases: []string{"sr"},
+		Short:   "search commands and output",
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			results, err := a.st.SearchRuns(strings.Join(args, " "), limit)
 			if err != nil {
