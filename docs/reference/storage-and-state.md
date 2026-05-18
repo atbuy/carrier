@@ -32,23 +32,15 @@ Metadata lives in:
 carrier.db
 ```
 
-Main table:
+Tables:
 
-```text
-runs
-```
-
-Migration table:
-
-```text
-goose_db_version
-```
-
-Search index:
-
-```text
-run_search
-```
+| Table              | Purpose                                      |
+| ------------------ | -------------------------------------------- |
+| `runs`             | One row per recorded command                 |
+| `environments`     | Deduplicated env snapshots (SHA-256 indexed) |
+| `shell_sessions`   | Shell session groupings                      |
+| `run_search`       | FTS5 full-text search index                  |
+| `goose_db_version` | Applied migration versions                   |
 
 Migrations are embedded in the binary and applied on startup.
 
@@ -77,7 +69,7 @@ Each run stores:
 - output log paths
 - notification flags
 - label
-- captured environment JSON when enabled
+- reference to a deduplicated environment snapshot (when enabled)
 
 ## Output logs
 
@@ -127,16 +119,24 @@ Set `max_output_mb = 0` to disable the cap. `carrier config check` warns about t
 
 ## Captured environment
 
-When `storage.capture_env = true`, `carrier run` stores the process environment in SQLite.
+When `storage.capture_env = true`, `carrier run` and `carrier shell` store the process environment in SQLite.
 
-Inspect it:
+Environment values are **always redacted before being written to disk** using the builtin secret patterns plus any custom patterns from your config. The `redaction.enabled` flag controls stdout/stderr redaction; it does not affect environment storage.
+
+Identical environments are stored only once. Runs share a row in the `environments` table, keyed by SHA-256 hash of the redacted JSON. This keeps the database small even when the same environment is used thousands of times.
+
+Inspect a captured environment:
 
 ```bash title="Inspect environment"
 carrier show 42 --env
 carrier show 42 --json | jq '.env'
 ```
 
-Displayed values are redacted unless `--no-redact` is used.
+Orphaned environment rows (no longer referenced by any run) are removed automatically when you run `carrier clean`.
+
+### Existing data
+
+When upgrading from a version that stored env snapshots inline in the `runs` table, `carrier` migrates them to the `environments` table on first startup, redacting values in the process.
 
 ## Search index
 

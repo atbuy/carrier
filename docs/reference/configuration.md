@@ -107,11 +107,9 @@ carrier show 42 --env
 carrier show 42 --json
 ```
 
-Values are redacted on display unless `--no-redact` is used.
+Values are **always redacted before being written to disk** using the builtin secret patterns plus any custom `redaction.patterns`. The `redaction.enabled` flag controls stdout/stderr redaction only; it does not affect environment storage.
 
-!!! warning
-
-    Environment variables often contain secrets. Keep redaction enabled if `capture_env` is enabled.
+Identical environments are stored once and shared across runs (SHA-256 deduplication).
 
 ## `[redaction]`
 
@@ -120,7 +118,9 @@ Values are redacted on display unless `--no-redact` is used.
 Type: boolean  
 Default: `true`
 
-Controls whether persisted logs are redacted.
+Controls whether persisted stdout/stderr logs are redacted before being written to disk. Terminal output is never redacted.
+
+Environment snapshots (`capture_env`) are always redacted regardless of this setting.
 
 ### `patterns`
 
