@@ -1204,6 +1204,175 @@ func TestMigrateEnvDataBackfill(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Session CRUD
+// ---------------------------------------------------------------------------
+
+func TestSessionLifecycle(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// CreateSession
+	id, err := st.CreateSession(CreateSession{Label: "my-session", StartedAt: now})
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("CreateSession: expected non-zero id")
+	}
+
+	// GetSession
+	sess, err := st.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if sess.ID != id {
+		t.Fatalf("GetSession: id=%d want %d", sess.ID, id)
+	}
+	if sess.Label != "my-session" {
+		t.Fatalf("GetSession: label=%q want %q", sess.Label, "my-session")
+	}
+	if !sess.StartedAt.Equal(now) {
+		t.Fatalf("GetSession: started_at=%v want %v", sess.StartedAt, now)
+	}
+	if sess.EndedAt != nil {
+		t.Fatalf("GetSession: ended_at should be nil initially")
+	}
+
+	// UpdateSessionLabel
+	if err := st.UpdateSessionLabel(id, "renamed"); err != nil {
+		t.Fatalf("UpdateSessionLabel: %v", err)
+	}
+	sess, err = st.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession after label update: %v", err)
+	}
+	if sess.Label != "renamed" {
+		t.Fatalf("UpdateSessionLabel: label=%q want %q", sess.Label, "renamed")
+	}
+
+	// FindSessionByLabel
+	found, err := st.FindSessionByLabel("renamed")
+	if err != nil {
+		t.Fatalf("FindSessionByLabel: %v", err)
+	}
+	if found.ID != id {
+		t.Fatalf("FindSessionByLabel: id=%d want %d", found.ID, id)
+	}
+
+	// FindSessionByLabel — not found
+	_, err = st.FindSessionByLabel("nonexistent")
+	if err == nil {
+		t.Fatal("FindSessionByLabel nonexistent: expected error, got nil")
+	}
+
+	// ListSessions
+	id2, err := st.CreateSession(CreateSession{Label: "second", StartedAt: now.Add(time.Second)})
+	if err != nil {
+		t.Fatalf("CreateSession second: %v", err)
+	}
+	sessions, err := st.ListSessions(10)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 2 {
+		t.Fatalf("ListSessions: want 2, got %d", len(sessions))
+	}
+	// newest-first
+	if sessions[0].ID != id2 {
+		t.Fatalf("ListSessions: expected newest first, got id=%d", sessions[0].ID)
+	}
+
+	// ListSessions with limit
+	limited, err := st.ListSessions(1)
+	if err != nil {
+		t.Fatalf("ListSessions limit 1: %v", err)
+	}
+	if len(limited) != 1 {
+		t.Fatalf("ListSessions limit 1: want 1, got %d", len(limited))
+	}
+
+	// EndSession
+	endedAt := now.Add(5 * time.Minute)
+	if err := st.EndSession(id, endedAt); err != nil {
+		t.Fatalf("EndSession: %v", err)
+	}
+	sess, err = st.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession after end: %v", err)
+	}
+	if sess.EndedAt == nil {
+		t.Fatal("EndSession: ended_at should be set")
+	}
+	if !sess.EndedAt.Equal(endedAt) {
+		t.Fatalf("EndSession: ended_at=%v want %v", sess.EndedAt, endedAt)
+	}
+
+	// ReopenSession
+	if err := st.ReopenSession(id); err != nil {
+		t.Fatalf("ReopenSession: %v", err)
+	}
+	sess, err = st.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession after reopen: %v", err)
+	}
+	if sess.EndedAt != nil {
+		t.Fatalf("ReopenSession: ended_at should be nil after reopen")
+	}
+}
+
+func TestGetSessionsByIDs(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	// empty-slice fast-path
+	result, err := st.GetSessionsByIDs([]int64{})
+	if err != nil {
+		t.Fatalf("GetSessionsByIDs empty: %v", err)
+	}
+	if len(result) != 0 {
+		t.Fatalf("GetSessionsByIDs empty: want 0, got %d", len(result))
+	}
+
+	now := time.Now().UTC().Truncate(time.Second)
+	id1, err := st.CreateSession(CreateSession{Label: "alpha", StartedAt: now})
+	if err != nil {
+		t.Fatalf("CreateSession alpha: %v", err)
+	}
+	id2, err := st.CreateSession(CreateSession{Label: "beta", StartedAt: now.Add(time.Second)})
+	if err != nil {
+		t.Fatalf("CreateSession beta: %v", err)
+	}
+	// create a third session we do NOT query for
+	if _, err := st.CreateSession(CreateSession{Label: "gamma", StartedAt: now.Add(2 * time.Second)}); err != nil {
+		t.Fatalf("CreateSession gamma: %v", err)
+	}
+
+	result, err = st.GetSessionsByIDs([]int64{id1, id2})
+	if err != nil {
+		t.Fatalf("GetSessionsByIDs multi: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("GetSessionsByIDs multi: want 2, got %d", len(result))
+	}
+	if result[id1].Label != "alpha" {
+		t.Fatalf("GetSessionsByIDs: id1 label=%q want %q", result[id1].Label, "alpha")
+	}
+	if result[id2].Label != "beta" {
+		t.Fatalf("GetSessionsByIDs: id2 label=%q want %q", result[id2].Label, "beta")
+	}
+}
+
+// ---------------------------------------------------------------------------
+
 func createStatsRun(t *testing.T, st *Store, status, command, argv string, started time.Time, durationMS int64) int64 {
 	t.Helper()
 	id, err := st.CreateRun(CreateRun{

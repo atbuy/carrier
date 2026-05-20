@@ -182,6 +182,126 @@ func TestSessionLogWriterIdempotentClose(t *testing.T) {
 	}
 }
 
+func TestSessionLogWriterSuppressesAltScreen(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "log.txt")
+
+	w := &sessionLogWriter{maxOutputBytes: 1024 * 1024}
+	chunk := append([]byte("before"), altScreenEnter...)
+	chunk = append(chunk, []byte("TUI content")...)
+	chunk = append(chunk, altScreenLeave...)
+	chunk = append(chunk, []byte("after")...)
+
+	if _, err := w.Write(path, chunk); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(b) != "beforeafter" {
+		t.Fatalf("got %q, want %q", b, "beforeafter")
+	}
+}
+
+func TestSessionLogWriterAltScreenAcrossChunks(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "log.txt")
+
+	w := &sessionLogWriter{maxOutputBytes: 1024 * 1024}
+
+	chunk1 := append([]byte("begin"), altScreenEnter...)
+	if _, err := w.Write(path, chunk1); err != nil {
+		t.Fatalf("Write chunk1: %v", err)
+	}
+
+	chunk2 := append([]byte("TUI stuff"), altScreenLeave...)
+	chunk2 = append(chunk2, []byte("end")...)
+	if _, err := w.Write(path, chunk2); err != nil {
+		t.Fatalf("Write chunk2: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(b) != "beginend" {
+		t.Fatalf("got %q, want %q", b, "beginend")
+	}
+}
+
+func TestSessionLogWriterMultipleTUICycles(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "log.txt")
+
+	w := &sessionLogWriter{maxOutputBytes: 1024 * 1024}
+
+	chunk := []byte("a")
+	chunk = append(chunk, altScreenEnter...)
+	chunk = append(chunk, []byte("TUI1")...)
+	chunk = append(chunk, altScreenLeave...)
+	chunk = append(chunk, []byte("b")...)
+	chunk = append(chunk, altScreenEnter...)
+	chunk = append(chunk, []byte("TUI2")...)
+	chunk = append(chunk, altScreenLeave...)
+	chunk = append(chunk, []byte("c")...)
+
+	if _, err := w.Write(path, chunk); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(b) != "abc" {
+		t.Fatalf("got %q, want %q", b, "abc")
+	}
+}
+
+func TestSessionLogWriterAltScreenNoLeave(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "log.txt")
+
+	w := &sessionLogWriter{maxOutputBytes: 1024 * 1024}
+
+	chunk1 := append([]byte("visible"), altScreenEnter...)
+	chunk1 = append(chunk1, []byte("suppressed1")...)
+	if _, err := w.Write(path, chunk1); err != nil {
+		t.Fatalf("Write chunk1: %v", err)
+	}
+
+	if _, err := w.Write(path, []byte("suppressed2")); err != nil {
+		t.Fatalf("Write chunk2: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(b) != "visible" {
+		t.Fatalf("got %q, want %q", b, "visible")
+	}
+	if !w.inAltScreen {
+		t.Fatal("expected inAltScreen to remain true after no leave sequence")
+	}
+}
+
 func TestShellArgsUsesBashRcFile(t *testing.T) {
 	dir := t.TempDir()
 

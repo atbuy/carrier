@@ -148,12 +148,16 @@ Shell mode creates one run per detected command. Shell runs use:
 
 Unlike `carrier run`, shell mode stores terminal output instead of separate stdout and stderr logs.
 
+## TUI applications
+
+TUI programs (alternate-screen apps like neovim, lazygit, noteui) run normally inside a carrier shell session — their output appears on screen as usual. Carrier detects the alternate-screen escape sequences (`\x1b[?1049h` / `\x1b[?1049l`) and suppresses the enclosed content from the terminal log, because cursor-movement-heavy TUI output cannot be replayed as plain text. When you run `carrier show` on a run that involved a TUI application, the output section displays `(TUI session — terminal output suppressed)` instead of replaying the log. Run metadata (command, exit code, duration, etc.) is fully recorded regardless.
+
 ## Limitations
 
 - stdout and stderr may be merged
 - prompts and shell plugins can affect detection
 - aliases may change displayed commands
-- interactive programs may produce noisy terminal logs
+- TUI (alternate-screen) output is suppressed from terminal logs and cannot be replayed
 - hook internals may behave differently across shell versions
 - bash hook behavior can vary when other tools also modify `DEBUG` or `PROMPT_COMMAND`
 - `carrier shell` is not a drop-in replacement for shell history

@@ -112,6 +112,10 @@ Shell mode depends on:
 - prompt behavior
 - shell plugins
 
+## Shell mode shows "(TUI session — terminal output suppressed)"
+
+This message appears when `carrier show` detects that the terminal log contains alternate-screen sequences from a TUI application (neovim, noteui, lazygit, etc.). Replaying TUI output corrupts the terminal, so carrier suppresses it intentionally. The run metadata — command, exit code, duration, cwd, and Git context — is still fully recorded and visible in `carrier show` and `carrier history`.
+
 ## Database problems
 
 Check paths:

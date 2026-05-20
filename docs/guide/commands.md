@@ -139,6 +139,8 @@ carrier show 42 --env
 
 `--stdout` and `--stderr` print only that stream, with no metadata header. `--env` prints captured environment variables when `storage.capture_env = true`.
 
+For runs captured in shell mode where a TUI application used the alternate screen (neovim, lazygit, noteui, etc.), the output section shows `(TUI session — terminal output suppressed)` instead of replaying the log. Run metadata is still fully recorded.
+
 ## `tail`
 
 Stream captured output:
