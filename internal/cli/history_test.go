@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -190,6 +191,56 @@ func TestHistoryCmdShowsLabelSuffix(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "my-label") {
 		t.Fatalf("history should show label suffix:\n%s", out.String())
+	}
+}
+
+func TestHistoryCmdShortCollapsesSession(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st := openHistoryStore(t)
+	defer func() { _ = st.Close() }()
+
+	day := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	// Create a session with two runs.
+	sessID, err := st.CreateSession(store.CreateSession{StartedAt: day})
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	for i, cmd := range []string{"echo one", "echo two"} {
+		argv := fmt.Sprintf(`[%q]`, cmd)
+		id, err := st.CreateRun(store.CreateRun{
+			Status:    store.StatusRunning,
+			Mode:      store.ModeRun,
+			Command:   cmd,
+			ArgvJSON:  argv,
+			CWD:       "/tmp",
+			StartedAt: day.Add(time.Duration(i) * time.Minute),
+			SessionID: &sessID,
+		})
+		if err != nil {
+			t.Fatalf("create run: %v", err)
+		}
+		if err := st.FinishRun(id, store.StatusSuccess, 0, day.Add(time.Duration(i)*time.Minute+time.Second)); err != nil {
+			t.Fatalf("finish run: %v", err)
+		}
+	}
+
+	a := &app{st: st}
+	cmd := a.historyCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := cmd.Flags().Set("short", "true"); err != nil {
+		t.Fatalf("set short flag: %v", err)
+	}
+
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("historyCmd --short failed: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "... (2 runs)") {
+		t.Fatalf("short mode should show '... (2 runs)', got:\n%s", got)
+	}
+	if strings.Contains(got, "echo one") || strings.Contains(got, "echo two") {
+		t.Fatalf("short mode should NOT show individual run commands, got:\n%s", got)
 	}
 }
 

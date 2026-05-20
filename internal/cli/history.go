@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ func (a *app) historyCmd() *cobra.Command {
 		label        string
 		session      string
 		sessionsOnly bool
+		short        bool
 	)
 	cmd := &cobra.Command{
 		Use:     "history",
@@ -124,32 +126,28 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 					printRunLine(out, t, &item.run, "")
 					continue
 				}
-				sess := item.session
-				sessLabel := sess.Label
-				if sessLabel == "" {
-					sessLabel = "(unlabeled)"
-				}
-				sessStatusStyle := t.Muted
-				sessStatus := "ended"
-				if sess.EndedAt == nil {
-					sessStatus = "active"
-					sessStatusStyle = t.Success
-				}
-				_, _ = fmt.Fprintf(
-					out, "%s %s %s  %s  %s\n",
-					t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
-					t.Accent.Render("┬──"),
-					sessStatusStyle.Render(padRight(sessStatus, 7)),
-					t.Muted.Render(formatTime(sess.StartedAt)),
-					t.Label.Render(sessLabel),
-				)
-				for i, r := range item.runs {
-					r := r
-					connector := "├──"
-					if i == len(item.runs)-1 {
-						connector = "└──"
+				printSessionHeader(out, t, item.session)
+				if short {
+					n := len(item.runs)
+					s := ""
+					if n != 1 {
+						s = "s"
 					}
-					printRunLine(out, t, &r, connector)
+					_, _ = fmt.Fprintf(
+						out, "%s %s ... (%d run%s)\n",
+						strings.Repeat(" ", 6),
+						t.Accent.Render("└──"),
+						n, s,
+					)
+				} else {
+					for i, r := range item.runs {
+						r := r
+						connector := "├──"
+						if i == len(item.runs)-1 {
+							connector = "└──"
+						}
+						printRunLine(out, t, &r, connector)
+					}
 				}
 			}
 			return nil
@@ -165,6 +163,17 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVar(&label, "label", "", "filter by label (substring match)")
 	cmd.Flags().StringVar(&session, "session", "", "filter by session ID or label")
 	cmd.Flags().BoolVar(&sessionsOnly, "sessions-only", false, "show only session headers, no individual runs")
+	cmd.Flags().BoolVarP(&short, "short", "s", false, "collapse session children to a single '...' line")
+	return cmd
+}
+
+// hsCmd returns a history command with --short pre-enabled.
+func (a *app) hsCmd() *cobra.Command {
+	cmd := a.historyCmd()
+	cmd.Use = "hs"
+	cmd.Short = "history overview with sessions collapsed (alias for history --short)"
+	cmd.Aliases = nil
+	_ = cmd.Flags().Set("short", "true")
 	return cmd
 }
 
@@ -180,26 +189,30 @@ func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter strin
 		if labelFilter != "" && !containsFold(sess.Label, labelFilter) {
 			continue
 		}
-		sessLabel := sess.Label
-		if sessLabel == "" {
-			sessLabel = "(unlabeled)"
-		}
-		sessStatusStyle := t.Muted
-		sessStatus := "ended"
-		if sess.EndedAt == nil {
-			sessStatus = "active"
-			sessStatusStyle = t.Success
-		}
-		_, _ = fmt.Fprintf(
-			out, "%s %s %s  %s  %s\n",
-			t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
-			t.Accent.Render("┬──"),
-			sessStatusStyle.Render(padRight(sessStatus, 7)),
-			t.Muted.Render(formatTime(sess.StartedAt)),
-			t.Label.Render(sessLabel),
-		)
+		printSessionHeader(out, t, sess)
 	}
 	return nil
+}
+
+func printSessionHeader(out io.Writer, t theme, sess store.Session) {
+	sessLabel := sess.Label
+	if sessLabel == "" {
+		sessLabel = "(unlabeled)"
+	}
+	sessStatusStyle := t.Muted
+	sessStatus := "ended"
+	if sess.EndedAt == nil {
+		sessStatus = "active"
+		sessStatusStyle = t.Success
+	}
+	_, _ = fmt.Fprintf(
+		out, "%s %s %s  %s  %s\n",
+		t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
+		t.Accent.Render("┬──"),
+		sessStatusStyle.Render(padRight(sessStatus, 7)),
+		t.Muted.Render(formatTime(sess.StartedAt)),
+		t.Label.Render(sessLabel),
+	)
 }
 
 // printRunLine renders one run. connector is one of "├──", "└──", or "" (standalone).
