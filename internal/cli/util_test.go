@@ -60,6 +60,21 @@ func TestDirtyString(t *testing.T) {
 	}
 }
 
+func TestContainsTUIOutput(t *testing.T) {
+	if containsTUIOutput("plain text with \x1b[1;32mcolor\x1b[0m") {
+		t.Fatal("plain SGR should not be detected as TUI")
+	}
+	if !containsTUIOutput("before\x1b[?1049hTUI content\x1b[?1049lafter") {
+		t.Fatal("?1049h should be detected as TUI")
+	}
+	if !containsTUIOutput("before\x1b[?47hTUI\x1b[?47l") {
+		t.Fatal("?47h should be detected as TUI")
+	}
+	if !containsTUIOutput("\x1b[?1047hTUI\x1b[?1047l") {
+		t.Fatal("?1047h should be detected as TUI")
+	}
+}
+
 func TestReadTextAndContainsFold(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "out.log")
 	t.Setenv("CARRIER_COLOR", "never")
@@ -172,6 +187,97 @@ func TestWriteJSON(t *testing.T) {
 	}
 	if got["status"] != "ok" {
 		t.Fatalf("JSON value mismatch: %#v", got)
+	}
+}
+
+func TestStripVTResponses(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "DA1 response stripped",
+			input: "foo\x1b[?6;9cbar",
+			want:  "foobar",
+		},
+		{
+			name:  "DA2 response stripped",
+			input: "foo\x1b[>41;0;0cbar",
+			want:  "foobar",
+		},
+		{
+			name:  "DECRQM response stripped",
+			input: "foo\x1b[?1000;2$ybar",
+			want:  "foobar",
+		},
+		{
+			name:  "DCS string stripped",
+			input: "foo\x1bP>|myterm 2.0\x1b\\bar",
+			want:  "foobar",
+		},
+		{
+			name:  "OSC color response BEL stripped",
+			input: "foo\x1b]10;rgb:ffff/0000/0000\x07bar",
+			want:  "foobar",
+		},
+		{
+			name:  "OSC color response ST stripped",
+			input: "foo\x1b]11;rgb:abcd/abcd/abcd\x1b\\bar",
+			want:  "foobar",
+		},
+		{
+			name:  "normal SGR color preserved",
+			input: "\x1b[1;32mok\x1b[0m",
+			want:  "\x1b[1;32mok\x1b[0m",
+		},
+		{
+			name:  "plain text unaffected",
+			input: "hello world\n",
+			want:  "hello world\n",
+		},
+		{
+			name:  "multiple response sequences stripped",
+			input: "a\x1b[?6;9cb\x1bP>|myterm\x1b\\c",
+			want:  "abc",
+		},
+		{
+			name:  "alt-screen enter stripped",
+			input: "before\x1b[?1049hafter",
+			want:  "beforeafter",
+		},
+		{
+			name:  "alt-screen leave stripped",
+			input: "before\x1b[?1049lafter",
+			want:  "beforeafter",
+		},
+		{
+			name:  "bracketed paste mode stripped",
+			input: "x\x1b[?2004hy\x1b[?2004lz",
+			want:  "xyz",
+		},
+		{
+			name:  "mouse mode stripped",
+			input: "a\x1b[?1000hb\x1b[?1000lc",
+			want:  "abc",
+		},
+		{
+			name:  "cursor show/hide stripped, SGR preserved",
+			input: "\x1b[?25h\x1b[1;32mok\x1b[0m\x1b[?25l",
+			want:  "\x1b[1;32mok\x1b[0m",
+		},
+		{
+			name:  "TUI full sequence stripped",
+			input: "\x1b[?1049h\x1b[2J\x1b[Hhello\x1b[?1049l",
+			want:  "\x1b[2J\x1b[Hhello",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := stripVTResponses(tc.input); got != tc.want {
+				t.Fatalf("stripVTResponses(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
 	}
 }
 

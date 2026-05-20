@@ -64,10 +64,17 @@ func (a *app) showCmd() *cobra.Command {
 				printRun(out, r)
 			}
 			if r.TerminalOutputPath != "" && !onlyStderr {
-				if !streamOnly {
-					_, _ = fmt.Fprintln(out, "\n"+t.Bold.Render("terminal"))
+				content := readText(r.TerminalOutputPath)
+				if containsTUIOutput(content) {
+					if !streamOnly {
+						_, _ = fmt.Fprintln(out, "\n"+t.Muted.Render("(TUI session — terminal output suppressed)"))
+					}
+				} else {
+					if !streamOnly {
+						_, _ = fmt.Fprintln(out, "\n"+t.Bold.Render("terminal"))
+					}
+					_, _ = fmt.Fprint(out, stripVTResponses(lastNLines(content, lines)))
 				}
-				_, _ = fmt.Fprint(out, lastNLines(readText(r.TerminalOutputPath), lines))
 			} else {
 				if r.StdoutPath != "" && !onlyStderr {
 					if !streamOnly {
@@ -262,7 +269,7 @@ func runViewFromStoreOpts(r *store.Run, includeOutput bool, redactor logs.Redact
 	if includeOutput {
 		view.Stdout = readText(r.StdoutPath)
 		view.Stderr = readText(r.StderrPath)
-		view.TerminalOutput = readText(r.TerminalOutputPath)
+		view.TerminalOutput = stripVTResponses(readText(r.TerminalOutputPath))
 		if r.EnvJSON != "" {
 			var raw map[string]string
 			if err := json.Unmarshal([]byte(r.EnvJSON), &raw); err == nil {

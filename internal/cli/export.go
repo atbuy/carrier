@@ -61,7 +61,7 @@ func exportMarkdown(cmd *cobra.Command, r *store.Run) error {
 	_, _ = fmt.Fprintf(out, "**Duration:** %s  \n", formatDuration(r.DurationMS))
 	_, _ = fmt.Fprintf(out, "**Started:** %s  \n", formatTime(r.StartedAt))
 	if r.TerminalOutputPath != "" {
-		_, _ = fmt.Fprintf(out, "\n## terminal\n\n```text\n%s\n```\n", readText(r.TerminalOutputPath))
+		_, _ = fmt.Fprintf(out, "\n## terminal\n\n```text\n%s\n```\n", stripVTResponses(readText(r.TerminalOutputPath)))
 		return nil
 	}
 	_, _ = fmt.Fprintf(out, "\n## stdout\n\n```text\n%s\n```\n", readText(r.StdoutPath))

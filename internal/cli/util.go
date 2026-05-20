@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -88,6 +89,31 @@ func short(s string) string {
 	return s
 }
 
+// vtResponseRE matches terminal sequences that should be stripped before
+// replaying captured PTY output:
+//   - Terminal query responses (DA, DECRQM, OSC color, XTVERSION/DCS, APC)
+//     that flow back via PTY echo from the outer terminal.
+//   - Mode-switching private DEC modes (alt-screen, bracketed paste, cursor
+//     keys, mouse, etc.) that would mutate the user's terminal state if
+//     replayed — e.g. a TUI using ?1049h/l would flash an alternate screen.
+var vtResponseRE = regexp.MustCompile(
+	`\x1b(?:` +
+		`P[^\x1b]*\x1b\\` + // DCS ... ST  (XTVERSION: "ghostty 1.3.1", etc.)
+		`|_[^\x1b]*\x1b\\` + // APC ... ST
+		`|\[[?>][\d;]*c` + // CSI DA1/DA2 response  (ESC[?1;2;4c, ESC[>1;2;4c)
+		`|\[[?>]?[\d;]*\$y` + // CSI DECRQM response   (ESC[?2031;2$y)
+		`|\]1[0-9];(?:rgba?:[0-9a-fA-F/:,]+|#[0-9a-fA-F]+)(?:\x07|\x1b\\)` + // OSC 10-19 color response
+		`|\[\?[\d;]+[hl]` + // CSI ? Pm h/l — DEC private mode set/reset (alt-screen, mouse, bracketed-paste, app-cursor/keypad, etc.)
+		`)`,
+)
+
+// stripVTResponses removes terminal query responses and mode-switching
+// sequences from s before display. Applied to terminal log content to prevent
+// escape sequences captured via PTY from being replayed to the user's terminal.
+func stripVTResponses(s string) string {
+	return vtResponseRE.ReplaceAllString(s, "")
+}
+
 func readText(path string) string {
 	if path == "" {
 		return ""
@@ -97,6 +123,15 @@ func readText(path string) string {
 		return ""
 	}
 	return string(b)
+}
+
+// containsTUIOutput reports whether s contains an alternate-screen enter
+// sequence, which indicates the log was captured from a TUI application.
+// Such logs cannot be safely replayed as plain text.
+func containsTUIOutput(s string) bool {
+	return strings.Contains(s, "\x1b[?1049h") ||
+		strings.Contains(s, "\x1b[?47h") ||
+		strings.Contains(s, "\x1b[?1047h")
 }
 
 func containsFold(haystack, needle string) bool {

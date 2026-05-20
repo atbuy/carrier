@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -136,19 +137,62 @@ func strconvPID() string {
 	return strings.TrimSpace(strconv.Itoa(os.Getpid()))
 }
 
+// altScreenEnter / altScreenLeave are the DEC private-mode sequences that
+// TUIs use to enter and exit the alternate screen buffer. We suppress log
+// writes while in alt-screen so that replaying the log (carrier show) does
+// not re-render TUI frames or corrupt the viewer's terminal.
+var (
+	altScreenEnter = []byte("\x1b[?1049h")
+	altScreenLeave = []byte("\x1b[?1049l")
+)
+
 type sessionLogWriter struct {
 	path           string
 	file           *os.File
 	writer         *logs.RedactingWriter
 	redactor       logs.Redactor
 	maxOutputBytes int64
+	inAltScreen    bool
 }
 
 func (w *sessionLogWriter) Write(path string, chunk []byte) (int, error) {
-	if err := w.ensure(path); err != nil {
-		return 0, err
+	total := len(chunk)
+	// Scan for alt-screen transitions and split/suppress accordingly.
+	for len(chunk) > 0 {
+		if !w.inAltScreen {
+			idx := bytes.Index(chunk, altScreenEnter)
+			if idx < 0 {
+				// No transition — write everything.
+				if err := w.ensure(path); err != nil {
+					return 0, err
+				}
+				if _, err := w.writer.Write(chunk); err != nil {
+					return 0, err
+				}
+				break
+			}
+			// Write bytes before the enter sequence, then suppress.
+			if idx > 0 {
+				if err := w.ensure(path); err != nil {
+					return 0, err
+				}
+				if _, err := w.writer.Write(chunk[:idx]); err != nil {
+					return 0, err
+				}
+			}
+			w.inAltScreen = true
+			chunk = chunk[idx+len(altScreenEnter):]
+		} else {
+			idx := bytes.Index(chunk, altScreenLeave)
+			if idx < 0 {
+				// Still in TUI — discard everything.
+				break
+			}
+			w.inAltScreen = false
+			chunk = chunk[idx+len(altScreenLeave):]
+		}
 	}
-	return w.writer.Write(chunk)
+	return total, nil
 }
 
 func (w *sessionLogWriter) ensure(path string) error {
