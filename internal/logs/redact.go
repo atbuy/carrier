@@ -14,6 +14,13 @@ var (
 	compiledBuiltins     []*regexp.Regexp
 )
 
+// WarmBuiltinCache pre-compiles the builtin gitleaks patterns in the background.
+// Call it in a goroutine early in startup to hide compilation latency behind
+// other initialization work.
+func WarmBuiltinCache() {
+	builtinCompiled()
+}
+
 // builtinCompiled returns the cached compiled regexes for BuiltinPatterns.
 func builtinCompiled() []*regexp.Regexp {
 	compiledBuiltinsOnce.Do(func() {
@@ -22,6 +29,9 @@ func builtinCompiled() []*regexp.Regexp {
 				compiledBuiltins = append(compiledBuiltins, re)
 			}
 		}
+		// Cap to len so any append by callers always allocates a fresh backing
+		// array, preventing concurrent callers from racing on spare capacity.
+		compiledBuiltins = compiledBuiltins[:len(compiledBuiltins):len(compiledBuiltins)]
 	})
 	return compiledBuiltins
 }

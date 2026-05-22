@@ -238,7 +238,6 @@ func TestNewRedactorWithBuiltinsDisabledLeavesInputUnchanged(t *testing.T) {
 }
 
 func TestBuiltinCompiledCachedAcrossCalls(t *testing.T) {
-	// Both calls must return the same underlying slice pointer (cached).
 	a := builtinCompiled()
 	b := builtinCompiled()
 	if len(a) == 0 {
@@ -246,6 +245,25 @@ func TestBuiltinCompiledCachedAcrossCalls(t *testing.T) {
 	}
 	if &a[0] != &b[0] {
 		t.Fatal("builtinCompiled returned different slices on second call — not cached")
+	}
+	// cap must equal len so concurrent appends never share the backing array.
+	if cap(a) != len(a) {
+		t.Fatalf("builtinCompiled cap=%d != len=%d; concurrent appends would race", cap(a), len(a))
+	}
+}
+
+func TestNewRedactorWithBuiltinsConcurrentAppendNoRace(t *testing.T) {
+	// Run with -race to detect backing-array sharing between concurrent callers.
+	const goroutines = 20
+	done := make(chan struct{})
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			_ = NewRedactorWithBuiltins(true, []string{`EXTRA=\S+`})
+			done <- struct{}{}
+		}()
+	}
+	for i := 0; i < goroutines; i++ {
+		<-done
 	}
 }
 

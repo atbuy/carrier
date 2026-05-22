@@ -38,7 +38,7 @@ func BuiltinPatterns() []string {
 				out = append(out, r.Regex)
 			}
 		}
-		builtinPatterns = out
+		builtinPatterns = out[:len(out):len(out)]
 	})
 	return builtinPatterns
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/atbuy/carrier/internal/logs"
 )
 
 func TestExecuteVersionReturnsZero(t *testing.T) {
@@ -62,6 +64,17 @@ func TestTouchStaleCheck(t *testing.T) {
 	}
 	if time.Since(info.ModTime()) > 2*time.Second {
 		t.Fatalf("mtime too old after touch: %v", info.ModTime())
+	}
+}
+
+func TestWarmBuiltinCacheIdempotent(t *testing.T) {
+	// Calling WarmBuiltinCache multiple times (as open() does) must not panic or
+	// corrupt state. sync.Once ensures init runs only once.
+	logs.WarmBuiltinCache()
+	logs.WarmBuiltinCache()
+	r := logs.NewRedactorWithBuiltins(true, nil)
+	if !r.Enabled() {
+		t.Fatal("redactor should be enabled")
 	}
 }
 

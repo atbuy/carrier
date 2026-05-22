@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/logs"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -81,6 +82,7 @@ func (a *app) open() error {
 	if a.st != nil {
 		return nil
 	}
+	go logs.WarmBuiltinCache()
 	cfg, err := config.Load()
 	if err != nil {
 		return err
