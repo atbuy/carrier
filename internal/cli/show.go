@@ -53,8 +53,7 @@ func (a *app) showCmd() *cobra.Command {
 				return err
 			}
 			if jsonOutput {
-				allPatterns := append(logs.BuiltinPatterns(), a.cfg.Redaction.Patterns...)
-				redactor := logs.NewRedactor(!a.noRedact, allPatterns)
+				redactor := logs.NewRedactorWithBuiltins(!a.noRedact, a.cfg.Redaction.Patterns)
 				return writeJSON(cmd, runViewFromStoreOpts(r, true, redactor))
 			}
 			out := cmd.OutOrStdout()
@@ -95,8 +94,7 @@ func (a *app) showCmd() *cobra.Command {
 				} else {
 					var env map[string]string
 					if err := json.Unmarshal([]byte(r.EnvJSON), &env); err == nil {
-						allPatterns := append(logs.BuiltinPatterns(), a.cfg.Redaction.Patterns...)
-						redactor := logs.NewRedactor(!a.noRedact, allPatterns)
+						redactor := logs.NewRedactorWithBuiltins(!a.noRedact, a.cfg.Redaction.Patterns)
 						_, _ = fmt.Fprintln(out, "\n"+t.Label.Bold(true).Render("env"))
 						for k, v := range env {
 							_, _ = fmt.Fprintf(out, "  %s=%s\n", t.Muted.Render(k), logs.RedactEnvValue(k, v, redactor))

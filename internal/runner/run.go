@@ -138,8 +138,7 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	if err != nil {
 		return 1, false, err
 	}
-	allPatterns := append(logs.BuiltinPatterns(), cfg.Redaction.Patterns...)
-	redactor := logs.NewRedactor(cfg.Redaction.Enabled && !opts.NoRedact, allPatterns)
+	redactor := logs.NewRedactorWithBuiltins(cfg.Redaction.Enabled && !opts.NoRedact, cfg.Redaction.Patterns)
 	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
 	stdoutLog := logs.NewRedactingWriter(logs.NewCappedWriter(stdoutFile, maxOutputBytes), redactor)
 	stderrLog := logs.NewRedactingWriter(logs.NewCappedWriter(stderrFile, maxOutputBytes), redactor)
@@ -199,8 +198,7 @@ func captureEnv(cfg config.Config) string {
 	}
 	// Always redact env values with builtin + custom patterns regardless of
 	// cfg.Redaction.Enabled — that flag governs stdout/stderr, not DB storage.
-	allPatterns := append(logs.BuiltinPatterns(), cfg.Redaction.Patterns...)
-	redactor := logs.NewRedactor(true, allPatterns)
+	redactor := logs.NewRedactorWithBuiltins(true, cfg.Redaction.Patterns)
 	raw := os.Environ()
 	m := make(map[string]string, len(raw))
 	for _, kv := range raw {

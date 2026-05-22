@@ -92,7 +92,7 @@ func OpenWith(dataDir string, cfg config.Config) (*Store, error) {
 		writeSchemaCache(dataDir, latest)
 	}
 	// Always redact env values regardless of cfg.Redaction.Enabled.
-	redactor := logs.NewRedactor(true, append(logs.BuiltinPatterns(), cfg.Redaction.Patterns...))
+	redactor := logs.NewRedactorWithBuiltins(true, cfg.Redaction.Patterns)
 	if err := migrateEnvData(db, redactor); err != nil {
 		_ = db.Close()
 		return nil, err

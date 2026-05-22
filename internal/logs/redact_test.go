@@ -3,6 +3,7 @@ package logs
 import (
 	"bytes"
 	"testing"
+	"time"
 )
 
 func TestRedactorRedactsConfiguredPatterns(t *testing.T) {
@@ -217,5 +218,75 @@ func TestRedactEnvValueDisabledSkipsKeyAndEntropyHeuristics(t *testing.T) {
 	got := RedactEnvValue("TOKEN", "secret", redactor)
 	if got != "secret" {
 		t.Fatalf("disabled RedactEnvValue = %q, want original value", got)
+	}
+}
+
+func TestNewRedactorWithBuiltinsRedactsExtraPattern(t *testing.T) {
+	r := NewRedactorWithBuiltins(true, []string{`MYTOKEN=\S+`})
+	got := string(r.Redact([]byte("MYTOKEN=secret123")))
+	if got != "[REDACTED]" {
+		t.Fatalf("NewRedactorWithBuiltins did not redact extra pattern: %q", got)
+	}
+}
+
+func TestNewRedactorWithBuiltinsDisabledLeavesInputUnchanged(t *testing.T) {
+	r := NewRedactorWithBuiltins(false, []string{`MYTOKEN=\S+`})
+	input := "MYTOKEN=secret123"
+	if got := string(r.Redact([]byte(input))); got != input {
+		t.Fatalf("disabled NewRedactorWithBuiltins changed input: %q", got)
+	}
+}
+
+func TestBuiltinCompiledCachedAcrossCalls(t *testing.T) {
+	// Both calls must return the same underlying slice pointer (cached).
+	a := builtinCompiled()
+	b := builtinCompiled()
+	if len(a) == 0 {
+		t.Fatal("builtinCompiled returned empty slice")
+	}
+	if &a[0] != &b[0] {
+		t.Fatal("builtinCompiled returned different slices on second call — not cached")
+	}
+}
+
+func BenchmarkNewRedactorWithBuiltinsRepeated(b *testing.B) {
+	extra := []string{`MYTOKEN=\S+`}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NewRedactorWithBuiltins(true, extra)
+	}
+}
+
+func BenchmarkNewRedactorFromScratch(b *testing.B) {
+	patterns := append(BuiltinPatterns(), `MYTOKEN=\S+`)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NewRedactor(true, patterns)
+	}
+}
+
+func TestNewRedactorWithBuiltinsFasterThanFromScratch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping timing test in short mode")
+	}
+	patterns := append(BuiltinPatterns(), `MYTOKEN=\S+`)
+	const iters = 10
+
+	start := time.Now()
+	for i := 0; i < iters; i++ {
+		_ = NewRedactor(true, patterns)
+	}
+	scratchDur := time.Since(start)
+
+	// warm cache
+	_ = NewRedactorWithBuiltins(true, nil)
+	start = time.Now()
+	for i := 0; i < iters; i++ {
+		_ = NewRedactorWithBuiltins(true, patterns[len(patterns)-1:])
+	}
+	cachedDur := time.Since(start)
+
+	if cachedDur >= scratchDur {
+		t.Fatalf("cached (%v) not faster than scratch (%v)", cachedDur, scratchDur)
 	}
 }

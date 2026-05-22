@@ -4,9 +4,40 @@ import (
 	"bytes"
 	"io"
 	"regexp"
+	"sync"
 )
 
 const redactionWindowBytes = 64 * 1024
+
+var (
+	compiledBuiltinsOnce sync.Once
+	compiledBuiltins     []*regexp.Regexp
+)
+
+// builtinCompiled returns the cached compiled regexes for BuiltinPatterns.
+func builtinCompiled() []*regexp.Regexp {
+	compiledBuiltinsOnce.Do(func() {
+		for _, p := range BuiltinPatterns() {
+			if re, err := regexp.Compile(p); err == nil {
+				compiledBuiltins = append(compiledBuiltins, re)
+			}
+		}
+	})
+	return compiledBuiltins
+}
+
+// NewRedactorWithBuiltins builds a Redactor using cached compiled builtin
+// patterns plus any extra patterns. Use this instead of NewRedactor when
+// builtin patterns are needed, to avoid recompiling 200+ regexes per call.
+func NewRedactorWithBuiltins(enabled bool, extraPatterns []string) Redactor {
+	r := Redactor{enabled: enabled, patterns: builtinCompiled()}
+	for _, p := range extraPatterns {
+		if re, err := regexp.Compile(p); err == nil {
+			r.patterns = append(r.patterns, re)
+		}
+	}
+	return r
+}
 
 // SensitiveEnvKey reports whether an env var key name looks like it holds a secret.
 func SensitiveEnvKey(key string) bool {

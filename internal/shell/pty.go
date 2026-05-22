@@ -76,7 +76,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 		defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 	}
 	go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
-	redactor := logs.NewRedactor(cfg.Redaction.Enabled && !noRedact, cfg.Redaction.Patterns)
+	redactor := logs.NewRedactorWithBuiltins(cfg.Redaction.Enabled && !noRedact, cfg.Redaction.Patterns)
 	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
 	state := &StateFile{Path: statePath}
 	logWriter := &sessionLogWriter{redactor: redactor, maxOutputBytes: maxOutputBytes}
