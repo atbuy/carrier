@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestExecuteVersionReturnsZero(t *testing.T) {
@@ -23,6 +24,44 @@ func TestExecuteUnknownCommandReturnsOne(t *testing.T) {
 
 	if code := Execute(); code != 1 {
 		t.Fatalf("Execute(unknown) = %d, want 1", code)
+	}
+}
+
+func TestStaleCheckDue(t *testing.T) {
+	dir := t.TempDir()
+
+	// no file → always due
+	if !staleCheckDue(dir, 5*time.Minute) {
+		t.Fatal("expected due when timestamp file absent")
+	}
+
+	// write timestamp, check immediately → not due
+	touchStaleCheck(dir)
+	if staleCheckDue(dir, 5*time.Minute) {
+		t.Fatal("expected not due immediately after touch")
+	}
+
+	// backdate the file mtime so it appears old → due again
+	old := time.Now().Add(-10 * time.Minute)
+	tsPath := filepath.Join(dir, staleCheckFilename)
+	if err := os.Chtimes(tsPath, old, old); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	if !staleCheckDue(dir, 5*time.Minute) {
+		t.Fatal("expected due after file is backdated past interval")
+	}
+}
+
+func TestTouchStaleCheck(t *testing.T) {
+	dir := t.TempDir()
+	touchStaleCheck(dir)
+
+	info, err := os.Stat(filepath.Join(dir, staleCheckFilename))
+	if err != nil {
+		t.Fatalf("stat after touch: %v", err)
+	}
+	if time.Since(info.ModTime()) > 2*time.Second {
+		t.Fatalf("mtime too old after touch: %v", info.ModTime())
 	}
 }
 

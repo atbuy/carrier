@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,6 +12,24 @@ import (
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/store"
 )
+
+const staleCheckInterval = 5 * time.Minute
+const staleCheckFilename = "stale-check.timestamp"
+
+// staleCheckDue returns true when the stale-run cleanup should be executed.
+// It checks whether the sidecar timestamp file is older than interval, which
+// prevents the (usually no-op) UPDATE from firing on every carrier invocation.
+func staleCheckDue(dataDir string, interval time.Duration) bool {
+	info, err := os.Stat(filepath.Join(dataDir, staleCheckFilename))
+	if err != nil {
+		return true
+	}
+	return time.Since(info.ModTime()) >= interval
+}
+
+func touchStaleCheck(dataDir string) {
+	_ = os.WriteFile(filepath.Join(dataDir, staleCheckFilename), []byte(time.Now().UTC().Format(time.RFC3339)), 0o600)
+}
 
 type app struct {
 	cfg          config.Config
@@ -70,6 +89,9 @@ func (a *app) open() error {
 	}
 	a.cfg = cfg
 	a.st = st
-	_, _ = st.MarkStaleRunsKilled(cfg.StaleRunThreshold())
+	if staleCheckDue(cfg.Storage.DataDir, staleCheckInterval) {
+		_, _ = st.MarkStaleRunsKilled(cfg.StaleRunThreshold())
+		touchStaleCheck(cfg.Storage.DataDir)
+	}
 	return nil
 }
