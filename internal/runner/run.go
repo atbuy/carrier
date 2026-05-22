@@ -102,10 +102,11 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	if err := st.FinishRun(id, status, exit, finished); err != nil && finishErr == nil {
 		finishErr = err
 	}
-	r, err := st.GetRun(id)
-	if err == nil {
-		if notifyErr := notify.MaybeSend(cfg, *r); notifyErr != nil && !opts.Quiet {
-			_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
+	if opts.Notify || opts.NotifyAlways {
+		if r, err := st.GetRun(id); err == nil {
+			if notifyErr := notify.MaybeSend(cfg, *r); notifyErr != nil && !opts.Quiet {
+				_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
+			}
 		}
 	}
 	return exit, finishErr
