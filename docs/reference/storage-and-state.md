@@ -42,7 +42,7 @@ Tables:
 | `run_search`       | FTS5 full-text search index                  |
 | `goose_db_version` | Applied migration versions                   |
 
-Migrations are embedded in the binary and applied on startup.
+Migrations are embedded in the binary and applied on startup. After the first successful migration, carrier writes a `schema.version` sidecar file to the data directory and skips the migration check on subsequent startups as long as the version matches.
 
 Check migration state:
 

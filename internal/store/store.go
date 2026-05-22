@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,34 @@ import (
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/logs"
 )
+
+// schemaVersionFile caches the applied migration count so goose.Up can be
+// skipped on repeat startups when the schema is already current.
+const schemaVersionFile = "schema.version"
+
+// schemaCacheValid returns true when the sidecar version matches latest AND
+// the database file is large enough to have had migrations applied (guards
+// against the case where carrier.db was deleted but the sidecar was not).
+func schemaCacheValid(dataDir string, latest int64) bool {
+	b, err := os.ReadFile(filepath.Join(dataDir, schemaVersionFile))
+	if err != nil {
+		return false
+	}
+	cached, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
+	if err != nil || cached != latest {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(dataDir, "carrier.db"))
+	return err == nil && info.Size() > 8*1024
+}
+
+func writeSchemaCache(dataDir string, version int64) {
+	_ = os.WriteFile(
+		filepath.Join(dataDir, schemaVersionFile),
+		[]byte(strconv.FormatInt(version, 10)),
+		0o600,
+	)
+}
 
 // runCols and runFrom are used by every run SELECT to keep queries consistent.
 // All run queries LEFT JOIN environments so Run.EnvJSON is always populated.
@@ -54,9 +83,13 @@ func OpenWith(dataDir string, cfg config.Config) (*Store, error) {
 			return nil, err
 		}
 	}
-	if err := migrate(db); err != nil {
-		_ = db.Close()
-		return nil, err
+	latest := countMigrationFiles()
+	if !schemaCacheValid(dataDir, latest) {
+		if err := migrate(db); err != nil {
+			_ = db.Close()
+			return nil, err
+		}
+		writeSchemaCache(dataDir, latest)
 	}
 	// Always redact env values regardless of cfg.Redaction.Enabled.
 	redactor := logs.NewRedactor(true, append(logs.BuiltinPatterns(), cfg.Redaction.Patterns...))
@@ -104,7 +137,8 @@ func (s *Store) UpdatePaths(id int64, stdoutPath, stderrPath, terminalPath strin
 func (s *Store) UpdateGitMeta(id int64, root, branch, commit string, dirty *bool) error {
 	_, err := s.db.Exec(
 		`UPDATE runs SET git_root=?, git_branch=?, git_commit=?, git_dirty=? WHERE id=?`,
-		root, branch, commit, nullableBool(dirty), id)
+		root, branch, commit, nullableBool(dirty), id,
+	)
 	return err
 }
 

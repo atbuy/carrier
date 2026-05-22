@@ -13,8 +13,10 @@ import (
 	"github.com/atbuy/carrier/internal/store"
 )
 
-const staleCheckInterval = 5 * time.Minute
-const staleCheckFilename = "stale-check.timestamp"
+const (
+	staleCheckInterval = 5 * time.Minute
+	staleCheckFilename = "stale-check.timestamp"
+)
 
 // staleCheckDue returns true when the stale-run cleanup should be executed.
 // It checks whether the sidecar timestamp file is older than interval, which

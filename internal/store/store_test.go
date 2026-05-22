@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -154,6 +155,96 @@ func TestUpdateEnvID(t *testing.T) {
 	}
 	if run.EnvJSON != `{"HOME":"/root"}` {
 		t.Errorf("EnvJSON = %q, want %q", run.EnvJSON, `{"HOME":"/root"}`)
+	}
+}
+
+func TestSchemaCacheWrittenOnFirstOpen(t *testing.T) {
+	dir := t.TempDir()
+
+	// Sidecar must not exist before first open.
+	sidecarPath := filepath.Join(dir, schemaVersionFile)
+	if _, err := os.Stat(sidecarPath); err == nil {
+		t.Fatal("sidecar should not exist before first Open")
+	}
+
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	_ = st.Close()
+
+	// Sidecar must exist and contain the expected version.
+	b, err := os.ReadFile(sidecarPath)
+	if err != nil {
+		t.Fatalf("read sidecar: %v", err)
+	}
+	got := strings.TrimSpace(string(b))
+	want := strconv.FormatInt(countMigrationFiles(), 10)
+	if got != want {
+		t.Fatalf("sidecar version = %q, want %q", got, want)
+	}
+}
+
+func TestSchemaCacheSkipsGooseOnReopenSamedir(t *testing.T) {
+	dir := t.TempDir()
+
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatalf("first open: %v", err)
+	}
+	_ = st.Close()
+
+	// Corrupt the goose_db_version table so that if goose.Up runs again it
+	// would fail. If the cache works, goose.Up is skipped and Open succeeds.
+	dbPath := filepath.Join(dir, "carrier.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("direct open: %v", err)
+	}
+	if _, err := db.Exec(`DELETE FROM goose_db_version`); err != nil {
+		_ = db.Close()
+		t.Fatalf("delete goose rows: %v", err)
+	}
+	_ = db.Close()
+
+	// Second Open must succeed (cache hit → goose skipped → no error).
+	st2, err := Open(dir)
+	if err != nil {
+		t.Fatalf("second open: %v", err)
+	}
+	defer func() { _ = st2.Close() }()
+}
+
+func TestSchemaCacheInvalidatedWhenVersionChanges(t *testing.T) {
+	dir := t.TempDir()
+
+	st, err := Open(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	_ = st.Close()
+
+	// Overwrite sidecar with a lower version to simulate an upgrade.
+	sidecarPath := filepath.Join(dir, schemaVersionFile)
+	if err := os.WriteFile(sidecarPath, []byte("1"), 0o600); err != nil {
+		t.Fatalf("write sidecar: %v", err)
+	}
+
+	// Open must re-run migrations (no error, goose is idempotent).
+	st2, err := Open(dir)
+	if err != nil {
+		t.Fatalf("open after version downgrade: %v", err)
+	}
+	_ = st2.Close()
+
+	// Sidecar must now be updated to the real latest.
+	b, err := os.ReadFile(sidecarPath)
+	if err != nil {
+		t.Fatalf("read sidecar after upgrade: %v", err)
+	}
+	want := strconv.FormatInt(countMigrationFiles(), 10)
+	if strings.TrimSpace(string(b)) != want {
+		t.Fatalf("sidecar after upgrade = %q, want %q", string(b), want)
 	}
 }
 
