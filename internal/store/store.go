@@ -101,11 +101,15 @@ func (s *Store) UpdatePaths(id int64, stdoutPath, stderrPath, terminalPath strin
 }
 
 func (s *Store) FinishRun(id int64, status string, exitCode int, finished time.Time) error {
-	r, err := s.GetRun(id)
+	var startedStr string
+	if err := s.db.QueryRow(`SELECT started_at FROM runs WHERE id=?`, id).Scan(&startedStr); err != nil {
+		return err
+	}
+	started, err := parseTime(startedStr)
 	if err != nil {
 		return err
 	}
-	duration := finished.Sub(r.StartedAt).Milliseconds()
+	duration := finished.Sub(started).Milliseconds()
 	_, err = s.db.Exec(`UPDATE runs SET status=?, finished_at=?, duration_ms=?, exit_code=? WHERE id=?`,
 		status, fmtTime(finished), duration, exitCode, id)
 	if err != nil {
