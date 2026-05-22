@@ -87,45 +87,7 @@ func TestStoreRunLifecycle(t *testing.T) {
 	}
 }
 
-func TestUpdateGitMeta(t *testing.T) {
-	st, err := Open(t.TempDir())
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer func() { _ = st.Close() }()
-
-	id, err := st.CreateRun(CreateRun{
-		Status: StatusRunning, Mode: ModeRun, Command: "cmd",
-		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
-	})
-	if err != nil {
-		t.Fatalf("create run: %v", err)
-	}
-
-	dirty := true
-	if err := st.UpdateGitMeta(id, "/repo", "main", "abc123", &dirty); err != nil {
-		t.Fatalf("UpdateGitMeta: %v", err)
-	}
-
-	run, err := st.GetRun(id)
-	if err != nil {
-		t.Fatalf("get run: %v", err)
-	}
-	if run.GitRoot != "/repo" {
-		t.Errorf("GitRoot = %q, want %q", run.GitRoot, "/repo")
-	}
-	if run.GitBranch != "main" {
-		t.Errorf("GitBranch = %q, want %q", run.GitBranch, "main")
-	}
-	if run.GitCommit != "abc123" {
-		t.Errorf("GitCommit = %q, want %q", run.GitCommit, "abc123")
-	}
-	if run.GitDirty == nil || !*run.GitDirty {
-		t.Errorf("GitDirty = %v, want true", run.GitDirty)
-	}
-}
-
-func TestUpdateEnvID(t *testing.T) {
+func TestFinalizeRun(t *testing.T) {
 	st, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -137,24 +99,153 @@ func TestUpdateEnvID(t *testing.T) {
 		t.Fatalf("insert env: %v", err)
 	}
 
+	started := time.Now()
 	id, err := st.CreateRun(CreateRun{
 		Status: StatusRunning, Mode: ModeRun, Command: "cmd",
-		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: started,
 	})
 	if err != nil {
 		t.Fatalf("create run: %v", err)
 	}
 
-	if err := st.UpdateEnvID(id, envID); err != nil {
-		t.Fatalf("UpdateEnvID: %v", err)
+	dirty := true
+	if err := st.FinalizeRun(id, FinalizeParams{
+		GitRoot: "/repo", GitBranch: "main", GitCommit: "abc123", GitDirty: &dirty,
+		EnvID: &envID, Status: StatusFailed, ExitCode: 7,
+		Started: started, Finished: started.Add(1500 * time.Millisecond),
+	}); err != nil {
+		t.Fatalf("FinalizeRun: %v", err)
 	}
 
 	run, err := st.GetRun(id)
 	if err != nil {
 		t.Fatalf("get run: %v", err)
 	}
+	if run.GitRoot != "/repo" || run.GitBranch != "main" || run.GitCommit != "abc123" {
+		t.Errorf("git meta mismatch: %q %q %q", run.GitRoot, run.GitBranch, run.GitCommit)
+	}
+	if run.GitDirty == nil || !*run.GitDirty {
+		t.Errorf("GitDirty = %v, want true", run.GitDirty)
+	}
 	if run.EnvJSON != `{"HOME":"/root"}` {
-		t.Errorf("EnvJSON = %q, want %q", run.EnvJSON, `{"HOME":"/root"}`)
+		t.Errorf("EnvJSON = %q", run.EnvJSON)
+	}
+	if run.Status != StatusFailed {
+		t.Errorf("Status = %q, want %q", run.Status, StatusFailed)
+	}
+	if run.ExitCode == nil || *run.ExitCode != 7 {
+		t.Errorf("ExitCode = %v, want 7", run.ExitCode)
+	}
+	if run.DurationMS == nil || *run.DurationMS != 1500 {
+		t.Errorf("DurationMS = %v, want 1500", run.DurationMS)
+	}
+}
+
+func TestFinalizeRunNilEnvLeavesLinkUntouched(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	envID, err := st.InsertOrGetEnvironment(`{"A":"1"}`)
+	if err != nil {
+		t.Fatalf("insert env: %v", err)
+	}
+	started := time.Now()
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusRunning, Mode: ModeRun, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: started, EnvID: &envID,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	// nil EnvID must not clobber the existing link (COALESCE).
+	if err := st.FinalizeRun(id, FinalizeParams{
+		Status: StatusSuccess, ExitCode: 0, Started: started, Finished: started.Add(time.Second),
+	}); err != nil {
+		t.Fatalf("FinalizeRun: %v", err)
+	}
+	run, err := st.GetRun(id)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if run.EnvJSON != `{"A":"1"}` {
+		t.Errorf("EnvJSON = %q, want existing link preserved", run.EnvJSON)
+	}
+}
+
+func TestBackfillMeta(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	envID, err := st.InsertOrGetEnvironment(`{"HOME":"/root"}`)
+	if err != nil {
+		t.Fatalf("insert env: %v", err)
+	}
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusRunning, Mode: ModeShell, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	dirty := false
+	if err := st.BackfillMeta(id, "/repo", "dev", "deadbeef", &dirty, &envID); err != nil {
+		t.Fatalf("BackfillMeta: %v", err)
+	}
+	run, err := st.GetRun(id)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if run.GitRoot != "/repo" || run.GitBranch != "dev" || run.GitCommit != "deadbeef" {
+		t.Errorf("git meta mismatch: %q %q %q", run.GitRoot, run.GitBranch, run.GitCommit)
+	}
+	if run.GitDirty == nil || *run.GitDirty {
+		t.Errorf("GitDirty = %v, want false", run.GitDirty)
+	}
+	if run.EnvJSON != `{"HOME":"/root"}` {
+		t.Errorf("EnvJSON = %q", run.EnvJSON)
+	}
+	// Run is still in progress — status untouched.
+	if run.Status != StatusRunning {
+		t.Errorf("Status = %q, want %q", run.Status, StatusRunning)
+	}
+}
+
+func TestBackfillMetaNilEnvLeavesLinkUntouched(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	envID, err := st.InsertOrGetEnvironment(`{"A":"1"}`)
+	if err != nil {
+		t.Fatalf("insert env: %v", err)
+	}
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusRunning, Mode: ModeShell, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(), EnvID: &envID,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	if err := st.BackfillMeta(id, "/repo", "dev", "deadbeef", nil, nil); err != nil {
+		t.Fatalf("BackfillMeta: %v", err)
+	}
+	run, err := st.GetRun(id)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if run.EnvJSON != `{"A":"1"}` {
+		t.Errorf("EnvJSON = %q, want existing link preserved", run.EnvJSON)
 	}
 }
 

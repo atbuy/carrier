@@ -71,7 +71,7 @@ Each run stores:
 - label
 - reference to a deduplicated environment snapshot (when enabled)
 
-Git metadata and environment capture are collected concurrently with the child process, so they do not delay command startup.
+Git metadata and environment capture are collected concurrently with the child process, so they do not delay command startup. When the command finishes, `carrier run` writes the git metadata, environment link, status, exit code, and duration back in a single SQLite UPDATE to keep per-command overhead low.
 
 ## Output logs
 

@@ -133,21 +133,6 @@ func (s *Store) UpdatePaths(id int64, stdoutPath, stderrPath, terminalPath strin
 	return err
 }
 
-// UpdateGitMeta backfills git fields on a run created before collection finished.
-func (s *Store) UpdateGitMeta(id int64, root, branch, commit string, dirty *bool) error {
-	_, err := s.db.Exec(
-		`UPDATE runs SET git_root=?, git_branch=?, git_commit=?, git_dirty=? WHERE id=?`,
-		root, branch, commit, nullableBool(dirty), id,
-	)
-	return err
-}
-
-// UpdateEnvID links a run to an environment snapshot created after child startup.
-func (s *Store) UpdateEnvID(id int64, envID int64) error {
-	_, err := s.db.Exec(`UPDATE runs SET env_id=? WHERE id=?`, envID, id)
-	return err
-}
-
 func (s *Store) FinishRun(id int64, status string, exitCode int, finished time.Time) error {
 	var startedStr string
 	if err := s.db.QueryRow(`SELECT started_at FROM runs WHERE id=?`, id).Scan(&startedStr); err != nil {
@@ -164,6 +149,49 @@ func (s *Store) FinishRun(id int64, status string, exitCode int, finished time.T
 		return err
 	}
 	return s.indexRun(id)
+}
+
+// FinalizeParams carries everything needed to close out a run in one UPDATE.
+// Started is supplied by the caller so duration is computed without a query.
+type FinalizeParams struct {
+	GitRoot   string
+	GitBranch string
+	GitCommit string
+	GitDirty  *bool
+	EnvID     *int64
+	Status    string
+	ExitCode  int
+	Started   time.Time
+	Finished  time.Time
+}
+
+// FinalizeRun records git metadata, an optional env link, terminal status, exit
+// code, and finish time in a single UPDATE, then refreshes the search index.
+// It replaces a sequence of UpdateGitMeta + UpdateEnvID + FinishRun (and the
+// started_at lookup) to minimise round-trips on the run hot path. A nil EnvID
+// leaves any existing env link untouched.
+func (s *Store) FinalizeRun(id int64, p FinalizeParams) error {
+	duration := p.Finished.Sub(p.Started).Milliseconds()
+	_, err := s.db.Exec(
+		`UPDATE runs SET git_root=?, git_branch=?, git_commit=?, git_dirty=?, env_id=COALESCE(?, env_id), status=?, finished_at=?, duration_ms=?, exit_code=? WHERE id=?`,
+		p.GitRoot, p.GitBranch, p.GitCommit, nullableBool(p.GitDirty),
+		nullableInt64(p.EnvID), p.Status, fmtTime(p.Finished), duration, p.ExitCode, id,
+	)
+	if err != nil {
+		return err
+	}
+	return s.indexRun(id)
+}
+
+// BackfillMeta sets git metadata and an optional env link in a single UPDATE.
+// Used for runs still in progress (e.g. the shell hook), where the terminal
+// status is recorded later by FinishRun. A nil envID leaves the link untouched.
+func (s *Store) BackfillMeta(id int64, root, branch, commit string, dirty *bool, envID *int64) error {
+	_, err := s.db.Exec(
+		`UPDATE runs SET git_root=?, git_branch=?, git_commit=?, git_dirty=?, env_id=COALESCE(?, env_id) WHERE id=?`,
+		root, branch, commit, nullableBool(dirty), nullableInt64(envID), id,
+	)
+	return err
 }
 
 func (s *Store) GetRun(id int64) (*Run, error) {

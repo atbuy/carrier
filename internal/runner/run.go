@@ -86,10 +86,6 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	// Drain goroutines (done long before any non-trivial child finishes).
 	git := <-gitCh
 	envID := <-envCh
-	_ = st.UpdateGitMeta(id, git.Root, git.Branch, git.Commit, git.Dirty)
-	if envID != nil {
-		_ = st.UpdateEnvID(id, *envID)
-	}
 
 	status := store.StatusSuccess
 	switch {
@@ -99,7 +95,11 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 		status = store.StatusFailed
 	}
 	finished := time.Now()
-	if err := st.FinishRun(id, status, exit, finished); err != nil && finishErr == nil {
+	// Single UPDATE backfills git/env and records the terminal status.
+	if err := st.FinalizeRun(id, store.FinalizeParams{
+		GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
+		EnvID: envID, Status: status, ExitCode: exit, Started: started, Finished: finished,
+	}); err != nil && finishErr == nil {
 		finishErr = err
 	}
 	if opts.Notify || opts.NotifyAlways {

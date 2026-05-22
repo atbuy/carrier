@@ -80,10 +80,7 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			// Drain goroutines and backfill metadata before this subprocess exits.
 			git := <-gitCh
 			envID := <-envCh
-			_ = a.st.UpdateGitMeta(id, git.Root, git.Branch, git.Commit, git.Dirty)
-			if envID != nil {
-				_ = a.st.UpdateEnvID(id, *envID)
-			}
+			_ = a.st.BackfillMeta(id, git.Root, git.Branch, git.Commit, git.Dirty, envID)
 			return nil
 		},
 	}
