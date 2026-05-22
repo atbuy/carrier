@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/atbuy/carrier/internal/config"
 )
@@ -83,6 +84,58 @@ func TestStateFileReadWrite(t *testing.T) {
 	}
 	if got := sf.Read(); got != want {
 		t.Fatalf("state mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestStateFileCacheHitAvoidsDiskRead(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	sf := &StateFile{Path: path}
+
+	first := State{CurrentID: 1, CurrentLog: "/tmp/a.log", SessionID: 7}
+	if err := sf.Write(first); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	// Two reads without any write in between — second must return cached value.
+	got1 := sf.Read()
+	if got1 != first {
+		t.Fatalf("first read: got %#v want %#v", got1, first)
+	}
+	got2 := sf.Read()
+	if got2 != first {
+		t.Fatalf("cache hit read: got %#v want %#v", got2, first)
+	}
+}
+
+func TestStateFileCacheInvalidatesOnWrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	sf := &StateFile{Path: path}
+
+	s1 := State{CurrentID: 1, CurrentLog: "/tmp/a.log"}
+	if err := sf.Write(s1); err != nil {
+		t.Fatalf("write s1: %v", err)
+	}
+	if got := sf.Read(); got != s1 {
+		t.Fatalf("read s1: got %#v", got)
+	}
+
+	// Overwrite with different state — need a distinct mtime, so backdate s1's
+	// mtime by 1 second first, then write s2 so its mtime is clearly newer.
+	old := time.Now().Add(-2 * time.Second)
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	// Prime the cache with the backdated mtime.
+	_ = sf.Read()
+
+	s2 := State{CurrentID: 2, CurrentLog: "/tmp/b.log"}
+	if err := sf.Write(s2); err != nil {
+		t.Fatalf("write s2: %v", err)
+	}
+
+	got := sf.Read()
+	if got != s2 {
+		t.Fatalf("after invalidation: got %#v want %#v", got, s2)
 	}
 }
 

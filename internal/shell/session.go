@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
+	"time"
 )
 
 type State struct {
@@ -13,19 +14,32 @@ type State struct {
 }
 
 type StateFile struct {
-	Path string
-	mu   sync.Mutex
+	Path    string
+	mu      sync.Mutex
+	lastMod time.Time
+	cached  State
 }
 
+// Read returns the current State. It only re-parses the file when its mtime
+// has changed since the last read, making it cheap to call on every PTY chunk.
 func (s *StateFile) Read() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	info, err := os.Stat(s.Path)
+	if err != nil {
+		return State{}
+	}
+	if !s.lastMod.IsZero() && info.ModTime().Equal(s.lastMod) {
+		return s.cached
+	}
 	b, err := os.ReadFile(s.Path)
 	if err != nil {
 		return State{}
 	}
 	var state State
 	_ = json.Unmarshal(b, &state)
+	s.lastMod = info.ModTime()
+	s.cached = state
 	return state
 }
 
