@@ -81,3 +81,52 @@ func TestGitFunctionReturnsEmptyForError(t *testing.T) {
 		t.Fatalf("expected empty string, got %q", out)
 	}
 }
+
+// TestCollectAllFieldsPopulated verifies that the parallel Collect path fills
+// every field (branch, commit, dirty) in a single call — catching any
+// goroutine/WaitGroup wiring regression.
+func TestCollectAllFieldsPopulated(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(
+			os.Environ(),
+			"GIT_AUTHOR_NAME=Test",
+			"GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=Test",
+			"GIT_COMMITTER_EMAIL=test@example.com",
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	run("init", "-b", "testbranch")
+	run("config", "user.email", "test@example.com")
+	run("config", "user.name", "Test")
+	run("commit", "--allow-empty", "-m", "init")
+
+	meta := Collect(dir)
+
+	if meta.Root == "" {
+		t.Error("Root empty")
+	}
+	if meta.Branch != "testbranch" {
+		t.Errorf("Branch = %q, want %q", meta.Branch, "testbranch")
+	}
+	if meta.Commit == "" {
+		t.Error("Commit empty")
+	}
+	if meta.Dirty == nil {
+		t.Fatal("Dirty nil")
+	}
+	if *meta.Dirty {
+		t.Error("clean repo should not be dirty")
+	}
+}
