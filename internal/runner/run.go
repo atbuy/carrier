@@ -77,7 +77,7 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 		return 1, err
 	}
 	if !opts.Quiet {
-		_, _ = io.WriteString(os.Stderr, runStartedLine(os.Stderr, id))
+		_, _ = io.WriteString(os.Stderr, runStartedLine(os.Stderr, id, cfg.UI.Theme))
 	}
 
 	// Run the child while git/env goroutines execute in parallel.

@@ -264,7 +264,7 @@ Override the color used for each semantic style. Any field left empty falls back
 | `danger`  | failed status and error messages          |
 | `warning` | killed status and caution notices         |
 | `accent`  | session IDs, tree connectors              |
-| `label`   | user labels, flag and command names       |
+| `label`   | user labels, shell-session labels, flag and command names |
 
 ```toml title="Custom palette"
 [ui.theme]

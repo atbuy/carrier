@@ -370,3 +370,40 @@ failure = false
 		t.Fatalf("DataDir = %q, want %q", cfg.Storage.DataDir, wantDir)
 	}
 }
+
+func TestLoadThemeEmptyFieldsFallBackToDefaults(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(home, ".config")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	configDir := filepath.Join(xdg, "carrier")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(`
+[ui]
+color = "always"
+
+[ui.theme]
+label = ""
+accent = "#112233"
+`), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	defaults := Default().UI.Theme
+	if cfg.UI.Theme.Label != defaults.Label {
+		t.Fatalf("label fallback = %q, want %q", cfg.UI.Theme.Label, defaults.Label)
+	}
+	if cfg.UI.Theme.Accent != "#112233" {
+		t.Fatalf("accent = %q, want custom", cfg.UI.Theme.Accent)
+	}
+	if cfg.UI.Theme.Success != defaults.Success {
+		t.Fatalf("success fallback = %q, want %q", cfg.UI.Theme.Success, defaults.Success)
+	}
+}

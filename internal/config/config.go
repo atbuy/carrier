@@ -108,13 +108,40 @@ func Load() (Config, error) {
 	}
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		cfg.Storage.DataDir = Expand(cfg.Storage.DataDir)
+		cfg.fillThemeDefaults()
 		return cfg, nil
 	}
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		return cfg, err
 	}
 	cfg.Storage.DataDir = Expand(cfg.Storage.DataDir)
+	cfg.fillThemeDefaults()
 	return cfg, nil
+}
+
+func (c *Config) fillThemeDefaults() {
+	defaults := Default().UI.Theme
+	if c.UI.Theme.Muted == "" {
+		c.UI.Theme.Muted = defaults.Muted
+	}
+	if c.UI.Theme.Command == "" {
+		c.UI.Theme.Command = defaults.Command
+	}
+	if c.UI.Theme.Success == "" {
+		c.UI.Theme.Success = defaults.Success
+	}
+	if c.UI.Theme.Danger == "" {
+		c.UI.Theme.Danger = defaults.Danger
+	}
+	if c.UI.Theme.Warning == "" {
+		c.UI.Theme.Warning = defaults.Warning
+	}
+	if c.UI.Theme.Accent == "" {
+		c.UI.Theme.Accent = defaults.Accent
+	}
+	if c.UI.Theme.Label == "" {
+		c.UI.Theme.Label = defaults.Label
+	}
 }
 
 func Path() (string, error) {

@@ -34,7 +34,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 	statePath := filepath.Join(os.TempDir(), "carrier-shell-"+strconvPID()+".json")
 	initState, _ := json.Marshal(State{SessionID: sessionID})
 	_ = os.WriteFile(statePath, initState, 0o600)
-	hookDir, err := WriteHookDir(carrierPath, statePath, program, sessionID, label)
+	hookDir, err := WriteHookDir(carrierPath, statePath, program, sessionID, label, cfg.UI.Theme.Label)
 	if err != nil {
 		return err
 	}
