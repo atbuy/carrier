@@ -17,10 +17,37 @@ func TestDefaultConfigTOML(t *testing.T) {
 		"[redaction]",
 		"[notify]",
 		"[shell]",
+		"[ui]",
+		`color = "auto"`,
+		"[ui.theme]",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("default config missing %q\n%s", want, out)
 		}
+	}
+}
+
+// TestConfigInitOutputPassesCheck proves the round-trip: a freshly initialized
+// config file loads and validates with zero issues after the [ui] changes.
+func TestConfigInitOutputPassesCheck(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+
+	initCmd := configInitCmd()
+	initCmd.SetOut(&bytes.Buffer{})
+	if err := initCmd.RunE(initCmd, nil); err != nil {
+		t.Fatalf("config init: %v", err)
+	}
+
+	checkCmd := configCheckCmd()
+	var out bytes.Buffer
+	checkCmd.SetOut(&out)
+	if err := checkCmd.RunE(checkCmd, nil); err != nil {
+		t.Fatalf("config check on initialized file: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "ok") {
+		t.Fatalf("expected ok, got %q", out.String())
 	}
 }
 

@@ -60,7 +60,45 @@ func Check(cfg Config) []Issue {
 			issues = append(issues, Issue{Level: IssueWarn, Field: fmt.Sprintf("shell.ignore_commands[%d]", i), Message: "empty command name"})
 		}
 	}
+	switch cfg.UI.Color {
+	case "", ColorAuto, ColorAlways, ColorNever:
+	default:
+		issues = append(issues, Issue{Level: IssueError, Field: "ui.color", Message: `must be "auto", "always", or "never"`})
+	}
+	for _, tc := range []struct{ field, value string }{
+		{"ui.theme.muted", cfg.UI.Theme.Muted},
+		{"ui.theme.command", cfg.UI.Theme.Command},
+		{"ui.theme.success", cfg.UI.Theme.Success},
+		{"ui.theme.danger", cfg.UI.Theme.Danger},
+		{"ui.theme.warning", cfg.UI.Theme.Warning},
+		{"ui.theme.accent", cfg.UI.Theme.Accent},
+		{"ui.theme.label", cfg.UI.Theme.Label},
+	} {
+		if strings.HasPrefix(tc.value, "#") && !isHexColor(tc.value) {
+			issues = append(issues, Issue{Level: IssueError, Field: tc.field, Message: "invalid hex color: " + tc.value})
+		}
+	}
 	return issues
+}
+
+// isHexColor reports whether s is a #RGB or #RRGGBB hex color string.
+func isHexColor(s string) bool {
+	if len(s) != 4 && len(s) != 7 {
+		return false
+	}
+	if s[0] != '#' {
+		return false
+	}
+	for _, c := range s[1:] {
+		switch {
+		case c >= '0' && c <= '9':
+		case c >= 'a' && c <= 'f':
+		case c >= 'A' && c <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func CountIssues(issues []Issue) (int, int) {

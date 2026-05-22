@@ -36,6 +36,7 @@ func touchStaleCheck(dataDir string) {
 
 type app struct {
 	cfg          config.Config
+	cfgLoaded    bool
 	st           *store.Store
 	notify       bool
 	notifyAlways bool
@@ -52,14 +53,16 @@ func Execute() int {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Resolve color/theme settings for every command, including those
+			// that skip store setup (version, config).
+			if _, err := a.ensureConfig(); err != nil {
+				return err
+			}
 			if cmd.CommandPath() == "carrier version" {
 				return nil
 			}
 			if strings.HasPrefix(cmd.CommandPath(), "carrier config") {
 				return nil
-			}
-			if cmd.CommandPath() == "carrier internal" || (cmd.Parent() != nil && cmd.Parent().Use == "internal") {
-				return a.open()
 			}
 			return a.open()
 		},
@@ -78,12 +81,28 @@ func Execute() int {
 	return 0
 }
 
+// ensureConfig loads config once, caches it, and applies theme settings.
+// Safe to call multiple times; subsequent calls are no-ops.
+func (a *app) ensureConfig() (config.Config, error) {
+	if a.cfgLoaded {
+		return a.cfg, nil
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return cfg, err
+	}
+	a.cfg = cfg
+	a.cfgLoaded = true
+	configureTheme(cfg)
+	return cfg, nil
+}
+
 func (a *app) open() error {
 	if a.st != nil {
 		return nil
 	}
 	go logs.WarmBuiltinCache()
-	cfg, err := config.Load()
+	cfg, err := a.ensureConfig()
 	if err != nil {
 		return err
 	}
@@ -91,7 +110,6 @@ func (a *app) open() error {
 	if err != nil {
 		return err
 	}
-	a.cfg = cfg
 	a.st = st
 	if staleCheckDue(cfg.Storage.DataDir, staleCheckInterval) {
 		_, _ = st.MarkStaleRunsKilled(cfg.StaleRunThreshold())

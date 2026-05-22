@@ -215,6 +215,54 @@ func TestCheckRejectsNegativeNotifyDuration(t *testing.T) {
 	}
 }
 
+func TestCheckRejectsInvalidColorMode(t *testing.T) {
+	cfg := Default()
+	cfg.UI.Color = "rainbow"
+
+	issues := Check(cfg)
+	if !hasIssue(issues, "ui.color") {
+		t.Fatalf("missing ui.color issue: %#v", issues)
+	}
+}
+
+func TestCheckAllowsEmptyColorMode(t *testing.T) {
+	cfg := Default()
+	cfg.UI.Color = "" // treated as auto
+
+	if hasIssue(Check(cfg), "ui.color") {
+		t.Fatal("empty color mode should be allowed")
+	}
+}
+
+func TestCheckRejectsInvalidThemeHex(t *testing.T) {
+	cfg := Default()
+	cfg.UI.Theme.Danger = "#ZZZ"
+	cfg.UI.Theme.Accent = "#12345" // wrong length
+
+	issues := Check(cfg)
+	for _, want := range []string{"ui.theme.danger", "ui.theme.accent"} {
+		if !hasIssue(issues, want) {
+			t.Fatalf("missing %s issue: %#v", want, issues)
+		}
+	}
+}
+
+func TestCheckAllowsNonHexThemeColorNames(t *testing.T) {
+	cfg := Default()
+	cfg.UI.Theme.Danger = "red" // ANSI name, not hex — allowed
+	cfg.UI.Theme.Accent = "9"   // ANSI index — allowed
+
+	if hasIssue(Check(cfg), "ui.theme.danger") || hasIssue(Check(cfg), "ui.theme.accent") {
+		t.Fatalf("non-hex color names should be allowed: %#v", Check(cfg))
+	}
+}
+
+func TestDefaultUIColorIsAuto(t *testing.T) {
+	if got := Default().UI.Color; got != ColorAuto {
+		t.Fatalf("default UI color = %q, want %q", got, ColorAuto)
+	}
+}
+
 func hasIssue(issues []Issue, field string) bool {
 	for _, issue := range issues {
 		if issue.Field == field {

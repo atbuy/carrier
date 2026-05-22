@@ -15,6 +15,8 @@ This page lists environment variables that affect `carrier`.
 | `EDITOR`          | `rerun --edit`            | Editor used to modify argv JSON before rerun.                                                   |
 | `VISUAL`          | `rerun --edit`            | Fallback editor if `EDITOR` is not set.                                                         |
 
+These variables override the persistent [`[ui] color`](configuration.md#color) config setting for a single invocation. Precedence, highest first: `NO_COLOR` / `TERM=dumb` (always disable) → `CARRIER_COLOR` → `[ui] color` config → automatic TTY detection.
+
 !!! tip "Color examples"
 
     ```bash title="Disable colors"
@@ -23,6 +25,11 @@ This page lists environment variables that affect `carrier`.
 
     ```bash title="Force colors through a pipe"
     CARRIER_COLOR=always carrier failed | less -R
+    ```
+
+    ```toml title="Disable colors permanently"
+    [ui]
+    color = "never"
     ```
 
 ## Captured command environment

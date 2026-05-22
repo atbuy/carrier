@@ -15,6 +15,7 @@ type Config struct {
 	Redaction RedactionConfig `toml:"redaction"`
 	Notify    NotifyConfig    `toml:"notify"`
 	Shell     ShellConfig     `toml:"shell"`
+	UI        UIConfig        `toml:"ui"`
 }
 
 type StorageConfig struct {
@@ -40,6 +41,34 @@ type ShellConfig struct {
 	IgnoreCommands []string `toml:"ignore_commands"`
 }
 
+// UIConfig controls terminal presentation: when to emit ANSI color and which
+// colors to use for each semantic style.
+type UIConfig struct {
+	// Color selects when to colorize output: "auto" (color only on a TTY,
+	// honoring NO_COLOR), "always" (force color), or "never" (plain text).
+	Color string      `toml:"color"`
+	Theme ThemeColors `toml:"theme"`
+}
+
+// ThemeColors holds hex color overrides for each semantic style. Empty fields
+// fall back to the builtin defaults.
+type ThemeColors struct {
+	Muted   string `toml:"muted"`
+	Command string `toml:"command"`
+	Success string `toml:"success"`
+	Danger  string `toml:"danger"`
+	Warning string `toml:"warning"`
+	Accent  string `toml:"accent"`
+	Label   string `toml:"label"`
+}
+
+// Color mode values for UIConfig.Color.
+const (
+	ColorAuto   = "auto"
+	ColorAlways = "always"
+	ColorNever  = "never"
+)
+
 func Default() Config {
 	return Config{
 		Storage: StorageConfig{DataDir: "~/.local/share/carrier", MaxOutputMB: 20, StaleRunThreshold: "24h", CaptureEnv: true},
@@ -55,6 +84,18 @@ func Default() Config {
 		Notify: NotifyConfig{MinDuration: "10s", Success: true, Failure: true},
 		Shell: ShellConfig{
 			IgnoreCommands: []string{"nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"},
+		},
+		UI: UIConfig{
+			Color: ColorAuto,
+			Theme: ThemeColors{
+				Muted:   "#A8A8A8",
+				Command: "#6AAF6A",
+				Success: "#6AAF6A",
+				Danger:  "#D75F5F",
+				Warning: "#D7AF5F",
+				Accent:  "#5B8DEF",
+				Label:   "#7AADF4",
+			},
 		},
 	}
 }

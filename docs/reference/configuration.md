@@ -62,6 +62,18 @@ failure = true
 [shell]
 program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
+
+[ui]
+color = "auto"
+
+[ui.theme]
+muted = "#A8A8A8"
+command = "#6AAF6A"
+success = "#6AAF6A"
+danger = "#D75F5F"
+warning = "#D7AF5F"
+accent = "#5B8DEF"
+label = "#7AADF4"
 ```
 
 ## `[storage]`
@@ -219,6 +231,47 @@ Default:
 
 Shell mode also ignores carrier's own internal hook commands.
 
+## `[ui]`
+
+Controls terminal presentation.
+
+### `color`
+
+Type: string (`auto`, `always`, or `never`)  
+Default: `"auto"`
+
+When to emit ANSI color:
+
+- `auto` — color only when writing to a terminal. Honors the [`NO_COLOR`](https://no-color.org) environment variable: if `NO_COLOR` is set, output is plain text. Piping carrier into another command (non-TTY) also disables color automatically.
+- `always` — force color even when output is not a terminal. Overrides `NO_COLOR`.
+- `never` — never emit color.
+
+```bash title="Disable color for one command"
+NO_COLOR=1 carrier history
+```
+
+### `[ui.theme]`
+
+Type: hex color strings (e.g. `"#6AAF6A"`), ANSI color names (e.g. `"red"`), or ANSI indices (e.g. `"9"`)
+
+Override the color used for each semantic style. Any field left empty falls back to the builtin default.
+
+| Field     | Used for                                  |
+| --------- | ----------------------------------------- |
+| `muted`   | secondary info: timestamps, cwd, hints    |
+| `command` | command text and examples                 |
+| `success` | successful run status                     |
+| `danger`  | failed status and error messages          |
+| `warning` | killed status and caution notices         |
+| `accent`  | session IDs, tree connectors              |
+| `label`   | user labels, flag and command names       |
+
+```toml title="Custom palette"
+[ui.theme]
+danger = "#FF5555"
+accent = "#BD93F9"
+```
+
 ## Validation rules
 
 `carrier config check` reports:
@@ -232,3 +285,5 @@ Shell mode also ignores carrier's own internal hook commands.
 | `notify.min_duration`     | error if empty, invalid, or negative                  |
 | `shell.program`           | error if blank whitespace                             |
 | `shell.ignore_commands[]` | warning for blank command names                       |
+| `ui.color`                | error if not `auto`, `always`, or `never`             |
+| `ui.theme.*`              | error for invalid `#hex` color values                 |
