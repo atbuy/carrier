@@ -86,6 +86,22 @@ func TestStoreRunLifecycle(t *testing.T) {
 	}
 }
 
+func TestOpenEnablesWALMode(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	var mode string
+	if err := st.db.QueryRow("PRAGMA journal_mode").Scan(&mode); err != nil {
+		t.Fatalf("query journal_mode: %v", err)
+	}
+	if mode != "wal" {
+		t.Fatalf("journal_mode = %q, want %q", mode, "wal")
+	}
+}
+
 func TestOpenAppliesGooseMigrations(t *testing.T) {
 	dir := t.TempDir()
 	st, err := Open(dir)

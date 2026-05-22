@@ -43,6 +43,17 @@ func OpenWith(dataDir string, cfg config.Config) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	// WAL mode allows concurrent readers during writes; busy_timeout retries
+	// instead of immediately returning SQLITE_BUSY under write contention.
+	for _, pragma := range []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+	} {
+		if _, err := db.Exec(pragma); err != nil {
+			_ = db.Close()
+			return nil, err
+		}
+	}
 	if err := migrate(db); err != nil {
 		_ = db.Close()
 		return nil, err
