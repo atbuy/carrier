@@ -48,10 +48,10 @@ func printStats(cmd *cobra.Command, stats *store.Stats) {
 	printStatsLine(out, t, "Failure", fmt.Sprintf("%.1f%%", failureRate(stats)), failureStyle(t, stats))
 	printStatsLine(out, t, "Avg duration", paddedDuration(stats.AvgDurationMS), t.Muted)
 	if stats.FirstStartedAt != nil {
-		printStatsLine(out, t, "First run", formatTime(*stats.FirstStartedAt), t.Muted)
+		printStatsLine(out, t, "First run", timeWithRelative(*stats.FirstStartedAt), t.Muted)
 	}
 	if stats.LastStartedAt != nil {
-		printStatsLine(out, t, "Last run", formatTime(*stats.LastStartedAt), t.Muted)
+		printStatsLine(out, t, "Last run", timeWithRelative(*stats.LastStartedAt), t.Muted)
 	}
 	_, _ = fmt.Fprintln(out)
 	_, _ = fmt.Fprintln(out, t.Bold.Render("Slowest:"))
@@ -74,9 +74,9 @@ func printStats(cmd *cobra.Command, stats *store.Stats) {
 			out, "  %s  %s  %s  %s  %s\n",
 			t.ID.Render(fmt.Sprintf("%d", run.ID)),
 			t.Muted.Render(formatDuration(&run.DurationMS)),
-			t.statusStyle(run.Status).Render(run.Status),
+			renderStatus(t, run.Status, 0),
 			t.Command.Render(displayCommand(storeRun)),
-			t.Muted.Render(run.CWD),
+			t.Muted.Render(collapseHome(run.CWD)),
 		)
 	}
 }

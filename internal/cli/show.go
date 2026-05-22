@@ -171,9 +171,9 @@ func (a *app) runningCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(
 					out, "%s  %s  %s  %s  %s\n",
 					t.ID.Render(fmt.Sprintf("%d", r.ID)),
-					t.statusStyle(r.Status).Render(r.Status),
+					renderStatus(t, r.Status, 0),
 					t.Command.Render(displayCommand(&r)),
-					t.Muted.Render(r.CWD),
+					t.Muted.Render(collapseHome(r.CWD)),
 					t.Muted.Render(formatDuration(&ms)),
 				)
 			}
@@ -205,9 +205,9 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 				_, _ = fmt.Fprintf(
 					out, "%s  %s  %s  %s%s\n",
 					t.ID.Render(fmt.Sprintf("%d", r.ID)),
-					t.statusStyle(r.Status).Render(r.Status),
+					renderStatus(t, r.Status, 0),
 					t.Command.Render(displayCommand(&r)),
-					t.Muted.Render(r.CWD),
+					t.Muted.Render(collapseHome(r.CWD)),
 					t.Muted.Render(age),
 				)
 			}

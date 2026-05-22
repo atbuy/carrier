@@ -46,6 +46,78 @@ func TestFormattingHelpers(t *testing.T) {
 	}
 }
 
+func TestFormatRelativeTime(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		name string
+		ts   time.Time
+		want string
+	}{
+		{"zero", time.Time{}, ""},
+		{"just now", now.Add(-2 * time.Second), "just now"},
+		{"seconds", now.Add(-30 * time.Second), "30s ago"},
+		{"minutes", now.Add(-5 * time.Minute), "5m ago"},
+		{"hours", now.Add(-3 * time.Hour), "3h ago"},
+		{"days", now.Add(-2 * 24 * time.Hour), "2d ago"},
+		{"weeks", now.Add(-2 * 7 * 24 * time.Hour), "2w ago"},
+		{"months", now.Add(-60 * 24 * time.Hour), "2mo ago"},
+		{"years", now.Add(-400 * 24 * time.Hour), "1y ago"},
+		{"future clamps", now.Add(time.Hour), "just now"},
+	}
+	for _, c := range cases {
+		if got := formatRelativeTime(c.ts); got != c.want {
+			t.Errorf("%s: formatRelativeTime = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestTimeWithRelative(t *testing.T) {
+	if got := timeWithRelative(time.Time{}); got != "" {
+		t.Fatalf("zero time = %q", got)
+	}
+	ts := time.Now().Add(-5 * time.Minute)
+	got := timeWithRelative(ts)
+	if !strings.Contains(got, "(5m ago)") || !strings.Contains(got, formatTime(ts)) {
+		t.Fatalf("timeWithRelative = %q, want abs + (5m ago)", got)
+	}
+}
+
+func TestStatusGlyph(t *testing.T) {
+	cases := map[string]string{
+		store.StatusSuccess: "✓",
+		store.StatusFailed:  "✗",
+		store.StatusRunning: "●",
+		store.StatusKilled:  "⊘",
+		"weird":             "•",
+	}
+	for status, want := range cases {
+		if got := statusGlyph(status); got != want {
+			t.Errorf("statusGlyph(%q) = %q, want %q", status, got, want)
+		}
+	}
+}
+
+func TestCollapseHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{home, "~"},
+		{filepath.Join(home, "projects", "carrier"), "~/projects/carrier"},
+		{"/var/log/syslog", "/var/log/syslog"},
+		{home + "extra", home + "extra"}, // prefix without separator must not collapse
+	}
+	for _, c := range cases {
+		if got := collapseHome(c.in); got != c.want {
+			t.Errorf("collapseHome(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestDirtyString(t *testing.T) {
 	if got := dirtyString(nil); got != "unknown" {
 		t.Fatalf("nil dirty = %q", got)

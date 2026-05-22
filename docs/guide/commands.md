@@ -91,13 +91,15 @@ carrier history --json
 
 ### Session grouping
 
+List rows show a colored status glyph (`✓` success, `✗` failed, `●` running, `⊘` killed), a relative timestamp (`2m ago`), the duration, the command, and the working directory with your home directory collapsed to `~`. Absolute timestamps are shown in `carrier show`.
+
 When runs belong to shell sessions, `history` displays them as a tree with session headers:
 
 ```text
-   5  ┬──  2026-05-18 12:01  session: backend-debug
-   3  ├──  failed   1.2s  make test
-   2  └──  success  0.4s  go vet ./...
-   1       failed   2.1s  make lint
+   5  ┬──  active    12m ago   backend-debug
+   3  ├──  ✗ failed   12m ago   1.2s   make test     ~/api
+   2  └──  ✓ success  12m ago   0.4s   go vet ./...   ~/api
+   1       ✗ failed   15m ago   2.1s   make lint      ~/api
 ```
 
 Filter to a specific session by ID or label:

@@ -210,7 +210,7 @@ func printSessionHeader(out io.Writer, t theme, sess store.Session) {
 		t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
 		t.Accent.Render("┬──"),
 		sessStatusStyle.Render(padRight(sessStatus, 7)),
-		t.Muted.Render(formatTime(sess.StartedAt)),
+		t.Muted.Render(padRight(formatRelativeTime(sess.StartedAt), 9)),
 		t.Label.Render(sessLabel),
 	)
 }
@@ -227,13 +227,14 @@ func printRunLine(out io.Writer, t theme, r *store.Run, connector string) {
 		conn = t.Accent.Render(connector)
 	}
 	_, _ = fmt.Fprintf(
-		out, "%s %s %s  %s  %s  %s%s\n",
+		out, "%s %s %s  %s  %s  %s  %s%s\n",
 		t.ID.Render(fmt.Sprintf("%6d", r.ID)),
 		conn,
-		t.statusStyle(r.Status).Render(padRight(r.Status, 7)),
-		t.Muted.Render(formatTime(r.StartedAt)),
+		renderStatus(t, r.Status, 7),
+		t.Muted.Render(padRight(formatRelativeTime(r.StartedAt), 9)),
+		t.Muted.Render(padRight(formatDuration(r.DurationMS), 9)),
 		t.Command.Render(displayCommand(r)),
-		t.Muted.Render(r.CWD),
+		t.Muted.Render(collapseHome(r.CWD)),
 		labelSuffix,
 	)
 }

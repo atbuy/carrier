@@ -34,7 +34,7 @@ func TestStatsCommand(t *testing.T) {
 		"Failure:     50.0%",
 		"Avg duration: 1.75s",
 		"Slowest:",
-		"2  2.5s  failed  make lint  /tmp/project",
+		"2  2.5s  ✗ failed  make lint  /tmp/project",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("stats output missing %q:\n%s", want, out.String())

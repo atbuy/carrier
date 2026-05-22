@@ -78,7 +78,7 @@ func (a *app) sessionListCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(
 					out, "%s  %s  %s%s\n",
 					t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
-					t.Muted.Render(formatTime(sess.StartedAt)),
+					t.Muted.Render(padRight(formatRelativeTime(sess.StartedAt), 9)),
 					t.Label.Render(label),
 					duration,
 				)

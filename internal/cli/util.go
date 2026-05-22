@@ -42,12 +42,96 @@ func formatTime(t time.Time) string {
 	return t.Local().Format("2006-01-02 15:04:05")
 }
 
+// formatRelativeTime renders an approximate "time ago" string for list views.
+// Returns "" for the zero time. Future times are clamped to "just now".
+func formatRelativeTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	d := time.Since(t)
+	if d < 0 {
+		d = 0
+	}
+	switch {
+	case d < 5*time.Second:
+		return "just now"
+	case d < time.Minute:
+		return fmt.Sprintf("%ds ago", int(d.Seconds()))
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	case d < 7*24*time.Hour:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf("%dw ago", int(d.Hours()/(24*7)))
+	case d < 365*24*time.Hour:
+		return fmt.Sprintf("%dmo ago", int(d.Hours()/(24*30)))
+	default:
+		return fmt.Sprintf("%dy ago", int(d.Hours()/(24*365)))
+	}
+}
+
+// timeWithRelative pairs an absolute timestamp with its relative form, e.g.
+// "2026-05-22 14:03:01 (2m ago)". Used in detail views.
+func timeWithRelative(ts time.Time) string {
+	abs := formatTime(ts)
+	if abs == "" {
+		return ""
+	}
+	if rel := formatRelativeTime(ts); rel != "" {
+		return abs + " (" + rel + ")"
+	}
+	return abs
+}
+
+// statusGlyph returns a single-width icon for a run status.
+func statusGlyph(status string) string {
+	switch status {
+	case store.StatusSuccess:
+		return "✓"
+	case store.StatusFailed:
+		return "✗"
+	case store.StatusRunning:
+		return "●"
+	case store.StatusKilled:
+		return "⊘"
+	default:
+		return "•"
+	}
+}
+
+// renderStatus returns the colored glyph plus status word, with the word padded
+// to pad columns for alignment in list views (pass 0 for no padding).
+func renderStatus(t theme, status string, pad int) string {
+	return t.statusStyle(status).Render(statusGlyph(status) + " " + padRight(status, pad))
+}
+
+// collapseHome rewrites a path under the user's home directory to start with ~.
+func collapseHome(path string) string {
+	if path == "" {
+		return ""
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if path == home {
+		return "~"
+	}
+	sep := string(os.PathSeparator)
+	if strings.HasPrefix(path, home+sep) {
+		return "~" + path[len(home):]
+	}
+	return path
+}
+
 func printRun(w io.Writer, r *store.Run) {
 	t := newTheme(w)
 	printField(w, t, "ID", fmt.Sprintf("%d", r.ID), t.ID)
-	printField(w, t, "Status", r.Status, t.statusStyle(r.Status))
+	printField(w, t, "Status", statusGlyph(r.Status)+" "+r.Status, t.statusStyle(r.Status))
 	printField(w, t, "Command", displayCommand(r), t.Command)
-	printField(w, t, "CWD", r.CWD, t.Muted)
+	printField(w, t, "CWD", collapseHome(r.CWD), t.Muted)
 	if r.ExitCode != nil {
 		exitStyle := t.Success
 		if *r.ExitCode != 0 {
@@ -56,12 +140,12 @@ func printRun(w io.Writer, r *store.Run) {
 		printField(w, t, "Exit", fmt.Sprintf("%d", *r.ExitCode), exitStyle)
 	}
 	printField(w, t, "Duration", formatDuration(r.DurationMS), t.Muted)
-	printField(w, t, "Started", formatTime(r.StartedAt), t.Muted)
+	printField(w, t, "Started", timeWithRelative(r.StartedAt), t.Muted)
 	if r.FinishedAt != nil {
-		printField(w, t, "Finished", formatTime(*r.FinishedAt), t.Muted)
+		printField(w, t, "Finished", timeWithRelative(*r.FinishedAt), t.Muted)
 	}
 	if r.GitRoot != "" {
-		printField(w, t, "Git", fmt.Sprintf("%s %s %s dirty=%s", r.GitRoot, r.GitBranch, short(r.GitCommit), dirtyString(r.GitDirty)), t.Muted)
+		printField(w, t, "Git", fmt.Sprintf("%s %s %s dirty=%s", collapseHome(r.GitRoot), r.GitBranch, short(r.GitCommit), dirtyString(r.GitDirty)), t.Muted)
 	}
 	if r.Label != "" {
 		printField(w, t, "Label", r.Label, t.Label)
