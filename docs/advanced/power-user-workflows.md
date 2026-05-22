@@ -2,6 +2,25 @@
 
 This page is for users who want to automate or inspect `carrier` more deeply.
 
+
+## Script with exit codes
+
+`carrier run` exits with the child command's exit code. That means it can wrap commands in shell scripts, Makefiles, CI-like local checks, and Git hooks without hiding failures.
+
+```bash title="Preserve failure"
+carrier run go test ./...
+case $? in
+  0) echo "tests passed" ;;
+  *) echo "tests failed" ; exit 1 ;;
+esac
+```
+
+Use `--quiet` when the wrapper output matters more than carrier status lines:
+
+```bash title="Quiet wrapper"
+carrier --quiet run ./scripts/check.sh
+```
+
 ## Use JSON output
 
 Most inspection commands support JSON.
@@ -24,6 +43,25 @@ carrier running --json | jq '.[].command'
 ```
 
 `show --json` includes log paths, captured output, metadata, and captured environment when enabled.
+
+
+## Build robust scripts from JSON
+
+Prefer JSON over human-readable output for automation. Text output is optimized for terminal scanning and may change formatting; JSON field names are the stable contract.
+
+```bash title="Use IDs from JSON"
+id=$(carrier last --json | jq -r '.id')
+carrier export "$id" > "run-$id.md"
+```
+
+```bash title="Open stderr only when present"
+stderr=$(carrier show "$id" --json | jq -r '.stderr_path // empty')
+if [ -n "$stderr" ]; then
+  less "$stderr"
+fi
+```
+
+`show --json` includes command metadata, argv, cwd, status, duration, output snippets, log paths, Git metadata, labels, session IDs, and captured environment when available.
 
 ## Keep original argv reliable
 
@@ -49,6 +87,24 @@ carrier rerun 42 --edit
 ```
 
 `--edit` opens a JSON array in `$EDITOR` or `$VISUAL`. The command is aborted if the file is unchanged, invalid JSON, or an empty array.
+
+
+## Triage with the TUI
+
+The text UI is useful when the question is "which run was that?" rather than "show run 42".
+
+```bash title="Interactive browser"
+carrier tui
+```
+
+Useful workflow:
+
+1. Filter by a failing command, status, cwd, or label.
+2. Preview stdout/stderr in the right pane.
+3. Label the run if it is part of an incident or benchmark.
+4. Press Enter to rerun the selected command from its original cwd.
+
+Deletion in the TUI removes the run metadata and log files, then prunes unused captured environment rows.
 
 ## Build interactive pickers
 
@@ -180,3 +236,13 @@ carrier watch --pattern '*.go' --debounce 500ms go test ./...
 ```
 
 It recursively watches the current directory and skips `.git`, `node_modules`, and `vendor`.
+
+
+Watch notes:
+
+- matching is applied to the changed file's base name, not the full path
+- `.git`, `node_modules`, and `vendor` are skipped during recursive setup
+- debounce defaults to `200ms`; use `--debounce 0s` only when immediate reruns are more important than duplicate events
+- each rerun creates a normal run record, so cleanup policies still apply
+
+

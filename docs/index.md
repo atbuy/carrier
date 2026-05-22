@@ -27,6 +27,17 @@ It is designed for normal terminal work: local projects, long-running build/test
 
     `carrier run` is the stable path for precise stdout/stderr capture. `carrier shell` is useful for experiments and long interactive sessions, but depends on PTY output and shell hooks.
 
+
+## Fast setup path
+
+1. Install with the script or `go install`.
+2. Run `carrier doctor`.
+3. Record a command with `carrier run <command...>`.
+4. Inspect it with `carrier last`, `carrier show <run-id>`, or `carrier tui`.
+5. Add a short alias only after the basic commands work.
+
+For deeper setup choices, use [Installation](tutorial/installation.md) and [Configuration reference](reference/configuration.md).
+
 ## Common tasks
 
 - Install carrier: [Installation](tutorial/installation.md)

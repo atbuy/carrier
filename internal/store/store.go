@@ -341,6 +341,23 @@ func (s *Store) SetLabel(id int64, label string) error {
 	return err
 }
 
+// DeleteByID removes a single run and its search-index entry, returning the
+// deleted run so the caller can clean up its log files. Returns sql.ErrNoRows
+// if no run with the given id exists.
+func (s *Store) DeleteByID(id int64) (*Run, error) {
+	r, err := s.GetRun(id)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.db.Exec(`DELETE FROM runs WHERE id=?`, id); err != nil {
+		return nil, err
+	}
+	if err := s.deleteSearchRows([]Run{*r}); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // CountStaleRuns returns the number of runs still in "running" status that
 // started more than threshold ago.
 func (s *Store) CountStaleRuns(threshold time.Duration) (int64, error) {

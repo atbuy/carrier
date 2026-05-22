@@ -4,23 +4,39 @@
 [![Docs](https://github.com/atbuy/carrier/actions/workflows/docs.yml/badge.svg)](https://github.com/atbuy/carrier/actions/workflows/docs.yml)
 [![codecov](https://codecov.io/gh/atbuy/carrier/graph/badge.svg)](https://codecov.io/gh/atbuy/carrier)
 
-`carrier` is a local developer command logger for Go-based single-binary installs. It records command executions, working directory, timing, exit code, output logs, Git metadata, and optional desktop notifications.
+`carrier` is a local developer command logger. It records command executions, working directory, timing, exit code, output logs, Git metadata, and optional desktop notifications.
 
 Documentation: [https://atbuy.github.io/carrier/](https://atbuy.github.io/carrier/)
 
-Most users will alias it:
+## Quick start
+
+Install, verify, and record one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
+carrier version
+carrier doctor
+carrier run go test ./...
+carrier last
+```
+
+Most users add a short alias:
 
 ```bash
 alias c='carrier'
 ```
 
-Quick usage:
+Then daily usage becomes:
 
 ```bash
 c run go test ./...
 c last
-c show 1
+c show <run-id>
+c rerun <run-id>
+c search "connection refused"
 ```
+
+New users should start with the [Getting started guide](https://atbuy.github.io/carrier/tutorial/getting-started/). Advanced users should see [Power-user workflows](https://atbuy.github.io/carrier/advanced/power-user-workflows/) and [Shell mode](https://atbuy.github.io/carrier/advanced/shell-mode/).
 
 ## Features
 
@@ -33,9 +49,7 @@ c show 1
 - output logs are stored in `~/.local/share/carrier/runs/`.
 - optional notifications use `notify-send` on Linux.
 - human-readable output is colorized on TTYs; use `NO_COLOR=1` to disable or `CARRIER_COLOR=always` to force.
-- `carrier shell` starts a PTY-backed tracked shell session (alpha). Each shell session groups its runs in `carrier history
-carrier history --session my-session
-carrier history --sessions-only`. Label sessions with `carrier shell 'label'` or `carrier shell --label label`.
+- `carrier shell` starts a PTY-backed tracked shell session (alpha). Each shell session groups its runs in `carrier history`, `carrier history --session my-session`, and `carrier history --sessions-only`.
 - `carrier attach <id-or-label>` re-opens an existing shell session from a different terminal.
 - `carrier session list` lists shell sessions; `carrier session label` sets or clears a session label.
 

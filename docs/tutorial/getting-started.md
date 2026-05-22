@@ -2,6 +2,23 @@
 
 This tutorial gets you from a fresh install to a useful `carrier` workflow.
 
+
+## Before you start
+
+You need:
+
+- a terminal on Linux, macOS, or Windows PowerShell
+- either the installer script or Go installed locally
+- write access to your user config and data directories
+
+Run this after install:
+
+```bash title="Health check"
+carrier doctor
+```
+
+`doctor` checks config, data directories, notification tooling, shell support, and log storage. Fix anything marked `error` before using `carrier` in scripts.
+
 ## What carrier is
 
 `carrier` records command executions on your machine. It captures:
@@ -62,6 +79,17 @@ source ~/.zshrc
 ```
 
 Use `source ~/.bashrc` if you use bash.
+
+
+## First five minutes checklist
+
+1. Install `carrier`.
+2. Run `carrier doctor`.
+3. Record one command with `carrier run <command...>`.
+4. Inspect it with `carrier last` and `carrier show <run-id>`.
+5. Add `alias c='carrier'` once you are comfortable with the command.
+
+The run ID appears in `last`, `history`, `failed`, `running`, and most JSON output. Use that ID with `show`, `tail`, `export`, `label`, `rerun`, and `clean` previews.
 
 ## Record your first command
 
@@ -145,6 +173,17 @@ Actually delete:
 ```bash title="Delete old records and logs"
 c clean --older-than 30d --yes
 ```
+
+
+## Browse runs interactively
+
+Use the full-screen browser when you want to scan recent runs and preview output without remembering IDs:
+
+```bash title="Open TUI"
+c tui
+```
+
+Inside the browser you can move through runs, filter by command/status/cwd/label, label important runs, delete old runs, and choose a run to rerun. Reruns start after the browser exits so the command runs in your normal terminal.
 
 ## Shell sessions (alpha)
 

@@ -157,3 +157,13 @@ func TestDoctorDirSizeAndFormatBytes(t *testing.T) {
 		t.Fatalf("formatBytes kib = %q", got)
 	}
 }
+
+func TestDirWritableReturnsFalseWhenPathIsFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	if dirWritable(path) {
+		t.Fatalf("dirWritable(%q) = true, want false for existing file", path)
+	}
+}

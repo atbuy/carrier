@@ -87,6 +87,46 @@ func TestStoreRunLifecycle(t *testing.T) {
 	}
 }
 
+func TestDeleteByID(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusSuccess, Mode: ModeRun, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+		StdoutPath: "/tmp/out.log",
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	deleted, err := st.DeleteByID(id)
+	if err != nil {
+		t.Fatalf("DeleteByID: %v", err)
+	}
+	if deleted.ID != id || deleted.StdoutPath != "/tmp/out.log" {
+		t.Fatalf("deleted run mismatch: %+v", deleted)
+	}
+	if _, err := st.GetRun(id); err == nil {
+		t.Fatal("run still present after delete")
+	}
+}
+
+func TestDeleteByIDMissing(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	if _, err := st.DeleteByID(999); err == nil {
+		t.Fatal("expected error deleting non-existent run")
+	}
+}
+
 func TestFinalizeRun(t *testing.T) {
 	st, err := Open(t.TempDir())
 	if err != nil {

@@ -308,3 +308,67 @@ func TestNewRedactorWithBuiltinsFasterThanFromScratch(t *testing.T) {
 		t.Fatalf("cached (%v) not faster than scratch (%v)", cachedDur, scratchDur)
 	}
 }
+
+func TestWarmBuiltinCacheAndSensitiveKeyNormalization(t *testing.T) {
+	WarmBuiltinCache()
+	WarmBuiltinCache()
+
+	cases := []struct {
+		key  string
+		want bool
+	}{
+		{"", false},
+		{"aws-secret-access-key", true},
+		{"client.secret", true},
+		{"OPENAI_API_KEY", true},
+		{"stripe public key", true},
+		{"PUBLIC_URL", false},
+		{"monkey", false},
+	}
+	for _, tc := range cases {
+		if got := sensitiveEnvKey(tc.key); got != tc.want {
+			t.Fatalf("sensitiveEnvKey(%q) = %v, want %v", tc.key, got, tc.want)
+		}
+	}
+	if got := normalizeEnvKey("  aws-secret.access/key  "); got != "AWS_SECRET_ACCESS_KEY" {
+		t.Fatalf("normalizeEnvKey = %q", got)
+	}
+}
+
+func TestSensitiveEnvValueEdgeCases(t *testing.T) {
+	cases := []struct {
+		name  string
+		key   string
+		value string
+		want  bool
+	}{
+		{"empty", "DATABASE_URL", "", false},
+		{"url username only", "DATABASE_URL", "postgres://user@example.com/db", true},
+		{"url password", "REDIS_URI", "redis://user:pass@example.com/0", true},
+		{"url in non-url key ignored", "HOME", "postgres://user:pass@example.com/db", false},
+		{"invalid url ignored", "DATABASE_URL", "://user:pass@example.com/db", false},
+		{"short entropy ignored", "SESSION_ID", "abc123", false},
+		{"spaces ignored", "SESSION_ID", "mF9x Q2pL8zR4vT7nB6cD3eH1jK5w", false},
+		{"slash ignored", "SESSION_ID", "mF9x/Q2pL8zR4vT7nB6cD3eH1jK5w", false},
+		{"colon ignored", "SESSION_ID", "mF9x:Q2pL8zR4vT7nB6cD3eH1jK5w", false},
+		{"high entropy", "SESSION_ID", "mF9xQ2pL8zR4vT7nB6cD3eH1jK5w", true},
+	}
+	for _, tc := range cases {
+		if got := sensitiveEnvValue(tc.key, tc.value); got != tc.want {
+			t.Fatalf("%s: sensitiveEnvValue(%q, %q) = %v, want %v", tc.name, tc.key, tc.value, got, tc.want)
+		}
+	}
+}
+
+func TestEnvValueCredentialKeySuffixes(t *testing.T) {
+	for _, key := range []string{"URL", "DATABASE_URL", "REDIS_URI", "PG_DSN", "PRIMARY_DATABASE"} {
+		if !envValueCanContainCredentials(key) {
+			t.Fatalf("envValueCanContainCredentials(%q) = false, want true", key)
+		}
+	}
+	for _, key := range []string{"URLISH", "DATABASE_NAME", "HOME"} {
+		if envValueCanContainCredentials(key) {
+			t.Fatalf("envValueCanContainCredentials(%q) = true, want false", key)
+		}
+	}
+}

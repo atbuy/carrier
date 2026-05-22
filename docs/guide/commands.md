@@ -68,6 +68,44 @@ carrier last
 carrier last --json
 ```
 
+## `tui`
+
+Browse recorded runs in an interactive, full-screen viewer:
+
+```bash title="Open the run browser"
+carrier tui
+carrier ui   # alias
+```
+
+The screen is split into a run list on the left and a live output preview on the
+right. Move through the list to preview each run's details and captured output.
+You can rerun, label, or delete runs without leaving the browser.
+
+Rerun launches **after** the browser exits, so the command runs in your normal
+terminal (not nested inside the viewer).
+
+The preview shows `stdout`/`stderr` for `carrier run` commands. Shell-session
+recordings rely on terminal control sequences and can't render faithfully in the
+preview, so the browser points you to `carrier show <id>` or `carrier tail <id>`
+to replay them in a real terminal instead.
+
+### Keys
+
+| Key                     | Action                                           |
+| ----------------------- | ------------------------------------------------ |
+| `↑` / `↓`, `k` / `j`    | move selection                                   |
+| `g` / `G`               | jump to first / last run                         |
+| `ctrl+u` / `ctrl+d`     | scroll the preview pane                          |
+| `/`                     | filter by command, status, cwd, or label         |
+| `enter`                 | rerun the selected command (after the TUI exits) |
+| `l`                     | set or clear the label on the selected run       |
+| `d`                     | delete the selected run (asks `y/N` to confirm)  |
+| `q` / `esc` / `ctrl+c`  | quit                                             |
+
+While filtering, `enter` applies the filter and `esc` clears it. Deleting a run
+also removes its log files and prunes any environment snapshot it no longer
+shares.
+
 ## `history`
 
 List recorded runs oldest-first:

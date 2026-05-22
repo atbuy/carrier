@@ -141,3 +141,43 @@ func TestConfigureThemeUpdatesActiveUI(t *testing.T) {
 		t.Fatalf("configureTheme did not update activeUI: %q", activeUI.Color)
 	}
 }
+
+func TestResolveColorModePrecedenceAndAliases(t *testing.T) {
+	withUI(t, config.Default().UI)
+
+	t.Setenv("NO_COLOR", "1")
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("CARRIER_COLOR", "always")
+	activeUI.Color = config.ColorAlways
+	if got := resolveColorMode(); got != config.ColorNever {
+		t.Fatalf("NO_COLOR resolveColorMode = %q, want never", got)
+	}
+
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "dumb")
+	if got := resolveColorMode(); got != config.ColorNever {
+		t.Fatalf("TERM=dumb resolveColorMode = %q, want never", got)
+	}
+
+	t.Setenv("TERM", "xterm-256color")
+	for _, value := range []string{"always", "1", "true"} {
+		t.Setenv("CARRIER_COLOR", value)
+		activeUI.Color = config.ColorNever
+		if got := resolveColorMode(); got != config.ColorAlways {
+			t.Fatalf("CARRIER_COLOR=%s resolveColorMode = %q, want always", value, got)
+		}
+	}
+	for _, value := range []string{"never", "0", "false"} {
+		t.Setenv("CARRIER_COLOR", value)
+		activeUI.Color = config.ColorAlways
+		if got := resolveColorMode(); got != config.ColorNever {
+			t.Fatalf("CARRIER_COLOR=%s resolveColorMode = %q, want never", value, got)
+		}
+	}
+
+	t.Setenv("CARRIER_COLOR", "bogus")
+	activeUI.Color = "bogus"
+	if got := resolveColorMode(); got != config.ColorAuto {
+		t.Fatalf("fallback resolveColorMode = %q, want auto", got)
+	}
+}
