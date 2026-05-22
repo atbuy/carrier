@@ -86,6 +86,77 @@ func TestStoreRunLifecycle(t *testing.T) {
 	}
 }
 
+func TestUpdateGitMeta(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusRunning, Mode: ModeRun, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	dirty := true
+	if err := st.UpdateGitMeta(id, "/repo", "main", "abc123", &dirty); err != nil {
+		t.Fatalf("UpdateGitMeta: %v", err)
+	}
+
+	run, err := st.GetRun(id)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if run.GitRoot != "/repo" {
+		t.Errorf("GitRoot = %q, want %q", run.GitRoot, "/repo")
+	}
+	if run.GitBranch != "main" {
+		t.Errorf("GitBranch = %q, want %q", run.GitBranch, "main")
+	}
+	if run.GitCommit != "abc123" {
+		t.Errorf("GitCommit = %q, want %q", run.GitCommit, "abc123")
+	}
+	if run.GitDirty == nil || !*run.GitDirty {
+		t.Errorf("GitDirty = %v, want true", run.GitDirty)
+	}
+}
+
+func TestUpdateEnvID(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	envID, err := st.InsertOrGetEnvironment(`{"HOME":"/root"}`)
+	if err != nil {
+		t.Fatalf("insert env: %v", err)
+	}
+
+	id, err := st.CreateRun(CreateRun{
+		Status: StatusRunning, Mode: ModeRun, Command: "cmd",
+		ArgvJSON: `["cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+
+	if err := st.UpdateEnvID(id, envID); err != nil {
+		t.Fatalf("UpdateEnvID: %v", err)
+	}
+
+	run, err := st.GetRun(id)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if run.EnvJSON != `{"HOME":"/root"}` {
+		t.Errorf("EnvJSON = %q, want %q", run.EnvJSON, `{"HOME":"/root"}`)
+	}
+}
+
 func TestOpenEnablesWALMode(t *testing.T) {
 	st, err := Open(t.TempDir())
 	if err != nil {

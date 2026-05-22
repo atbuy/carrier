@@ -37,25 +37,34 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			}
 			started := time.Now()
 			host, _ := os.Hostname()
-			git := gitmeta.Collect(cwd)
 			argvJSON, _ := json.Marshal([]string{command})
 			var sessionID *int64
 			if state.SessionID != 0 {
 				v := state.SessionID
 				sessionID = &v
 			}
-			var envID *int64
-			if envJSON := captureEnvCLI(a.cfg); envJSON != "" {
-				if eid, err := a.st.InsertOrGetEnvironment(envJSON); err == nil {
-					envID = &eid
+
+			// Start git and env collection concurrently.
+			gitCh := make(chan gitmeta.Meta, 1)
+			envCh := make(chan *int64, 1)
+			go func() { gitCh <- gitmeta.Collect(cwd) }()
+			go func() {
+				var envID *int64
+				if envJSON := captureEnvCLI(a.cfg); envJSON != "" {
+					if eid, err := a.st.InsertOrGetEnvironment(envJSON); err == nil {
+						envID = &eid
+					}
 				}
-			}
+				envCh <- envID
+			}()
+
+			// Create run immediately so we can write the state file without
+			// waiting for git/env — the PTY loop starts logging sooner.
 			id, err := a.st.CreateRun(store.CreateRun{
 				Status: store.StatusRunning, Mode: store.ModeShell, Command: command, ArgvJSON: string(argvJSON),
 				CWD: cwd, StartedAt: started, Hostname: host, Shell: os.Getenv("SHELL"),
-				GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
 				NotifyRequested: os.Getenv("CARRIER_NOTIFY") == "1", NotifyAlways: os.Getenv("CARRIER_NOTIFY_ALWAYS") == "1",
-				SessionID: sessionID, EnvID: envID,
+				SessionID: sessionID,
 			})
 			if err != nil {
 				return err
@@ -64,7 +73,18 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			if err := a.st.UpdatePaths(id, "", "", path); err != nil {
 				return err
 			}
-			return sf.Write(carriershell.State{CurrentID: id, CurrentLog: path, SessionID: state.SessionID})
+			if err := sf.Write(carriershell.State{CurrentID: id, CurrentLog: path, SessionID: state.SessionID}); err != nil {
+				return err
+			}
+
+			// Drain goroutines and backfill metadata before this subprocess exits.
+			git := <-gitCh
+			envID := <-envCh
+			_ = a.st.UpdateGitMeta(id, git.Root, git.Branch, git.Commit, git.Dirty)
+			if envID != nil {
+				_ = a.st.UpdateEnvID(id, *envID)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&statePath, "state", "", "state file")

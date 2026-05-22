@@ -14,6 +14,32 @@ import (
 	"github.com/atbuy/carrier/internal/store"
 )
 
+// initGitRepo creates a minimal git repo with one commit and returns its path.
+func initGitRepo(t *testing.T) string {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not in PATH")
+	}
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=t@t.com",
+			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=t@t.com",
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("init", "-b", "main")
+	run("config", "user.email", "t@t.com")
+	run("config", "user.name", "Test")
+	run("commit", "--allow-empty", "-m", "init")
+	return dir
+}
+
 func TestRunCapturesOutputAndMetadata(t *testing.T) {
 	dataDir := t.TempDir()
 	st, err := store.Open(dataDir)
@@ -454,5 +480,52 @@ func TestRunTimeout(t *testing.T) {
 	}
 	if run.Status != store.StatusKilled {
 		t.Errorf("status = %q, want %q", run.Status, store.StatusKilled)
+	}
+}
+
+// TestRunAsyncGitMetaBackfilled verifies that git metadata is stored on the run
+// record even though collection happens concurrently with child execution.
+func TestRunAsyncGitMetaBackfilled(t *testing.T) {
+	repoDir := initGitRepo(t)
+
+	dataDir := t.TempDir()
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = dataDir
+	cfg.Storage.CaptureEnv = false
+
+	code, err := Run(cfg, st, Options{
+		Mode:  store.ModeRun,
+		Argv:  []string{"true"},
+		CWD:   repoDir,
+		Quiet: true,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if code != 0 {
+		t.Fatalf("exit code = %d", code)
+	}
+
+	run, err := st.Latest()
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if run.GitRoot == "" {
+		t.Error("GitRoot empty — async git metadata not backfilled")
+	}
+	if run.GitBranch != "main" {
+		t.Errorf("GitBranch = %q, want %q", run.GitBranch, "main")
+	}
+	if run.GitCommit == "" {
+		t.Error("GitCommit empty")
+	}
+	if run.GitDirty == nil {
+		t.Error("GitDirty nil")
 	}
 }

@@ -100,6 +100,20 @@ func (s *Store) UpdatePaths(id int64, stdoutPath, stderrPath, terminalPath strin
 	return err
 }
 
+// UpdateGitMeta backfills git fields on a run created before collection finished.
+func (s *Store) UpdateGitMeta(id int64, root, branch, commit string, dirty *bool) error {
+	_, err := s.db.Exec(
+		`UPDATE runs SET git_root=?, git_branch=?, git_commit=?, git_dirty=? WHERE id=?`,
+		root, branch, commit, nullableBool(dirty), id)
+	return err
+}
+
+// UpdateEnvID links a run to an environment snapshot created after child startup.
+func (s *Store) UpdateEnvID(id int64, envID int64) error {
+	_, err := s.db.Exec(`UPDATE runs SET env_id=? WHERE id=?`, envID, id)
+	return err
+}
+
 func (s *Store) FinishRun(id int64, status string, exitCode int, finished time.Time) error {
 	var startedStr string
 	if err := s.db.QueryRow(`SELECT started_at FROM runs WHERE id=?`, id).Scan(&startedStr); err != nil {

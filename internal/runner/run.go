@@ -47,19 +47,26 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	host, _ := os.Hostname()
 	shell := os.Getenv("SHELL")
 	argvJSON, _ := json.Marshal(opts.Argv)
-	git := gitmeta.Collect(opts.CWD)
-	var envID *int64
-	if envJSON := captureEnv(cfg); envJSON != "" {
-		eid, err := st.InsertOrGetEnvironment(envJSON)
-		if err == nil {
-			envID = &eid
+
+	// Collect git metadata and capture env concurrently with child startup.
+	gitCh := make(chan gitmeta.Meta, 1)
+	envCh := make(chan *int64, 1)
+	go func() { gitCh <- gitmeta.Collect(opts.CWD) }()
+	go func() {
+		var envID *int64
+		if envJSON := captureEnv(cfg); envJSON != "" {
+			if eid, err := st.InsertOrGetEnvironment(envJSON); err == nil {
+				envID = &eid
+			}
 		}
-	}
+		envCh <- envID
+	}()
+
+	// Create a minimal run record immediately to obtain an ID for log paths.
 	id, err := st.CreateRun(store.CreateRun{
 		Status: store.StatusRunning, Mode: opts.Mode, Command: command.Display(opts.Argv),
 		ArgvJSON: string(argvJSON), CWD: opts.CWD, StartedAt: started, Hostname: host, Shell: shell,
-		GitRoot: git.Root, GitBranch: git.Branch, GitCommit: git.Commit, GitDirty: git.Dirty,
-		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways, EnvID: envID,
+		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways,
 	})
 	if err != nil {
 		return 1, err
@@ -72,7 +79,18 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	if !opts.Quiet {
 		_, _ = io.WriteString(os.Stderr, runStartedLine(os.Stderr, id))
 	}
+
+	// Run the child while git/env goroutines execute in parallel.
 	exit, killed, finishErr := execute(opts, cfg, stdoutPath, stderrPath)
+
+	// Drain goroutines (done long before any non-trivial child finishes).
+	git := <-gitCh
+	envID := <-envCh
+	_ = st.UpdateGitMeta(id, git.Root, git.Branch, git.Commit, git.Dirty)
+	if envID != nil {
+		_ = st.UpdateEnvID(id, *envID)
+	}
+
 	status := store.StatusSuccess
 	switch {
 	case killed:

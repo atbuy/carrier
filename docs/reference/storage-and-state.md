@@ -65,11 +65,13 @@ Each run stores:
 - exit code
 - hostname
 - shell
-- Git metadata
+- Git metadata (root, branch, commit, dirty flag)
 - output log paths
 - notification flags
 - label
 - reference to a deduplicated environment snapshot (when enabled)
+
+Git metadata and environment capture are collected concurrently with the child process, so they do not delay command startup.
 
 ## Output logs
 
@@ -157,6 +159,8 @@ Runs can get stuck in `running` if the parent `carrier` process is killed or the
 [storage]
 stale_run_threshold = "24h"
 ```
+
+The cleanup runs at most once every 5 minutes regardless of how often you invoke carrier, so it does not add overhead to every command.
 
 `carrier doctor` reports how many stale runs remain.
 
