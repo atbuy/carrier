@@ -122,7 +122,8 @@ func execDiff(cmd *cobra.Command, id1, id2 int64, path1, path2 string) error {
 	case config.ColorNever:
 		colorFlag = "--color=never"
 	}
-	c := exec.Command("diff",
+	c := exec.Command(
+		"diff",
 		colorFlag,
 		"--label", fmt.Sprintf("run #%d", id1),
 		"--label", fmt.Sprintf("run #%d", id2),

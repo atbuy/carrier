@@ -213,7 +213,6 @@ carrier watch -p '*.py' -d 500ms pytest -x`,
 	return cmd
 }
 
-
 func runWatch(a *app, argv []string, cwd string) {
 	runWatchCtx(context.Background(), a, argv, cwd, "")
 }

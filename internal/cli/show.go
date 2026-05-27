@@ -23,7 +23,7 @@ func (a *app) lastCmd() *cobra.Command {
 			if len(args) == 1 {
 				id, err := parseID(args[0])
 				if err != nil || id < 1 {
-					return fmt.Errorf("N must be a positive integer")
+					return fmt.Errorf("count must be a positive integer")
 				}
 				n = int(id)
 			}
