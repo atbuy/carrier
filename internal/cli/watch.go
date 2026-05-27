@@ -123,7 +123,7 @@ func (a *app) watchCmd() *cobra.Command {
 				cancelRun context.CancelFunc
 			)
 
-			startRun := func(argv []string, dir string) {
+			startRun := func(argv []string, dir, triggeredBy string) {
 				cancelMu.Lock()
 				if cancelRun != nil {
 					cancelRun()
@@ -132,11 +132,18 @@ func (a *app) watchCmd() *cobra.Command {
 				cancelRun = cancel
 				cancelMu.Unlock()
 
+				if !a.quiet && triggeredBy != "" {
+					rel, err := filepath.Rel(dir, triggeredBy)
+					if err != nil {
+						rel = triggeredBy
+					}
+					_, _ = fmt.Fprintf(os.Stderr, "carrier: changed: %s\n", rel)
+				}
 				runWatchCtx(ctx, a, argv, dir, label)
 			}
 
-			// run once immediately
-			startRun(rest, cwd)
+			// run once immediately (no trigger file for initial run)
+			startRun(rest, cwd, "")
 
 			var timer *time.Timer
 			for {
@@ -153,15 +160,16 @@ func (a *app) watchCmd() *cobra.Command {
 							continue
 						}
 					}
+					triggeredBy := event.Name
 					if debounce > 0 {
 						if timer != nil {
 							timer.Stop()
 						}
 						timer = time.AfterFunc(debounce, func() {
-							startRun(rest, cwd)
+							startRun(rest, cwd, triggeredBy)
 						})
 					} else {
-						go startRun(rest, cwd)
+						go startRun(rest, cwd, triggeredBy)
 					}
 				case watchErr, ok := <-watcher.Errors:
 					if !ok {
