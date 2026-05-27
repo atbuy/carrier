@@ -34,8 +34,8 @@ func printRootHelp(w io.Writer, t theme, cmd *cobra.Command) {
 	line(w)
 
 	printCommandGroup(w, t, "RUN", cmd, []string{"run", "shell", "attach", "rerun", "watch"})
-	printCommandGroup(w, t, "INSPECT", cmd, []string{"tui", "last", "running", "show", "tail", "failed", "search", "history", "stats", "export"})
-	printCommandGroup(w, t, "MANAGE", cmd, []string{"label", "session", "clean", "config", "doctor", "version", "help"})
+	printCommandGroup(w, t, "INSPECT", cmd, []string{"tui", "last", "running", "show", "tail", "failed", "search", "history", "stats", "diff", "export"})
+	printCommandGroup(w, t, "MANAGE", cmd, []string{"label", "session", "clean", "config", "completion", "doctor", "version", "help"})
 
 	line(w, t.Header.Render("EXAMPLES"))
 	line(w)
@@ -119,7 +119,7 @@ func printSubcommands(w io.Writer, t theme, cmd *cobra.Command) {
 			line(w)
 			printed = true
 		}
-		linef(w, "  %s  %s\n", t.Label.Render(padRight(child.Name(), 9)), t.Muted.Render(child.Short))
+		linef(w, "  %s  %s\n", t.Label.Render(padRight(child.Name(), 10)), t.Muted.Render(child.Short))
 	}
 }
 
@@ -131,7 +131,7 @@ func printCommandGroup(w io.Writer, t theme, title string, root *cobra.Command, 
 		if err != nil || child == nil || child.Hidden {
 			continue
 		}
-		linef(w, "  %s  %s\n", t.Label.Render(padRight(child.Name(), 9)), t.Muted.Render(child.Short))
+		linef(w, "  %s  %s\n", t.Label.Render(padRight(child.Name(), 10)), t.Muted.Render(child.Short))
 	}
 	line(w)
 }
