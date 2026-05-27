@@ -1165,7 +1165,7 @@ func TestDeleteKeepLast(t *testing.T) {
 	}
 
 	// search index should not contain deleted runs
-	results, err := st.SearchRuns("keepcmd", 10)
+	results, err := st.SearchRuns("keepcmd", 10, SearchFilter{})
 	if err != nil {
 		t.Fatalf("SearchRuns after DeleteKeepLast: %v", err)
 	}
@@ -1297,7 +1297,7 @@ func TestDeleteOlderThanAllMatch(t *testing.T) {
 	}
 
 	// search should also be empty
-	results, err := st.SearchRuns("oldone", 10)
+	results, err := st.SearchRuns("oldone", 10, SearchFilter{})
 	if err != nil {
 		t.Fatalf("SearchRuns: %v", err)
 	}

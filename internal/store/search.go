@@ -5,11 +5,18 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 )
 
 const maxSearchOutputBytes = 256 * 1024
 
-func (s *Store) SearchRuns(query string, limit int) ([]SearchResult, error) {
+// SearchFilter holds optional filter criteria for SearchRuns.
+type SearchFilter struct {
+	Since  *time.Time // only return runs started at or after this time
+	Status string     // only return runs with this status
+}
+
+func (s *Store) SearchRuns(query string, limit int, f SearchFilter) ([]SearchResult, error) {
 	terms := strings.Fields(query)
 	if len(terms) == 0 {
 		return nil, errors.New("search query must contain text")
@@ -17,12 +24,12 @@ func (s *Store) SearchRuns(query string, limit int) ([]SearchResult, error) {
 
 	// Stage 1: FTS5 — exact token + prefix match, ranked by relevance.
 	seen := make(map[int64]bool)
-	results, _ := s.ftsSearch(query, limit, seen)
+	results, _ := s.ftsSearch(query, limit, f, seen)
 
 	// Stage 2: LIKE fallback — substring match on command + cwd for each term.
 	// Catches cases like searching "test" matching "pytest" where FTS5 sees only whole tokens.
 	if len(results) < limit {
-		extra, err := s.likeSearch(terms, limit-len(results), seen)
+		extra, err := s.likeSearch(terms, limit-len(results), f, seen)
 		if err != nil {
 			return nil, err
 		}
@@ -34,19 +41,22 @@ func (s *Store) SearchRuns(query string, limit int) ([]SearchResult, error) {
 
 // ftsSearch runs an FTS5 query and returns matched results ranked by bm25.
 // seen is updated in-place so the caller can deduplicate against it.
-func (s *Store) ftsSearch(query string, limit int, seen map[int64]bool) ([]SearchResult, error) {
+func (s *Store) ftsSearch(query string, limit int, f SearchFilter, seen map[int64]bool) ([]SearchResult, error) {
 	fts, err := ftsQuery(query)
 	if err != nil {
 		return nil, err
 	}
+	where, filterArgs := searchFilterClause("r.", f)
+	args := append([]interface{}{fts}, filterArgs...)
+	args = append(args, limit)
 	rows, err := s.db.Query(`SELECT
 r.id,
 snippet(run_search, -1, '', '', ' ... ', 12)
 FROM run_search
 JOIN runs r ON r.id = run_search.rowid
-WHERE run_search MATCH ?
+WHERE run_search MATCH ?`+where+`
 ORDER BY bm25(run_search), r.id DESC
-LIMIT ?`, fts, limit)
+LIMIT ?`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +80,7 @@ LIMIT ?`, fts, limit)
 
 // likeSearch does AND-of-substrings matching on command and cwd columns,
 // skipping IDs already in seen.
-func (s *Store) likeSearch(terms []string, limit int, seen map[int64]bool) ([]SearchResult, error) {
+func (s *Store) likeSearch(terms []string, limit int, f SearchFilter, seen map[int64]bool) ([]SearchResult, error) {
 	// Build: WHERE (command LIKE ? OR cwd LIKE ?) AND (command LIKE ? OR cwd LIKE ?) ...
 	whereClauses := make([]string, 0, len(terms))
 	args := make([]any, 0, len(terms)*2)
@@ -79,9 +89,11 @@ func (s *Store) likeSearch(terms []string, limit int, seen map[int64]bool) ([]Se
 		pattern := "%" + t + "%"
 		args = append(args, pattern, pattern)
 	}
+	extraWhere, extraArgs := searchFilterClause("", f)
+	args = append(args, extraArgs...)
 	args = append(args, limit+len(seen))
 	q := `SELECT id,status,mode,command,argv_json,cwd,started_at,finished_at,duration_ms,exit_code,hostname,shell,git_root,git_branch,git_commit,git_dirty,stdout_path,stderr_path,terminal_output_path,notify_requested,notify_always,created_at,label,env_json,session_id
-FROM runs WHERE ` + strings.Join(whereClauses, " AND ") + ` ORDER BY id DESC LIMIT ?`
+FROM runs WHERE ` + strings.Join(whereClauses, " AND ") + extraWhere + ` ORDER BY id DESC LIMIT ?`
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err
@@ -128,6 +140,26 @@ func (s *Store) deleteSearchRows(runs []Run) error {
 		}
 	}
 	return nil
+}
+
+// searchFilterClause builds AND conditions for a SearchFilter.
+// colPrefix is prepended to column names ("r." for JOINed queries, "" for direct).
+// Returns the SQL fragment (empty when filter is empty) and the bound args.
+func searchFilterClause(colPrefix string, f SearchFilter) (string, []interface{}) {
+	var clauses []string
+	var args []interface{}
+	if f.Status != "" {
+		clauses = append(clauses, colPrefix+"status = ?")
+		args = append(args, f.Status)
+	}
+	if f.Since != nil {
+		clauses = append(clauses, colPrefix+"started_at >= ?")
+		args = append(args, f.Since.UTC().Format(time.RFC3339))
+	}
+	if len(clauses) == 0 {
+		return "", nil
+	}
+	return " AND " + strings.Join(clauses, " AND "), args
 }
 
 func ftsQuery(query string) (string, error) {

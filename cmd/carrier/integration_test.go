@@ -139,10 +139,10 @@ func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 	for _, want := range []string{
 		"config <command>",
 		"COMMANDS",
-		"path       show config file path",
-		"show       show active config",
-		"check      validate active config",
-		"init       write default config file",
+		"path        show config file path",
+		"show        show active config",
+		"check       validate active config",
+		"init        write default config file",
 	} {
 		if !strings.Contains(help.stdout, want) {
 			t.Fatalf("config help output missing %q:\n%s", want, help.stdout)

@@ -92,7 +92,7 @@ func TestDeleteOlderThanRemovesSearchRows(t *testing.T) {
 	if _, err := st.DeleteOlderThan(time.Now().Add(-24 * time.Hour)); err != nil {
 		t.Fatalf("delete older than: %v", err)
 	}
-	results, err := st.SearchRuns("searchable-command", 10)
+	results, err := st.SearchRuns("searchable-command", 10, SearchFilter{})
 	if err != nil {
 		t.Fatalf("search runs: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestSearchRunsEmptyQuery(t *testing.T) {
 	}
 	defer func() { _ = st.Close() }()
 
-	_, err = st.SearchRuns("", 10)
+	_, err = st.SearchRuns("", 10, SearchFilter{})
 	if err == nil {
 		t.Fatal("SearchRuns with empty query: expected error, got nil")
 	}
@@ -125,7 +125,7 @@ func TestSearchRunsWhitespaceOnlyQuery(t *testing.T) {
 	}
 	defer func() { _ = st.Close() }()
 
-	_, err = st.SearchRuns("   ", 10)
+	_, err = st.SearchRuns("   ", 10, SearchFilter{})
 	if err == nil {
 		t.Fatal("SearchRuns with whitespace query: expected error, got nil")
 	}
@@ -149,12 +149,92 @@ func TestSearchRunsNoResults(t *testing.T) {
 		t.Fatalf("create run: %v", err)
 	}
 
-	results, err := st.SearchRuns("nonexistentxyzterm", 10)
+	results, err := st.SearchRuns("nonexistentxyzterm", 10, SearchFilter{})
 	if err != nil {
 		t.Fatalf("SearchRuns: %v", err)
 	}
 	if len(results) != 0 {
 		t.Fatalf("SearchRuns: want 0 results, got %d", len(results))
+	}
+}
+
+func TestSearchRunsFilterSince(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	old := time.Now().Add(-48 * time.Hour)
+	recent := time.Now().Add(-1 * time.Hour)
+
+	oldID, err := st.CreateRun(CreateRun{
+		Status: StatusSuccess, Mode: ModeRun, Command: "filtertest old",
+		ArgvJSON: `["filtertest","old"]`, CWD: "/tmp", StartedAt: old,
+	})
+	if err != nil {
+		t.Fatalf("create old run: %v", err)
+	}
+	recentID, err := st.CreateRun(CreateRun{
+		Status: StatusSuccess, Mode: ModeRun, Command: "filtertest recent",
+		ArgvJSON: `["filtertest","recent"]`, CWD: "/tmp", StartedAt: recent,
+	})
+	if err != nil {
+		t.Fatalf("create recent run: %v", err)
+	}
+
+	cutoff := time.Now().Add(-24 * time.Hour)
+	results, err := st.SearchRuns("filtertest", 10, SearchFilter{Since: &cutoff})
+	if err != nil {
+		t.Fatalf("SearchRuns with Since: %v", err)
+	}
+	ids := make(map[int64]bool)
+	for _, r := range results {
+		ids[r.Run.ID] = true
+	}
+	if ids[oldID] {
+		t.Errorf("old run should be excluded by --since filter")
+	}
+	if !ids[recentID] {
+		t.Errorf("recent run should be included by --since filter")
+	}
+}
+
+func TestSearchRunsFilterStatus(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	successID, err := st.CreateRun(CreateRun{
+		Status: StatusSuccess, Mode: ModeRun, Command: "statusfilter cmd",
+		ArgvJSON: `["statusfilter","cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create success run: %v", err)
+	}
+	failedID, err := st.CreateRun(CreateRun{
+		Status: StatusFailed, Mode: ModeRun, Command: "statusfilter cmd",
+		ArgvJSON: `["statusfilter","cmd"]`, CWD: "/tmp", StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create failed run: %v", err)
+	}
+
+	results, err := st.SearchRuns("statusfilter", 10, SearchFilter{Status: StatusFailed})
+	if err != nil {
+		t.Fatalf("SearchRuns with Status: %v", err)
+	}
+	ids := make(map[int64]bool)
+	for _, r := range results {
+		ids[r.Run.ID] = true
+	}
+	if ids[successID] {
+		t.Errorf("success run should be excluded by --status failed filter")
+	}
+	if !ids[failedID] {
+		t.Errorf("failed run should be included by --status failed filter")
 	}
 }
 
@@ -214,7 +294,7 @@ func TestSearchRunsMultiTermAND(t *testing.T) {
 	}
 
 	// searching for "cargo release" should only hit run A (both words present)
-	results, err := st.SearchRuns("cargo release", 10)
+	results, err := st.SearchRuns("cargo release", 10, SearchFilter{})
 	if err != nil {
 		t.Fatalf("SearchRuns: %v", err)
 	}
@@ -250,7 +330,7 @@ func TestSearchRunsLimitRespected(t *testing.T) {
 		}
 	}
 
-	results, err := st.SearchRuns("limitcmd", 3)
+	results, err := st.SearchRuns("limitcmd", 3, SearchFilter{})
 	if err != nil {
 		t.Fatalf("SearchRuns: %v", err)
 	}
@@ -288,7 +368,7 @@ func TestSearchRunsDeleteKeepLastRemovesSearchRows(t *testing.T) {
 		t.Fatalf("DeleteKeepLast: %v", err)
 	}
 
-	results, err := st.SearchRuns("searchable-keep-cmd", 10)
+	results, err := st.SearchRuns("searchable-keep-cmd", 10, SearchFilter{})
 	if err != nil {
 		t.Fatalf("SearchRuns: %v", err)
 	}
@@ -312,13 +392,13 @@ func TestSearchHelpersReturnErrorsAfterClose(t *testing.T) {
 	}
 
 	seen := map[int64]bool{}
-	if _, err := st.SearchRuns("closed", 10); err == nil {
+	if _, err := st.SearchRuns("closed", 10, SearchFilter{}); err == nil {
 		t.Fatal("expected SearchRuns error after close")
 	}
-	if _, err := st.ftsSearch("closed", 10, seen); err == nil {
+	if _, err := st.ftsSearch("closed", 10, SearchFilter{}, seen); err == nil {
 		t.Fatal("expected ftsSearch error after close")
 	}
-	if _, err := st.likeSearch([]string{"closed"}, 10, seen); err == nil {
+	if _, err := st.likeSearch([]string{"closed"}, 10, SearchFilter{}, seen); err == nil {
 		t.Fatal("expected likeSearch error after close")
 	}
 	if err := st.indexRun(1); err == nil {
@@ -336,7 +416,7 @@ func TestSearchHelpersReturnErrorsAfterClose(t *testing.T) {
 
 func assertSearchHit(t *testing.T, st *Store, query string, id int64) []SearchResult {
 	t.Helper()
-	results, err := st.SearchRuns(query, 10)
+	results, err := st.SearchRuns(query, 10, SearchFilter{})
 	if err != nil {
 		t.Fatalf("search %q: %v", query, err)
 	}

@@ -22,6 +22,19 @@ func parseID(s string) (int64, error) {
 	return strconv.ParseInt(s, 10, 64)
 }
 
+// parseSinceDuration parses a duration string like "1h", "30m", "7d".
+// Go's time.ParseDuration does not support "d"; this handles it explicitly.
+func parseSinceDuration(s string) (time.Duration, error) {
+	if strings.HasSuffix(s, "d") {
+		n, err := strconv.Atoi(strings.TrimSuffix(s, "d"))
+		if err != nil || n <= 0 {
+			return 0, fmt.Errorf("invalid duration %q", s)
+		}
+		return time.Duration(n) * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(s)
+}
+
 func parseArgv(s string) ([]string, error) {
 	var argv []string
 	err := json.Unmarshal([]byte(s), &argv)
