@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -104,8 +106,25 @@ func (a *app) watchCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(os.Stderr, "carrier: watching %s\n", cwd)
 			}
 
+			var (
+				cancelMu  sync.Mutex
+				cancelRun context.CancelFunc
+			)
+
+			startRun := func(argv []string, dir string) {
+				cancelMu.Lock()
+				if cancelRun != nil {
+					cancelRun()
+				}
+				ctx, cancel := context.WithCancel(context.Background())
+				cancelRun = cancel
+				cancelMu.Unlock()
+
+				runWatchCtx(ctx, a, argv, dir)
+			}
+
 			// run once immediately
-			runWatch(a, rest, cwd)
+			startRun(rest, cwd)
 
 			var timer *time.Timer
 			for {
@@ -127,10 +146,10 @@ func (a *app) watchCmd() *cobra.Command {
 							timer.Stop()
 						}
 						timer = time.AfterFunc(debounce, func() {
-							runWatch(a, rest, cwd)
+							startRun(rest, cwd)
 						})
 					} else {
-						runWatch(a, rest, cwd)
+						go startRun(rest, cwd)
 					}
 				case watchErr, ok := <-watcher.Errors:
 					if !ok {
@@ -146,8 +165,14 @@ func (a *app) watchCmd() *cobra.Command {
 	return cmd
 }
 
+
 func runWatch(a *app, argv []string, cwd string) {
+	runWatchCtx(context.Background(), a, argv, cwd)
+}
+
+func runWatchCtx(ctx context.Context, a *app, argv []string, cwd string) {
 	_, _ = runner.Run(a.cfg, a.st, runner.Options{
+		Ctx:          ctx,
 		Mode:         store.ModeRun,
 		Argv:         argv,
 		CWD:          cwd,

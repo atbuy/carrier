@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ type Options struct {
 	NoRedact     bool
 	Quiet        bool
 	Timeout      time.Duration
+	Ctx          context.Context
 }
 
 func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
@@ -127,8 +129,12 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	}
 	defer func() { _ = stderrFile.Close() }()
 
+	ctx := opts.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	argv := shellFallback(opts.Argv)
-	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = opts.CWD
 	cmd.Stdin = os.Stdin
 	stdout, err := cmd.StdoutPipe()
@@ -172,6 +178,9 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 		copyErr = err
 	}
 	waitErr := cmd.Wait()
+	if ctx.Err() != nil {
+		killed.Store(true)
+	}
 	exit, _ := ExitCode(waitErr)
 	if copyErr != nil {
 		return exit, killed.Load(), copyErr
