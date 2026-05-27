@@ -303,7 +303,7 @@ func (m Model) updateBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.mode = modeConfirmDelete
 			m.statusMsg = ""
 		}
-	case "enter":
+	case "r", "enter":
 		if r, ok := m.selected(); ok {
 			m.result = Result{Action: ActionRerun, RunID: r.ID}
 			return m, tea.Quit
@@ -518,7 +518,7 @@ func (m Model) renderHelp() string {
 		}
 		return m.styles.warning.Render("delete run? (y/N)")
 	default:
-		help := "↑/↓ move  enter rerun  / filter  l label  d delete  q quit"
+		help := "↑/↓ move  r/enter rerun  / filter  l label  d delete  q quit"
 		if m.statusMsg != "" {
 			return m.styles.accent.Render(m.statusMsg) + "  " + m.styles.help.Render(help)
 		}
