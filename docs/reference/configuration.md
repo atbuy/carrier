@@ -39,6 +39,8 @@ If the config file is missing, code defaults are used.
 ## Full example
 
 ```toml title="~/.config/carrier/config.toml"
+includes = ["conf.d/*.toml"]
+
 [storage]
 data_dir = "~/.local/share/carrier"
 max_output_mb = 20
@@ -279,6 +281,83 @@ Override the color used for each semantic style. Any field left empty falls back
 danger = "#FF5555"
 accent = "#BD93F9"
 ```
+
+## `includes`
+
+Split your config across multiple files using the `includes` key. Carrier merges
+all listed files into the main config before applying it.
+
+```toml title="~/.config/carrier/config.toml"
+includes = [
+  "labels.toml",          # relative to this file's directory
+  "conf.d/*.toml",        # glob — loads all .toml files in conf.d/, alphabetically
+  "~/shared/carrier.toml", # ~ expands to home directory
+  "/etc/carrier/base.toml", # absolute path
+]
+```
+
+### Path resolution
+
+| Pattern type | Example                | Resolved as                                    |
+| ------------ | ---------------------- | ---------------------------------------------- |
+| Relative     | `"labels.toml"`        | same directory as the main config file         |
+| Tilde        | `"~/shared/base.toml"` | `$HOME/shared/base.toml`                       |
+| Absolute     | `"/etc/carrier/base.toml"` | used as-is                                 |
+| Glob         | `"conf.d/*.toml"`      | all matching files, sorted alphabetically      |
+
+A literal (non-glob) path that does not exist is an error. A glob pattern that
+matches no files is silently ignored — useful for optional drop-in directories.
+
+### Merge rules
+
+| Type                                                    | Behaviour                         |
+| ------------------------------------------------------- | --------------------------------- |
+| `[[auto_label]]`                                        | appended in file order            |
+| `redaction.patterns`                                    | appended                          |
+| `shell.ignore_commands`                                 | appended                          |
+| All scalar fields (`storage.*`, `notify.*`, `ui.*`, …) | included file overrides main only when the key is explicitly present in the include file |
+
+This means an include file that only defines `[[auto_label]]` entries will never
+accidentally clear your `notify.min_duration` or any other scalar setting.
+
+### Recursion
+
+Included files are **not** processed for their own `includes` keys. The merge is
+one level deep only.
+
+### Example: split auto-labels by project
+
+```toml title="~/.config/carrier/config.toml"
+includes = ["labels/*.toml"]
+
+[storage]
+data_dir = "~/.local/share/carrier"
+```
+
+```toml title="~/.config/carrier/labels/work.toml"
+[[auto_label]]
+label = "work - ${branch}"
+dir = '/home/me/work'
+git_branch = '(?P<branch>.+)'
+```
+
+```toml title="~/.config/carrier/labels/tests.toml"
+[[auto_label]]
+label = "tests"
+cmd = 'go test.*'
+
+[[auto_label]]
+label = "lint"
+cmd = 'golangci-lint.*'
+```
+
+### `carrier config show` and `carrier config check`
+
+`carrier config show` displays the **merged** effective config, so you always see
+the full set of active auto-label rules regardless of which file they came from.
+
+`carrier config check` validates the merged config. Invalid regexes or empty
+labels in any included file are reported as errors.
 
 ## `[[auto_label]]`
 

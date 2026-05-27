@@ -676,3 +676,267 @@ func TestCheckAutoLabelInvalidRegex(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// includes
+// ---------------------------------------------------------------------------
+
+func setupConfig(t *testing.T, content string) string {
+	t.Helper()
+	home := t.TempDir()
+	xdg := filepath.Join(home, ".config")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	configDir := filepath.Join(xdg, "carrier")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	configPath := filepath.Join(configDir, "config.toml")
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return configDir
+}
+
+func TestIncludesRelativePath(t *testing.T) {
+	configDir := setupConfig(t, `
+includes = ["labels.toml"]
+
+[[auto_label]]
+label = "from-main"
+cmd = 'main.*'
+`)
+	if err := os.WriteFile(filepath.Join(configDir, "labels.toml"), []byte(`
+[[auto_label]]
+label = "from-include"
+cmd = 'include.*'
+`), 0o600); err != nil {
+		t.Fatalf("write include: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.AutoLabels) != 2 {
+		t.Fatalf("auto_label count = %d, want 2", len(cfg.AutoLabels))
+	}
+	if got := cfg.ResolveLabel("main cmd", "/tmp", ""); got != "from-main" {
+		t.Errorf("main rule: got %q", got)
+	}
+	if got := cfg.ResolveLabel("include cmd", "/tmp", ""); got != "from-include" {
+		t.Errorf("include rule: got %q", got)
+	}
+}
+
+func TestIncludesArraysAppend(t *testing.T) {
+	configDir := setupConfig(t, `
+includes = ["extra.toml"]
+
+[redaction]
+patterns = ["TOKEN=\\S+"]
+
+[shell]
+ignore_commands = ["vim"]
+`)
+	if err := os.WriteFile(filepath.Join(configDir, "extra.toml"), []byte(`
+[redaction]
+patterns = ["SECRET=\\S+"]
+
+[shell]
+ignore_commands = ["less"]
+`), 0o600); err != nil {
+		t.Fatalf("write include: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.Redaction.Patterns) != 2 {
+		t.Errorf("patterns count = %d, want 2: %v", len(cfg.Redaction.Patterns), cfg.Redaction.Patterns)
+	}
+	if len(cfg.Shell.IgnoreCommands) != 2 {
+		t.Errorf("ignore_commands count = %d, want 2: %v", len(cfg.Shell.IgnoreCommands), cfg.Shell.IgnoreCommands)
+	}
+}
+
+func TestIncludesScalarOverride(t *testing.T) {
+	configDir := setupConfig(t, `
+includes = ["override.toml"]
+
+[notify]
+min_duration = "30s"
+`)
+	if err := os.WriteFile(filepath.Join(configDir, "override.toml"), []byte(`
+[notify]
+min_duration = "5m"
+`), 0o600); err != nil {
+		t.Fatalf("write include: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.NotifyMinDuration() != 5*time.Minute {
+		t.Errorf("min_duration = %v, want 5m", cfg.NotifyMinDuration())
+	}
+}
+
+func TestIncludesScalarNotOverriddenWhenAbsent(t *testing.T) {
+	configDir := setupConfig(t, `
+includes = ["labels.toml"]
+
+[notify]
+min_duration = "2m"
+`)
+	// include file has no [notify] section
+	if err := os.WriteFile(filepath.Join(configDir, "labels.toml"), []byte(`
+[[auto_label]]
+label = "tests"
+cmd = 'go test.*'
+`), 0o600); err != nil {
+		t.Fatalf("write include: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.NotifyMinDuration() != 2*time.Minute {
+		t.Errorf("min_duration overwritten: got %v, want 2m", cfg.NotifyMinDuration())
+	}
+}
+
+func TestIncludesGlobPattern(t *testing.T) {
+	configDir := setupConfig(t, `includes = ["conf.d/*.toml"]`)
+	confD := filepath.Join(configDir, "conf.d")
+	if err := os.MkdirAll(confD, 0o755); err != nil {
+		t.Fatalf("mkdir conf.d: %v", err)
+	}
+	for _, name := range []string{"a.toml", "b.toml"} {
+		label := name[:1] // "a" or "b"
+		if err := os.WriteFile(filepath.Join(confD, name), []byte(`
+[[auto_label]]
+label = "`+label+`"
+cmd = '`+label+`.*'
+`), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.AutoLabels) != 2 {
+		t.Fatalf("auto_label count = %d, want 2", len(cfg.AutoLabels))
+	}
+	// glob files loaded in alphabetical order: a.toml then b.toml
+	if cfg.AutoLabels[0].Label != "a" || cfg.AutoLabels[1].Label != "b" {
+		t.Errorf("unexpected order: %v", cfg.AutoLabels)
+	}
+}
+
+func TestIncludesGlobNoMatchOK(t *testing.T) {
+	// A glob pattern that matches nothing should not error.
+	setupConfig(t, `includes = ["conf.d/*.toml"]`)
+	if _, err := Load(); err != nil {
+		t.Fatalf("empty glob should not error: %v", err)
+	}
+}
+
+func TestIncludesLiteralMissingFileErrors(t *testing.T) {
+	setupConfig(t, `includes = ["nonexistent.toml"]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for missing literal include file")
+	}
+}
+
+func TestIncludesInvalidGlobErrors(t *testing.T) {
+	setupConfig(t, `includes = ["[invalid-glob"]`)
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for invalid glob pattern")
+	}
+}
+
+func TestIncludesNoRecursion(t *testing.T) {
+	// An included file's own includes field must be silently ignored.
+	configDir := setupConfig(t, `includes = ["a.toml"]`)
+	if err := os.WriteFile(filepath.Join(configDir, "a.toml"), []byte(`
+includes = ["nonexistent.toml"]
+
+[[auto_label]]
+label = "from-a"
+cmd = 'a.*'
+`), 0o600); err != nil {
+		t.Fatalf("write a.toml: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load should not follow includes from included files: %v", err)
+	}
+	if len(cfg.AutoLabels) != 1 || cfg.AutoLabels[0].Label != "from-a" {
+		t.Errorf("unexpected auto_labels: %v", cfg.AutoLabels)
+	}
+}
+
+func TestIncludesInvalidTOMLErrors(t *testing.T) {
+	configDir := setupConfig(t, `includes = ["bad.toml"]`)
+	if err := os.WriteFile(filepath.Join(configDir, "bad.toml"), []byte(`[storage`), 0o600); err != nil {
+		t.Fatalf("write bad.toml: %v", err)
+	}
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for invalid TOML in include")
+	}
+}
+
+func TestIncludesInvalidRegexErrors(t *testing.T) {
+	configDir := setupConfig(t, `includes = ["labels.toml"]`)
+	if err := os.WriteFile(filepath.Join(configDir, "labels.toml"), []byte(`
+[[auto_label]]
+label = "bad"
+cmd = '[invalid'
+`), 0o600); err != nil {
+		t.Fatalf("write labels.toml: %v", err)
+	}
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for invalid regex in include")
+	}
+}
+
+func TestIncludesTildeExpansion(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(home, ".config")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	configDir := filepath.Join(xdg, "carrier")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// Write include at an absolute path using ~ notation.
+	labelsPath := filepath.Join(home, "my-labels.toml")
+	if err := os.WriteFile(labelsPath, []byte(`
+[[auto_label]]
+label = "tilde"
+cmd = 'tilde.*'
+`), 0o600); err != nil {
+		t.Fatalf("write labels: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(`
+includes = ["~/my-labels.toml"]
+`), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.AutoLabels) != 1 || cfg.AutoLabels[0].Label != "tilde" {
+		t.Errorf("tilde expansion failed: %v", cfg.AutoLabels)
+	}
+}

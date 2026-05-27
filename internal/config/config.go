@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +52,11 @@ type Config struct {
 	Shell      ShellConfig     `toml:"shell"`
 	UI         UIConfig        `toml:"ui"`
 	AutoLabels []AutoLabel     `toml:"auto_label"`
+	// Includes lists additional TOML files to merge into this config. Paths
+	// are resolved relative to the directory containing this config file.
+	// Glob patterns (*, ?, [...]) are supported. Included files may not
+	// themselves include further files (one level deep only).
+	Includes []string `toml:"includes"`
 }
 
 type StorageConfig struct {
@@ -149,12 +155,104 @@ func Load() (Config, error) {
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		return cfg, err
 	}
+	configDir := filepath.Dir(path)
+	for _, pattern := range cfg.Includes {
+		pattern = Expand(pattern)
+		if !filepath.IsAbs(pattern) {
+			pattern = filepath.Join(configDir, pattern)
+		}
+		isGlob := strings.ContainsAny(pattern, "*?[")
+		matches, globErr := filepath.Glob(pattern)
+		if globErr != nil {
+			return cfg, fmt.Errorf("includes: invalid glob %q: %w", pattern, globErr)
+		}
+		if !isGlob && len(matches) == 0 {
+			return cfg, fmt.Errorf("includes: file not found: %s", pattern)
+		}
+		sort.Strings(matches)
+		for _, inc := range matches {
+			if err := mergeInclude(&cfg, inc); err != nil {
+				return cfg, fmt.Errorf("includes: %s: %w", inc, err)
+			}
+		}
+	}
 	cfg.Storage.DataDir = Expand(cfg.Storage.DataDir)
 	cfg.fillThemeDefaults()
 	if err := cfg.CompileAutoLabels(); err != nil {
 		return cfg, err
 	}
 	return cfg, nil
+}
+
+// mergeInclude decodes the TOML file at path into an overlay Config and merges
+// it into base. Arrays are always appended; scalar fields are only overridden
+// when explicitly defined in the include file. The overlay's Includes field is
+// ignored — recursive includes are not supported.
+func mergeInclude(base *Config, path string) error {
+	var overlay Config
+	meta, err := toml.DecodeFile(path, &overlay)
+	if err != nil {
+		return err
+	}
+
+	// Arrays accumulate across all files.
+	base.AutoLabels = append(base.AutoLabels, overlay.AutoLabels...)
+	base.Redaction.Patterns = append(base.Redaction.Patterns, overlay.Redaction.Patterns...)
+	base.Shell.IgnoreCommands = append(base.Shell.IgnoreCommands, overlay.Shell.IgnoreCommands...)
+
+	// Scalars: only override when the include explicitly defines the key.
+	if meta.IsDefined("storage", "data_dir") {
+		base.Storage.DataDir = overlay.Storage.DataDir
+	}
+	if meta.IsDefined("storage", "max_output_mb") {
+		base.Storage.MaxOutputMB = overlay.Storage.MaxOutputMB
+	}
+	if meta.IsDefined("storage", "stale_run_threshold") {
+		base.Storage.StaleRunThreshold = overlay.Storage.StaleRunThreshold
+	}
+	if meta.IsDefined("storage", "capture_env") {
+		base.Storage.CaptureEnv = overlay.Storage.CaptureEnv
+	}
+	if meta.IsDefined("redaction", "enabled") {
+		base.Redaction.Enabled = overlay.Redaction.Enabled
+	}
+	if meta.IsDefined("notify", "min_duration") {
+		base.Notify.MinDuration = overlay.Notify.MinDuration
+	}
+	if meta.IsDefined("notify", "success") {
+		base.Notify.Success = overlay.Notify.Success
+	}
+	if meta.IsDefined("notify", "failure") {
+		base.Notify.Failure = overlay.Notify.Failure
+	}
+	if meta.IsDefined("shell", "program") {
+		base.Shell.Program = overlay.Shell.Program
+	}
+	if meta.IsDefined("ui", "color") {
+		base.UI.Color = overlay.UI.Color
+	}
+	if meta.IsDefined("ui", "theme", "muted") {
+		base.UI.Theme.Muted = overlay.UI.Theme.Muted
+	}
+	if meta.IsDefined("ui", "theme", "command") {
+		base.UI.Theme.Command = overlay.UI.Theme.Command
+	}
+	if meta.IsDefined("ui", "theme", "success") {
+		base.UI.Theme.Success = overlay.UI.Theme.Success
+	}
+	if meta.IsDefined("ui", "theme", "danger") {
+		base.UI.Theme.Danger = overlay.UI.Theme.Danger
+	}
+	if meta.IsDefined("ui", "theme", "warning") {
+		base.UI.Theme.Warning = overlay.UI.Theme.Warning
+	}
+	if meta.IsDefined("ui", "theme", "accent") {
+		base.UI.Theme.Accent = overlay.UI.Theme.Accent
+	}
+	if meta.IsDefined("ui", "theme", "label") {
+		base.UI.Theme.Label = overlay.UI.Theme.Label
+	}
+	return nil
 }
 
 func (c *Config) fillThemeDefaults() {
