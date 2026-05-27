@@ -19,7 +19,7 @@ import (
 // parseWatchFlags scans leading watch flags from args and returns the remaining
 // args (the child command). Mirrors parseRunFlags so that DisableFlagParsing can
 // be used on watchCmd, allowing arbitrary child-command flags to pass through.
-func parseWatchFlags(args []string) (pattern string, debounce time.Duration, rest []string, err error) {
+func parseWatchFlags(args []string) (pattern string, debounce time.Duration, rest []string, label string, err error) {
 	debounce = 200 * time.Millisecond
 	i := 0
 	for i < len(args) {
@@ -27,7 +27,7 @@ func parseWatchFlags(args []string) (pattern string, debounce time.Duration, res
 		switch {
 		case arg == "-p" || arg == "--pattern":
 			if i+1 >= len(args) {
-				return "", 0, nil, fmt.Errorf("flag %q requires a value", arg)
+				return "", 0, nil, "", fmt.Errorf("flag %q requires a value", arg)
 			}
 			pattern = args[i+1]
 			i += 2
@@ -39,33 +39,45 @@ func parseWatchFlags(args []string) (pattern string, debounce time.Duration, res
 			i++
 		case arg == "-d" || arg == "--debounce":
 			if i+1 >= len(args) {
-				return "", 0, nil, fmt.Errorf("flag %q requires a value", arg)
+				return "", 0, nil, "", fmt.Errorf("flag %q requires a value", arg)
 			}
 			d, parseErr := time.ParseDuration(args[i+1])
 			if parseErr != nil {
-				return "", 0, nil, fmt.Errorf("invalid debounce %q: %w", args[i+1], parseErr)
+				return "", 0, nil, "", fmt.Errorf("invalid debounce %q: %w", args[i+1], parseErr)
 			}
 			debounce = d
 			i += 2
 		case strings.HasPrefix(arg, "--debounce="):
 			d, parseErr := time.ParseDuration(strings.TrimPrefix(arg, "--debounce="))
 			if parseErr != nil {
-				return "", 0, nil, fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
+				return "", 0, nil, "", fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
 			}
 			debounce = d
 			i++
 		case strings.HasPrefix(arg, "-d="):
 			d, parseErr := time.ParseDuration(strings.TrimPrefix(arg, "-d="))
 			if parseErr != nil {
-				return "", 0, nil, fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
+				return "", 0, nil, "", fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
 			}
 			debounce = d
 			i++
+		case arg == "-L" || arg == "--label":
+			if i+1 >= len(args) {
+				return "", 0, nil, "", fmt.Errorf("flag %q requires a value", arg)
+			}
+			label = args[i+1]
+			i += 2
+		case strings.HasPrefix(arg, "--label="):
+			label = strings.TrimPrefix(arg, "--label=")
+			i++
+		case strings.HasPrefix(arg, "-L="):
+			label = strings.TrimPrefix(arg, "-L=")
+			i++
 		default:
-			return pattern, debounce, args[i:], nil
+			return pattern, debounce, args[i:], label, nil
 		}
 	}
-	return pattern, debounce, args[i:], nil
+	return pattern, debounce, args[i:], label, nil
 }
 
 func (a *app) watchCmd() *cobra.Command {
@@ -79,7 +91,7 @@ func (a *app) watchCmd() *cobra.Command {
   carrier watch go test ./...
   carrier watch --pattern '*.go' go build ./...`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pattern, debounce, rest, err := parseWatchFlags(args)
+			pattern, debounce, rest, label, err := parseWatchFlags(args)
 			if err != nil {
 				return err
 			}
@@ -120,7 +132,7 @@ func (a *app) watchCmd() *cobra.Command {
 				cancelRun = cancel
 				cancelMu.Unlock()
 
-				runWatchCtx(ctx, a, argv, dir)
+				runWatchCtx(ctx, a, argv, dir, label)
 			}
 
 			// run once immediately
@@ -167,15 +179,16 @@ func (a *app) watchCmd() *cobra.Command {
 
 
 func runWatch(a *app, argv []string, cwd string) {
-	runWatchCtx(context.Background(), a, argv, cwd)
+	runWatchCtx(context.Background(), a, argv, cwd, "")
 }
 
-func runWatchCtx(ctx context.Context, a *app, argv []string, cwd string) {
+func runWatchCtx(ctx context.Context, a *app, argv []string, cwd, label string) {
 	_, _ = runner.Run(a.cfg, a.st, runner.Options{
 		Ctx:          ctx,
 		Mode:         store.ModeRun,
 		Argv:         argv,
 		CWD:          cwd,
+		Label:        label,
 		Notify:       a.notify,
 		NotifyAlways: a.notifyAlways,
 		NoRedact:     a.noRedact,

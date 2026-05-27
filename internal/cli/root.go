@@ -43,6 +43,7 @@ type app struct {
 	quiet        bool
 	noRedact     bool
 	timeout      time.Duration
+	label        string
 }
 
 func Execute() int {

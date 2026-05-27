@@ -109,10 +109,14 @@ func (s *Store) MigrationVersion() (int64, error) {
 }
 
 func (s *Store) CreateRun(r CreateRun) (int64, error) {
+	var labelVal interface{}
+	if r.Label != "" {
+		labelVal = r.Label
+	}
 	res, err := s.db.Exec(`INSERT INTO runs
-(status, mode, command, argv_json, cwd, started_at, hostname, shell, git_root, git_branch, git_commit, git_dirty, stdout_path, stderr_path, terminal_output_path, notify_requested, notify_always, env_id, session_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		r.Status, r.Mode, r.Command, r.ArgvJSON, r.CWD, fmtTime(r.StartedAt), r.Hostname, r.Shell,
+(status, mode, command, argv_json, cwd, label, started_at, hostname, shell, git_root, git_branch, git_commit, git_dirty, stdout_path, stderr_path, terminal_output_path, notify_requested, notify_always, env_id, session_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.Status, r.Mode, r.Command, r.ArgvJSON, r.CWD, labelVal, fmtTime(r.StartedAt), r.Hostname, r.Shell,
 		r.GitRoot, r.GitBranch, r.GitCommit, nullableBool(r.GitDirty), r.StdoutPath, r.StderrPath,
 		r.TerminalOutputPath, boolInt(r.NotifyRequested), boolInt(r.NotifyAlways), nullableInt64(r.EnvID), nullableInt64(r.SessionID))
 	if err != nil {

@@ -60,6 +60,7 @@ type CreateRun struct {
 	Command            string
 	ArgvJSON           string
 	CWD                string
+	Label              string
 	StartedAt          time.Time
 	Hostname           string
 	Shell              string

@@ -26,6 +26,7 @@ type Options struct {
 	Mode         string
 	Argv         []string
 	CWD          string
+	Label        string
 	Notify       bool
 	NotifyAlways bool
 	NoRedact     bool
@@ -67,7 +68,7 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	// Create a minimal run record immediately to obtain an ID for log paths.
 	id, err := st.CreateRun(store.CreateRun{
 		Status: store.StatusRunning, Mode: opts.Mode, Command: command.Display(opts.Argv),
-		ArgvJSON: string(argvJSON), CWD: opts.CWD, StartedAt: started, Hostname: host, Shell: shell,
+		ArgvJSON: string(argvJSON), CWD: opts.CWD, Label: opts.Label, StartedAt: started, Hostname: host, Shell: shell,
 		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways,
 	})
 	if err != nil {

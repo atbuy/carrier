@@ -39,6 +39,18 @@ func (a *app) parseRunFlags(args []string) ([]string, error) {
 		case arg == "--no-redact":
 			a.noRedact = true
 			i++
+		case arg == "-L" || arg == "--label":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("flag %q requires a value", arg)
+			}
+			a.label = args[i+1]
+			i += 2
+		case strings.HasPrefix(arg, "--label="):
+			a.label = strings.TrimPrefix(arg, "--label=")
+			i++
+		case strings.HasPrefix(arg, "-L="):
+			a.label = strings.TrimPrefix(arg, "-L=")
+			i++
 		case arg == "-t" || arg == "--timeout":
 			if i+1 >= len(args) {
 				return nil, fmt.Errorf("flag %q requires a value", arg)
@@ -86,7 +98,7 @@ func (a *app) runCmd() *cobra.Command {
 				return cobra.MinimumNArgs(1)(cmd, args)
 			}
 			code, err := runner.Run(a.cfg, a.st, runner.Options{
-				Mode: store.ModeRun, Argv: args, Notify: a.notify, NotifyAlways: a.notifyAlways,
+				Mode: store.ModeRun, Argv: args, Label: a.label, Notify: a.notify, NotifyAlways: a.notifyAlways,
 				NoRedact: a.noRedact, Quiet: a.quiet, Timeout: a.timeout,
 			})
 			if err != nil {
@@ -100,6 +112,7 @@ func (a *app) runCmd() *cobra.Command {
 
 func (a *app) rerunCmd() *cobra.Command {
 	var edit bool
+	var label string
 	cmd := &cobra.Command{
 		Use:     "rerun <id>",
 		Aliases: []string{"rr"},
@@ -125,7 +138,7 @@ func (a *app) rerunCmd() *cobra.Command {
 				}
 			}
 			code, err := runner.Run(a.cfg, a.st, runner.Options{
-				Mode: store.ModeRerun, Argv: argv, CWD: r.CWD, Notify: a.notify, NotifyAlways: a.notifyAlways,
+				Mode: store.ModeRerun, Argv: argv, CWD: r.CWD, Label: label, Notify: a.notify, NotifyAlways: a.notifyAlways,
 				NoRedact: a.noRedact, Quiet: a.quiet, Timeout: a.timeout,
 			})
 			if err != nil {
@@ -136,6 +149,7 @@ func (a *app) rerunCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVarP(&edit, "edit", "e", false, "open command in $EDITOR before rerunning")
+	cmd.Flags().StringVarP(&label, "label", "L", "", "label for this run")
 	return cmd
 }
 

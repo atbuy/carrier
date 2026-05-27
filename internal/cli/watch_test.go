@@ -27,7 +27,7 @@ func TestWatchCmdMetadataAndFlags(t *testing.T) {
 }
 
 func TestParseWatchFlags_Defaults(t *testing.T) {
-	pattern, debounce, rest, err := parseWatchFlags([]string{"go", "test", "./..."})
+	pattern, debounce, rest, _, err := parseWatchFlags([]string{"go", "test", "./..."})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestParseWatchFlags_Defaults(t *testing.T) {
 }
 
 func TestParseWatchFlags_PatternShort(t *testing.T) {
-	_, _, rest, err := parseWatchFlags([]string{"-p", "*.go", "make", "build"})
+	_, _, rest, _, err := parseWatchFlags([]string{"-p", "*.go", "make", "build"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestParseWatchFlags_PatternShort(t *testing.T) {
 }
 
 func TestParseWatchFlags_PatternLong(t *testing.T) {
-	pattern, _, rest, err := parseWatchFlags([]string{"--pattern", "*.go", "cmd"})
+	pattern, _, rest, _, err := parseWatchFlags([]string{"--pattern", "*.go", "cmd"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestParseWatchFlags_PatternLong(t *testing.T) {
 }
 
 func TestParseWatchFlags_PatternEquals(t *testing.T) {
-	pattern, _, _, err := parseWatchFlags([]string{"--pattern=*.go", "cmd"})
+	pattern, _, _, _, err := parseWatchFlags([]string{"--pattern=*.go", "cmd"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestParseWatchFlags_PatternEquals(t *testing.T) {
 		t.Errorf("pattern = %q", pattern)
 	}
 
-	pattern2, _, _, err := parseWatchFlags([]string{"-p=*.go", "cmd"})
+	pattern2, _, _, _, err := parseWatchFlags([]string{"-p=*.go", "cmd"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestParseWatchFlags_PatternEquals(t *testing.T) {
 }
 
 func TestParseWatchFlags_DebounceShort(t *testing.T) {
-	_, debounce, _, err := parseWatchFlags([]string{"-d", "50ms", "cmd"})
+	_, debounce, _, _, err := parseWatchFlags([]string{"-d", "50ms", "cmd"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestParseWatchFlags_DebounceShort(t *testing.T) {
 }
 
 func TestParseWatchFlags_DebounceLong(t *testing.T) {
-	_, debounce, _, err := parseWatchFlags([]string{"--debounce", "1s", "cmd"})
+	_, debounce, _, _, err := parseWatchFlags([]string{"--debounce", "1s", "cmd"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestParseWatchFlags_DebounceLong(t *testing.T) {
 }
 
 func TestParseWatchFlags_DebounceEquals(t *testing.T) {
-	_, debounce, _, err := parseWatchFlags([]string{"--debounce=500ms", "cmd"})
+	_, debounce, _, _, err := parseWatchFlags([]string{"--debounce=500ms", "cmd"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestParseWatchFlags_DebounceEquals(t *testing.T) {
 		t.Errorf("debounce = %v", debounce)
 	}
 
-	_, debounce2, _, err := parseWatchFlags([]string{"-d=2s", "cmd"})
+	_, debounce2, _, _, err := parseWatchFlags([]string{"-d=2s", "cmd"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -122,19 +122,19 @@ func TestParseWatchFlags_DebounceEquals(t *testing.T) {
 }
 
 func TestParseWatchFlags_MissingValue(t *testing.T) {
-	_, _, _, err := parseWatchFlags([]string{"-p"})
+	_, _, _, _, err := parseWatchFlags([]string{"-p"})
 	if err == nil {
 		t.Fatal("expected error for -p with no value")
 	}
-	_, _, _, err = parseWatchFlags([]string{"--pattern"})
+	_, _, _, _, err = parseWatchFlags([]string{"--pattern"})
 	if err == nil {
 		t.Fatal("expected error for --pattern with no value")
 	}
-	_, _, _, err = parseWatchFlags([]string{"-d"})
+	_, _, _, _, err = parseWatchFlags([]string{"-d"})
 	if err == nil {
 		t.Fatal("expected error for -d with no value")
 	}
-	_, _, _, err = parseWatchFlags([]string{"--debounce"})
+	_, _, _, _, err = parseWatchFlags([]string{"--debounce"})
 	if err == nil {
 		t.Fatal("expected error for --debounce with no value")
 	}
@@ -147,7 +147,7 @@ func TestParseWatchFlags_InvalidDebounce(t *testing.T) {
 		{"--debounce", "notaduration", "cmd"},
 	}
 	for _, args := range cases {
-		_, _, _, err := parseWatchFlags(args)
+		_, _, _, _, err := parseWatchFlags(args)
 		if err == nil {
 			t.Fatalf("expected error for invalid debounce in args %v", args)
 		}
@@ -156,7 +156,7 @@ func TestParseWatchFlags_InvalidDebounce(t *testing.T) {
 
 func TestParseWatchFlags_ChildFlags(t *testing.T) {
 	// Child command flags like -v must not be consumed by parseWatchFlags.
-	pattern, _, rest, err := parseWatchFlags([]string{"--pattern=*.go", "pytest", "-v", "--tb=short"})
+	pattern, _, rest, _, err := parseWatchFlags([]string{"--pattern=*.go", "pytest", "-v", "--tb=short"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestParseWatchFlags_ChildFlags(t *testing.T) {
 }
 
 func TestParseWatchFlags_EmptyArgs(t *testing.T) {
-	_, debounce, rest, err := parseWatchFlags(nil)
+	_, debounce, rest, _, err := parseWatchFlags(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
