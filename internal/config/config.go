@@ -2,20 +2,55 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 )
 
+// AutoLabel defines a rule that automatically assigns a label to a run when its
+// command, working directory, or git branch match the specified patterns. All
+// non-empty fields must match for the rule to fire (AND semantics). The first
+// matching rule wins.
+//
+// Patterns are Go regular expressions. Named capture groups ((?P<name>...)) are
+// available in the label template as ${name}. Positional captures are available
+// as ${1}, ${2}, etc.
+//
+// The dir pattern is implicitly anchored at the start of the path, so
+// "/home/me/project" matches /home/me/project and all of its subdirectories.
+type AutoLabel struct {
+	// Label is the text to apply. May contain ${name} or ${N} placeholders
+	// referencing capture groups from any matched field pattern.
+	Label string `toml:"label"`
+
+	// Cmd matches against the full display command string (e.g. "go test ./...").
+	Cmd string `toml:"cmd"`
+
+	// Dir matches against the working directory. Implicitly anchored at start.
+	Dir string `toml:"dir"`
+
+	// GitBranch matches against the current git branch name.
+	GitBranch string `toml:"git_branch"`
+
+	// compiled at config load time; not serialised to TOML.
+	compiledCmd       *regexp.Regexp
+	compiledDir       *regexp.Regexp
+	compiledGitBranch *regexp.Regexp
+}
+
 type Config struct {
-	Storage   StorageConfig   `toml:"storage"`
-	Redaction RedactionConfig `toml:"redaction"`
-	Notify    NotifyConfig    `toml:"notify"`
-	Shell     ShellConfig     `toml:"shell"`
-	UI        UIConfig        `toml:"ui"`
+	Storage    StorageConfig   `toml:"storage"`
+	Redaction  RedactionConfig `toml:"redaction"`
+	Notify     NotifyConfig    `toml:"notify"`
+	Shell      ShellConfig     `toml:"shell"`
+	UI         UIConfig        `toml:"ui"`
+	AutoLabels []AutoLabel     `toml:"auto_label"`
 }
 
 type StorageConfig struct {
@@ -116,6 +151,9 @@ func Load() (Config, error) {
 	}
 	cfg.Storage.DataDir = Expand(cfg.Storage.DataDir)
 	cfg.fillThemeDefaults()
+	if err := cfg.CompileAutoLabels(); err != nil {
+		return cfg, err
+	}
 	return cfg, nil
 }
 
@@ -182,4 +220,95 @@ func (c Config) StaleRunThreshold() time.Duration {
 		return 24 * time.Hour
 	}
 	return d
+}
+
+// labelVarRe matches ${name} and ${N} placeholders in label templates.
+var labelVarRe = regexp.MustCompile(`\$\{([^}]+)\}`)
+
+// CompileAutoLabels compiles the regex fields of every AutoLabel rule. It is
+// called by Load after the config is decoded from TOML. An error is returned
+// if any pattern is an invalid regular expression.
+func (c *Config) CompileAutoLabels() error {
+	for i := range c.AutoLabels {
+		rule := &c.AutoLabels[i]
+		var err error
+		if rule.Cmd != "" {
+			if rule.compiledCmd, err = regexp.Compile(rule.Cmd); err != nil {
+				return fmt.Errorf("auto_label[%d].cmd: invalid regex: %w", i, err)
+			}
+		}
+		if rule.Dir != "" {
+			// Implicitly anchor at start so the dir pattern matches the path
+			// and all of its subdirectories without requiring the user to write ^.
+			if rule.compiledDir, err = regexp.Compile("^(?:" + rule.Dir + ")"); err != nil {
+				return fmt.Errorf("auto_label[%d].dir: invalid regex: %w", i, err)
+			}
+		}
+		if rule.GitBranch != "" {
+			if rule.compiledGitBranch, err = regexp.Compile(rule.GitBranch); err != nil {
+				return fmt.Errorf("auto_label[%d].git_branch: invalid regex: %w", i, err)
+			}
+		}
+	}
+	return nil
+}
+
+// ResolveLabel returns the label from the first AutoLabel rule whose non-empty
+// fields all match the supplied command, working directory, and git branch.
+// Returns "" when no rule matches or when AutoLabels is empty.
+//
+// Capture group values from matched fields are merged into a single map and
+// used to expand ${name} and ${N} placeholders in the rule's label template.
+func (c Config) ResolveLabel(cmd, dir, branch string) string {
+	for i := range c.AutoLabels {
+		rule := &c.AutoLabels[i]
+		captures := map[string]string{}
+
+		if rule.compiledCmd != nil {
+			m := rule.compiledCmd.FindStringSubmatch(cmd)
+			if m == nil {
+				continue
+			}
+			mergeCaptures(captures, rule.compiledCmd, m)
+		}
+		if rule.compiledDir != nil {
+			m := rule.compiledDir.FindStringSubmatch(dir)
+			if m == nil {
+				continue
+			}
+			mergeCaptures(captures, rule.compiledDir, m)
+		}
+		if rule.compiledGitBranch != nil {
+			m := rule.compiledGitBranch.FindStringSubmatch(branch)
+			if m == nil {
+				continue
+			}
+			mergeCaptures(captures, rule.compiledGitBranch, m)
+		}
+
+		return expandLabelTemplate(rule.Label, captures)
+	}
+	return ""
+}
+
+// mergeCaptures adds all named and positional submatches from match into dst.
+func mergeCaptures(dst map[string]string, re *regexp.Regexp, match []string) {
+	names := re.SubexpNames()
+	for i := 1; i < len(match); i++ {
+		dst[strconv.Itoa(i)] = match[i]
+		if names[i] != "" {
+			dst[names[i]] = match[i]
+		}
+	}
+}
+
+// expandLabelTemplate replaces ${key} placeholders in label with values from captures.
+func expandLabelTemplate(label string, captures map[string]string) string {
+	return labelVarRe.ReplaceAllStringFunc(label, func(s string) string {
+		key := s[2 : len(s)-1]
+		if v, ok := captures[key]; ok {
+			return v
+		}
+		return s
+	})
 }

@@ -530,3 +530,77 @@ func TestRunAsyncGitMetaBackfilled(t *testing.T) {
 		t.Error("GitDirty nil")
 	}
 }
+
+// TestRunAutoLabelApplied verifies that a matching [[auto_label]] rule in the
+// config is applied to the run record when no explicit label is provided.
+func TestRunAutoLabelApplied(t *testing.T) {
+	dataDir := t.TempDir()
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = dataDir
+	cfg.AutoLabels = []config.AutoLabel{{Label: "unit-tests", Cmd: `go test.*`}}
+	// compileAutoLabels is called by Load; call it manually here since we bypass Load.
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+
+	_, err = Run(cfg, st, Options{
+		Mode:  store.ModeRun,
+		Argv:  []string{"go", "test", "./..."},
+		CWD:   t.TempDir(),
+		Quiet: true,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	run, err := st.Latest()
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if run.Label != "unit-tests" {
+		t.Errorf("Label = %q, want %q", run.Label, "unit-tests")
+	}
+}
+
+// TestRunAutoLabelNotOverriddenByExplicit verifies that an explicit label
+// takes precedence over any matching auto_label rule.
+func TestRunAutoLabelNotOverriddenByExplicit(t *testing.T) {
+	dataDir := t.TempDir()
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = dataDir
+	cfg.AutoLabels = []config.AutoLabel{{Label: "auto", Cmd: `go test.*`}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+
+	_, err = Run(cfg, st, Options{
+		Mode:  store.ModeRun,
+		Argv:  []string{"go", "test", "./..."},
+		CWD:   t.TempDir(),
+		Label: "manual",
+		Quiet: true,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	run, err := st.Latest()
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	if run.Label != "manual" {
+		t.Errorf("Label = %q, want manual", run.Label)
+	}
+}

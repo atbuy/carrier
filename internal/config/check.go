@@ -78,6 +78,31 @@ func Check(cfg Config) []Issue {
 			issues = append(issues, Issue{Level: IssueError, Field: tc.field, Message: "invalid hex color: " + tc.value})
 		}
 	}
+	for i, rule := range cfg.AutoLabels {
+		prefix := fmt.Sprintf("auto_label[%d]", i)
+		if strings.TrimSpace(rule.Label) == "" {
+			issues = append(issues, Issue{Level: IssueError, Field: prefix + ".label", Message: "must not be empty"})
+		}
+		if rule.Cmd == "" && rule.Dir == "" && rule.GitBranch == "" {
+			issues = append(issues, Issue{Level: IssueWarn, Field: prefix, Message: "rule has no match conditions and will always fire"})
+		}
+		for _, rf := range []struct{ field, pattern string }{
+			{"cmd", rule.Cmd},
+			{"dir", rule.Dir},
+			{"git_branch", rule.GitBranch},
+		} {
+			if rf.pattern == "" {
+				continue
+			}
+			if _, err := regexp.Compile(rf.pattern); err != nil {
+				issues = append(issues, Issue{
+					Level:   IssueError,
+					Field:   fmt.Sprintf("%s.%s", prefix, rf.field),
+					Message: "invalid regex: " + err.Error(),
+				})
+			}
+		}
+	}
 	return issues
 }
 

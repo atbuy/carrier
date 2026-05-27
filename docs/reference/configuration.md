@@ -74,6 +74,14 @@ danger = "#D75F5F"
 warning = "#D7AF5F"
 accent = "#5B8DEF"
 label = "#7AADF4"
+
+[[auto_label]]
+label = "feature - ${branch}"
+git_branch = 'feat/(?P<branch>.+)'
+
+[[auto_label]]
+label = "tests"
+cmd = 'go test.*'
 ```
 
 ## `[storage]`
@@ -272,6 +280,97 @@ danger = "#FF5555"
 accent = "#BD93F9"
 ```
 
+## `[[auto_label]]`
+
+Automatically attach a label to every run whose command, working directory, or
+git branch matches a set of patterns. This is useful for tagging runs by project,
+workflow, or branch without passing `--label` on every invocation.
+
+Each `[[auto_label]]` entry is a rule. Rules are evaluated in order; the **first
+matching rule wins**. A rule fires when **all** of its non-empty fields match
+(AND semantics).
+
+### Fields
+
+| Field        | Type   | Description                                                     |
+| ------------ | ------ | --------------------------------------------------------------- |
+| `label`      | string | **Required.** Label to assign. May contain `${name}` placeholders. |
+| `cmd`        | regex  | Matches against the full display command string.                |
+| `dir`        | regex  | Matches against the working directory (implicitly anchored at start). |
+| `git_branch` | regex  | Matches against the current git branch name.                    |
+
+Patterns are [Go regular expressions](https://pkg.go.dev/regexp/syntax). Named
+capture groups (`(?P<name>...)`) and positional captures (`${1}`, `${2}`) from
+matched fields can be referenced in the `label` template.
+
+The `dir` pattern is implicitly anchored at the start of the path, so writing
+`/home/me/project` matches `/home/me/project` and every subdirectory — you do
+not need to write `^/home/me/project`.
+
+### Examples
+
+```toml title="Label by command"
+[[auto_label]]
+label = "tests"
+cmd = 'go test.*'
+
+[[auto_label]]
+label = "build"
+cmd = 'go build.*'
+```
+
+```toml title="Label by directory"
+[[auto_label]]
+label = "frontend"
+dir = '/home/me/work/frontend'
+
+[[auto_label]]
+label = "backend"
+dir = '/home/me/work/backend'
+```
+
+```toml title="Extract branch name into the label"
+[[auto_label]]
+label = "feature - ${branch}"
+git_branch = 'feat/(?P<branch>.+)'
+
+[[auto_label]]
+label = "hotfix - ${ticket}"
+git_branch = 'hotfix/(?P<ticket>[A-Z]+-\d+).*'
+```
+
+```toml title="Extract subcommand from command"
+[[auto_label]]
+label = "git ${subcmd}"
+cmd = 'git (?P<subcmd>\w+).*'
+```
+
+```toml title="Combine fields (all must match)"
+[[auto_label]]
+label = "deploy"
+cmd = 'make deploy.*'
+dir = '/home/me/myproject'
+```
+
+```toml title="Positional capture groups"
+[[auto_label]]
+label = "make: ${1}"
+cmd = 'make (\w+)'
+```
+
+### Interaction with `--label`
+
+An explicit `--label` flag always takes precedence. Auto-labels are only applied
+when no label is provided at invocation time.
+
+### Validation
+
+`carrier config check` reports:
+
+- error if `label` is empty
+- error if any pattern field contains an invalid regular expression
+- warning if a rule has no `cmd`, `dir`, or `git_branch` (it would always fire)
+
 ## Validation rules
 
 `carrier config check` reports:
@@ -287,3 +386,8 @@ accent = "#BD93F9"
 | `shell.ignore_commands[]` | warning for blank command names                       |
 | `ui.color`                | error if not `auto`, `always`, or `never`             |
 | `ui.theme.*`              | error for invalid `#hex` color values                 |
+| `auto_label[N].label`     | error if empty                                        |
+| `auto_label[N]`           | warning if no match conditions (always fires)         |
+| `auto_label[N].cmd`       | error for invalid regex                               |
+| `auto_label[N].dir`       | error for invalid regex                               |
+| `auto_label[N].git_branch`| error for invalid regex                               |

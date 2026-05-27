@@ -407,3 +407,272 @@ accent = "#112233"
 		t.Fatalf("success fallback = %q, want %q", cfg.UI.Theme.Success, defaults.Success)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// AutoLabel / ResolveLabel
+// ---------------------------------------------------------------------------
+
+func TestResolveLabelNoRules(t *testing.T) {
+	cfg := Default()
+	if got := cfg.ResolveLabel("go test ./...", "/home/me/project", "main"); got != "" {
+		t.Fatalf("no rules: got %q, want empty", got)
+	}
+}
+
+func TestResolveLabelMatchCmd(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{Label: "tests", Cmd: `go test.*`}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if got := cfg.ResolveLabel("go test ./...", "/tmp", "main"); got != "tests" {
+		t.Fatalf("got %q", got)
+	}
+	if got := cfg.ResolveLabel("go build ./...", "/tmp", "main"); got != "" {
+		t.Fatalf("non-matching cmd: got %q, want empty", got)
+	}
+}
+
+func TestResolveLabelMatchDir(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{Label: "frontend", Dir: `/home/me/frontend`}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	// exact dir
+	if got := cfg.ResolveLabel("npm test", "/home/me/frontend", "main"); got != "frontend" {
+		t.Fatalf("exact dir: got %q", got)
+	}
+	// subdirectory
+	if got := cfg.ResolveLabel("npm test", "/home/me/frontend/src/components", "main"); got != "frontend" {
+		t.Fatalf("subdir: got %q", got)
+	}
+	// unrelated dir
+	if got := cfg.ResolveLabel("npm test", "/home/me/backend", "main"); got != "" {
+		t.Fatalf("unrelated dir: got %q, want empty", got)
+	}
+}
+
+func TestResolveLabelMatchGitBranch(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{Label: "hotfix", GitBranch: `hotfix/.*`}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if got := cfg.ResolveLabel("make deploy", "/tmp", "hotfix/auth"); got != "hotfix" {
+		t.Fatalf("got %q", got)
+	}
+	if got := cfg.ResolveLabel("make deploy", "/tmp", "main"); got != "" {
+		t.Fatalf("non-matching branch: got %q", got)
+	}
+}
+
+func TestResolveLabelNamedCapture(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{
+		Label:     "feature - ${branch}",
+		GitBranch: `feat/(?P<branch>.+)`,
+	}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if got := cfg.ResolveLabel("git push", "/tmp", "feat/user-auth"); got != "feature - user-auth" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestResolveLabelPositionalCapture(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{Label: "git ${1}", Cmd: `git (\w+).*`}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if got := cfg.ResolveLabel("git push origin main", "/tmp", "main"); got != "git push" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestResolveLabelMultiFieldAND(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{
+		Label: "deploy",
+		Cmd:   `make deploy.*`,
+		Dir:   `/home/me/myproject`,
+	}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	// both match
+	if got := cfg.ResolveLabel("make deploy", "/home/me/myproject", "main"); got != "deploy" {
+		t.Fatalf("both match: got %q", got)
+	}
+	// cmd matches, dir doesn't
+	if got := cfg.ResolveLabel("make deploy", "/home/me/other", "main"); got != "" {
+		t.Fatalf("dir mismatch: got %q", got)
+	}
+	// dir matches, cmd doesn't
+	if got := cfg.ResolveLabel("make test", "/home/me/myproject", "main"); got != "" {
+		t.Fatalf("cmd mismatch: got %q", got)
+	}
+}
+
+func TestResolveLabelFirstMatchWins(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{
+		{Label: "first", Cmd: `go.*`},
+		{Label: "second", Cmd: `go test.*`},
+	}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if got := cfg.ResolveLabel("go test ./...", "/tmp", "main"); got != "first" {
+		t.Fatalf("got %q, want first", got)
+	}
+}
+
+func TestResolveLabelMultiCaptureMerge(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{
+		Label:     "${action} on ${branch}",
+		Cmd:       `make (?P<action>\w+)`,
+		GitBranch: `feat/(?P<branch>.+)`,
+	}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	got := cfg.ResolveLabel("make deploy", "/tmp", "feat/v2")
+	if got != "deploy on v2" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestResolveLabelUnknownPlaceholderPreserved(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{Label: "task ${unknown}", Cmd: `make.*`}}
+	if err := cfg.CompileAutoLabels(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	// Unknown placeholder is left as-is.
+	if got := cfg.ResolveLabel("make build", "/tmp", "main"); got != "task ${unknown}" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestCompileAutoLabelsInvalidRegex(t *testing.T) {
+	cases := []struct {
+		name string
+		rule AutoLabel
+	}{
+		{"cmd", AutoLabel{Label: "x", Cmd: "[invalid"}},
+		{"dir", AutoLabel{Label: "x", Dir: "[invalid"}},
+		{"git_branch", AutoLabel{Label: "x", GitBranch: "[invalid"}},
+	}
+	for _, tc := range cases {
+		cfg := Default()
+		cfg.AutoLabels = []AutoLabel{tc.rule}
+		if err := cfg.CompileAutoLabels(); err == nil {
+			t.Errorf("%s: expected compile error for invalid regex", tc.name)
+		}
+	}
+}
+
+func TestLoadAutoLabelFromTOML(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(home, ".config")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	configDir := filepath.Join(xdg, "carrier")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(`
+[[auto_label]]
+label = "feature - ${branch}"
+git_branch = 'feat/(?P<branch>.+)'
+
+[[auto_label]]
+label = "tests"
+cmd = 'go test.*'
+`), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.AutoLabels) != 2 {
+		t.Fatalf("auto_label count = %d, want 2", len(cfg.AutoLabels))
+	}
+	if got := cfg.ResolveLabel("go test ./...", "/tmp", "feat/login"); got != "feature - login" {
+		t.Fatalf("first rule: got %q", got)
+	}
+	if got := cfg.ResolveLabel("go test ./...", "/tmp", "main"); got != "tests" {
+		t.Fatalf("second rule: got %q", got)
+	}
+}
+
+func TestLoadAutoLabelInvalidRegexReturnsError(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(home, ".config")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	configDir := filepath.Join(xdg, "carrier")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(`
+[[auto_label]]
+label = "bad"
+cmd = '[invalid'
+`), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected error for invalid auto_label regex")
+	}
+}
+
+func TestCheckAutoLabelEmptyLabel(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{Label: "", Cmd: `go.*`}}
+	issues := Check(cfg)
+	if !hasIssue(issues, "auto_label[0].label") {
+		t.Fatalf("expected auto_label[0].label issue: %#v", issues)
+	}
+}
+
+func TestCheckAutoLabelNoConditions(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{{Label: "always"}}
+	issues := Check(cfg)
+	if !hasIssue(issues, "auto_label[0]") {
+		t.Fatalf("expected auto_label[0] warning: %#v", issues)
+	}
+	errs, warns := CountIssues(issues)
+	if errs != 0 || warns != 1 {
+		t.Fatalf("expected 0 errors, 1 warning; got %d errors, %d warnings", errs, warns)
+	}
+}
+
+func TestCheckAutoLabelInvalidRegex(t *testing.T) {
+	cfg := Default()
+	cfg.AutoLabels = []AutoLabel{
+		{Label: "x", Cmd: "[bad"},
+		{Label: "y", Dir: "[bad"},
+		{Label: "z", GitBranch: "[bad"},
+	}
+	issues := Check(cfg)
+	for _, want := range []string{
+		"auto_label[0].cmd",
+		"auto_label[1].dir",
+		"auto_label[2].git_branch",
+	} {
+		if !hasIssue(issues, want) {
+			t.Errorf("missing issue for %s: %#v", want, issues)
+		}
+	}
+}

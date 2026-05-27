@@ -51,7 +51,9 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	shell := os.Getenv("SHELL")
 	argvJSON, _ := json.Marshal(opts.Argv)
 
-	// Collect git metadata and capture env concurrently with child startup.
+	// Collect git metadata and env concurrently. Git is drained before CreateRun
+	// so that auto-label rules that match on git_branch work correctly.
+	// Env continues in the background and is drained after execute.
 	gitCh := make(chan gitmeta.Meta, 1)
 	envCh := make(chan *int64, 1)
 	go func() { gitCh <- gitmeta.Collect(opts.CWD) }()
@@ -64,6 +66,11 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 		}
 		envCh <- envID
 	}()
+
+	git := <-gitCh
+	if opts.Label == "" {
+		opts.Label = cfg.ResolveLabel(command.Display(opts.Argv), opts.CWD, git.Branch)
+	}
 
 	// Create a minimal run record immediately to obtain an ID for log paths.
 	id, err := st.CreateRun(store.CreateRun{
@@ -83,11 +90,10 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 		_, _ = io.WriteString(os.Stderr, runStartedLine(os.Stderr, id, cfg.UI.Theme))
 	}
 
-	// Run the child while git/env goroutines execute in parallel.
+	// Run the child while the env goroutine continues in parallel.
 	exit, killed, finishErr := execute(opts, cfg, stdoutPath, stderrPath)
 
-	// Drain goroutines (done long before any non-trivial child finishes).
-	git := <-gitCh
+	// Drain env goroutine (done long before any non-trivial child finishes).
 	envID := <-envCh
 
 	status := store.StatusSuccess
