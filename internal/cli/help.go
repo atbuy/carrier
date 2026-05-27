@@ -62,6 +62,32 @@ func printCommandHelp(w io.Writer, t theme, cmd *cobra.Command) {
 	line(w, t.Header.Render("USAGE"))
 	linef(w, "  %s\n", t.Muted.Render(cmd.UseLine()))
 
+	if cmd.Long != "" {
+		line(w)
+		for _, l := range strings.Split(strings.TrimSpace(cmd.Long), "\n") {
+			if l == "" {
+				line(w)
+				continue
+			}
+			if isLongHeader(l) {
+				linef(w, "  %s\n", t.Header.Render(l))
+				continue
+			}
+			stripped := strings.TrimLeft(l, " ")
+			if strings.HasPrefix(stripped, "-") && len(l)-len(stripped) >= 2 {
+				parts := strings.SplitN(stripped, "  ", 2)
+				flagName := parts[0]
+				desc := ""
+				if len(parts) == 2 {
+					desc = strings.TrimSpace(parts[1])
+				}
+				linef(w, "    %s  %s\n", t.Label.Render(padRight(flagName, 24)), t.Muted.Render(desc))
+				continue
+			}
+			linef(w, "  %s\n", t.Muted.Render(l))
+		}
+	}
+
 	printSubcommands(w, t, cmd)
 
 	if cmd.Example != "" {
@@ -150,4 +176,18 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-len(s))
+}
+
+// isLongHeader reports whether a Long description line is a section header:
+// starts with an uppercase letter and contains no lowercase letters.
+func isLongHeader(s string) bool {
+	if s == "" || s[0] < 'A' || s[0] > 'Z' {
+		return false
+	}
+	for _, r := range s {
+		if r >= 'a' && r <= 'z' {
+			return false
+		}
+	}
+	return true
 }

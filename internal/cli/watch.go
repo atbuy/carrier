@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -88,9 +90,22 @@ func (a *app) watchCmd() *cobra.Command {
 		DisableFlagParsing: true,
 		Long: `Re-runs the command whenever files in the current directory change.
 
-  carrier watch go test ./...
-  carrier watch --pattern '*.go' go build ./...`,
+FLAGS (MUST APPEAR BEFORE THE COMMAND)
+  -p, --pattern <glob>      only re-run when changed filename matches glob
+  -d, --debounce <dur>      wait duration before re-running (default 200ms)
+  -L, --label <text>        label to attach to each recorded run`,
+		Example: `carrier watch go test ./...
+carrier watch --pattern '*.go' go build ./...
+carrier watch -p '*.py' -d 500ms pytest -x`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, arg := range args {
+				if arg == "-h" || arg == "--help" {
+					return cmd.Help()
+				}
+				if !strings.HasPrefix(arg, "-") {
+					break
+				}
+			}
 			pattern, debounce, rest, label, err := parseWatchFlags(args)
 			if err != nil {
 				return err
@@ -118,6 +133,9 @@ func (a *app) watchCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(os.Stderr, "carrier: watching %s\n", cwd)
 			}
 
+			watchCtx, watchCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer watchCancel()
+
 			var (
 				cancelMu  sync.Mutex
 				cancelRun context.CancelFunc
@@ -128,7 +146,7 @@ func (a *app) watchCmd() *cobra.Command {
 				if cancelRun != nil {
 					cancelRun()
 				}
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(watchCtx)
 				cancelRun = cancel
 				cancelMu.Unlock()
 
@@ -148,6 +166,16 @@ func (a *app) watchCmd() *cobra.Command {
 			var timer *time.Timer
 			for {
 				select {
+				case <-watchCtx.Done():
+					if timer != nil {
+						timer.Stop()
+					}
+					cancelMu.Lock()
+					if cancelRun != nil {
+						cancelRun()
+					}
+					cancelMu.Unlock()
+					return nil
 				case event, ok := <-watcher.Events:
 					if !ok {
 						return nil

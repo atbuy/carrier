@@ -89,6 +89,14 @@ func (a *app) runCmd() *cobra.Command {
 		Short:              "run and record one command",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, arg := range args {
+				if arg == "-h" || arg == "--help" {
+					return cmd.Help()
+				}
+				if !strings.HasPrefix(arg, "-") {
+					break
+				}
+			}
 			var err error
 			args, err = a.parseRunFlags(args)
 			if err != nil {
