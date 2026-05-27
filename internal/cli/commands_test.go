@@ -116,6 +116,71 @@ func TestLastCmdEmptyStore(t *testing.T) {
 	}
 }
 
+func TestLastCmdN(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st := openCmdStore(t)
+	defer func() { _ = st.Close() }()
+
+	createFinishedRun(t, st, store.StatusSuccess, "go test ./...", `["go","test","./..."]`, "/tmp")
+	createFinishedRun(t, st, store.StatusFailed, "make build", `["make","build"]`, "/tmp")
+
+	a := &app{st: st, cfg: config.Default()}
+	cmd := a.lastCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	if err := cmd.RunE(cmd, []string{"2"}); err != nil {
+		t.Fatalf("lastCmd N=2 failed: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "go test ./...") {
+		t.Errorf("output missing first command:\n%s", got)
+	}
+	if !strings.Contains(got, "make build") {
+		t.Errorf("output missing second command:\n%s", got)
+	}
+}
+
+func TestLastCmdNJSON(t *testing.T) {
+	st := openCmdStore(t)
+	defer func() { _ = st.Close() }()
+
+	createFinishedRun(t, st, store.StatusSuccess, "go test ./...", `["go","test","./..."]`, "/tmp")
+	createFinishedRun(t, st, store.StatusFailed, "make build", `["make","build"]`, "/tmp")
+
+	a := &app{st: st, cfg: config.Default()}
+	cmd := a.lastCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := cmd.Flags().Set("json", "true"); err != nil {
+		t.Fatalf("set json flag: %v", err)
+	}
+	if err := cmd.RunE(cmd, []string{"2"}); err != nil {
+		t.Fatalf("lastCmd N=2 JSON failed: %v", err)
+	}
+	var views []runView
+	if err := json.Unmarshal(out.Bytes(), &views); err != nil {
+		t.Fatalf("decode JSON: %v\n%s", err, out.String())
+	}
+	if len(views) != 2 {
+		t.Fatalf("expected 2 views, got %d", len(views))
+	}
+}
+
+func TestLastCmdNInvalid(t *testing.T) {
+	st := openCmdStore(t)
+	defer func() { _ = st.Close() }()
+
+	a := &app{st: st, cfg: config.Default()}
+	cmd := a.lastCmd()
+	if err := cmd.RunE(cmd, []string{"0"}); err == nil {
+		t.Fatal("expected error for N=0")
+	}
+	if err := cmd.RunE(cmd, []string{"abc"}); err == nil {
+		t.Fatal("expected error for non-integer")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // showCmd
 // ---------------------------------------------------------------------------

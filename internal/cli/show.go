@@ -14,19 +14,52 @@ import (
 func (a *app) lastCmd() *cobra.Command {
 	var jsonOutput bool
 	cmd := &cobra.Command{
-		Use:     "last",
+		Use:     "last [N]",
 		Aliases: []string{"l"},
-		Short:   "show latest run",
-		Args:    cobra.NoArgs,
+		Short:   "show latest run(s)",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, err := a.st.Latest()
+			n := 1
+			if len(args) == 1 {
+				id, err := parseID(args[0])
+				if err != nil || id < 1 {
+					return fmt.Errorf("N must be a positive integer")
+				}
+				n = int(id)
+			}
+			if n == 1 {
+				r, err := a.st.Latest()
+				if err != nil {
+					return err
+				}
+				if jsonOutput {
+					return writeJSON(cmd, runViewFromStore(r, false))
+				}
+				printRun(cmd.OutOrStdout(), r)
+				return nil
+			}
+			runs, err := a.st.All(n)
 			if err != nil {
 				return err
 			}
-			if jsonOutput {
-				return writeJSON(cmd, runViewFromStore(r, false))
+			if len(runs) == 0 {
+				return fmt.Errorf("no runs found")
 			}
-			printRun(cmd.OutOrStdout(), r)
+			if jsonOutput {
+				views := make([]runView, len(runs))
+				for i, r := range runs {
+					r := r
+					views[i] = runViewFromStore(&r, false)
+				}
+				return writeJSON(cmd, views)
+			}
+			out := cmd.OutOrStdout()
+			for i := range runs {
+				if i > 0 {
+					_, _ = fmt.Fprintln(out)
+				}
+				printRun(out, &runs[i])
+			}
 			return nil
 		},
 	}
