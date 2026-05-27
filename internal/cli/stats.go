@@ -14,31 +14,36 @@ import (
 func (a *app) statsCmd() *cobra.Command {
 	var jsonOutput bool
 	var slowestLimit int
+	var commandPattern string
 	cmd := &cobra.Command{
 		Use:     "stats",
 		Aliases: []string{"st"},
 		Short:   "show run totals and slow commands",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			stats, err := a.st.Stats(slowestLimit)
+			stats, err := a.st.Stats(slowestLimit, commandPattern)
 			if err != nil {
 				return err
 			}
 			if jsonOutput {
 				return writeJSON(cmd, statsViewFromStore(stats))
 			}
-			printStats(cmd, stats)
+			printStats(cmd, stats, commandPattern)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
 	cmd.Flags().IntVar(&slowestLimit, "slowest", 5, "number of slowest commands to show")
+	cmd.Flags().StringVarP(&commandPattern, "command", "c", "", "filter by command substring")
 	return cmd
 }
 
-func printStats(cmd *cobra.Command, stats *store.Stats) {
+func printStats(cmd *cobra.Command, stats *store.Stats, commandPattern string) {
 	out := cmd.OutOrStdout()
 	t := newTheme(out)
+	if commandPattern != "" {
+		_, _ = fmt.Fprintf(out, "%s%s\n\n", t.Bold.Render(padRight("Filter:", statsLabelWidth)), t.Command.Render(commandPattern))
+	}
 	printStatsLine(out, t, "Runs", fmt.Sprintf("%d", stats.TotalRuns), t.Bold)
 	printStatsLine(out, t, "Completed", fmt.Sprintf("%d", stats.CompletedRuns), t.Bold)
 	printStatsLine(out, t, "Success", fmt.Sprintf("%d", stats.SuccessfulRuns), t.Success)
@@ -47,6 +52,8 @@ func printStats(cmd *cobra.Command, stats *store.Stats) {
 	printStatsLine(out, t, "Runs/day", fmt.Sprintf("%.2f", runsPerDay(stats)), t.Bold)
 	printStatsLine(out, t, "Failure", fmt.Sprintf("%.1f%%", failureRate(stats)), failureStyle(t, stats))
 	printStatsLine(out, t, "Avg duration", paddedDuration(stats.AvgDurationMS), t.Muted)
+	printStatsLine(out, t, "Min duration", paddedDuration(stats.MinDurationMS), t.Muted)
+	printStatsLine(out, t, "Max duration", paddedDuration(stats.MaxDurationMS), t.Muted)
 	if stats.FirstStartedAt != nil {
 		printStatsLine(out, t, "First run", timeWithRelative(*stats.FirstStartedAt), t.Muted)
 	}
@@ -132,6 +139,8 @@ type statsView struct {
 	RunsPerDay     float64       `json:"runs_per_day"`
 	FailureRate    float64       `json:"failure_rate"`
 	AvgDurationMS  *int64        `json:"avg_duration_ms,omitempty"`
+	MinDurationMS  *int64        `json:"min_duration_ms,omitempty"`
+	MaxDurationMS  *int64        `json:"max_duration_ms,omitempty"`
 	SlowestRuns    []slowRunView `json:"slowest_runs"`
 }
 
@@ -156,6 +165,8 @@ func statsViewFromStore(stats *store.Stats) statsView {
 		RunsPerDay:     roundFloat(runsPerDay(stats), 2),
 		FailureRate:    roundFloat(failureRate(stats), 1),
 		AvgDurationMS:  stats.AvgDurationMS,
+		MinDurationMS:  stats.MinDurationMS,
+		MaxDurationMS:  stats.MaxDurationMS,
 		SlowestRuns:    make([]slowRunView, 0, len(stats.SlowestRuns)),
 	}
 	for _, run := range stats.SlowestRuns {

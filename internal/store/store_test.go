@@ -612,7 +612,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("create running run: %v", err)
 	}
 
-	stats, err := st.Stats(2)
+	stats, err := st.Stats(2, "")
 	if err != nil {
 		t.Fatalf("stats: %v", err)
 	}
@@ -641,12 +641,33 @@ func TestStats(t *testing.T) {
 		t.Fatalf("second slowest mismatch: %#v", stats.SlowestRuns[1])
 	}
 
-	withoutSlowest, err := st.Stats(0)
+	withoutSlowest, err := st.Stats(0, "")
 	if err != nil {
 		t.Fatalf("stats without slowest: %v", err)
 	}
 	if len(withoutSlowest.SlowestRuns) != 0 {
 		t.Fatalf("slowest should be empty: %#v", withoutSlowest.SlowestRuns)
+	}
+
+	if stats.MinDurationMS == nil || *stats.MinDurationMS != 1000 {
+		t.Fatalf("min duration = %#v, want 1000", stats.MinDurationMS)
+	}
+	if stats.MaxDurationMS == nil || *stats.MaxDurationMS != 2500 {
+		t.Fatalf("max duration = %#v, want 2500", stats.MaxDurationMS)
+	}
+
+	filtered, err := st.Stats(5, "go test")
+	if err != nil {
+		t.Fatalf("filtered stats: %v", err)
+	}
+	if filtered.TotalRuns != 1 {
+		t.Fatalf("filtered total = %d, want 1", filtered.TotalRuns)
+	}
+	if filtered.SuccessfulRuns != 1 || filtered.FailedRuns != 0 {
+		t.Fatalf("filtered counts mismatch: %#v", filtered)
+	}
+	if len(filtered.SlowestRuns) != 1 || filtered.SlowestRuns[0].ID != successID {
+		t.Fatalf("filtered slowest mismatch: %#v", filtered.SlowestRuns)
 	}
 }
 

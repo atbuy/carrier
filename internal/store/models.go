@@ -87,6 +87,8 @@ type Stats struct {
 	FirstStartedAt *time.Time
 	LastStartedAt  *time.Time
 	AvgDurationMS  *int64
+	MinDurationMS  *int64
+	MaxDurationMS  *int64
 	SlowestRuns    []SlowRun
 }
 
