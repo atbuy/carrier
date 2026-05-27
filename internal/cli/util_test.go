@@ -353,6 +353,43 @@ func TestStripVTResponses(t *testing.T) {
 	}
 }
 
+func TestParseSinceDuration(t *testing.T) {
+	cases := []struct {
+		input   string
+		wantErr bool
+		wantH   float64 // expected hours
+	}{
+		{"1h", false, 1},
+		{"24h", false, 24},
+		{"30m", false, 0.5},
+		{"1d", false, 24},
+		{"7d", false, 168},
+		{"90d", false, 2160},
+		{"0d", true, 0},
+		{"-1d", true, 0},
+		{"bogus", true, 0},
+		{"1xd", true, 0},
+		{"", true, 0},
+	}
+	for _, tc := range cases {
+		d, err := parseSinceDuration(tc.input)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("parseSinceDuration(%q): expected error, got %v", tc.input, d)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("parseSinceDuration(%q): unexpected error: %v", tc.input, err)
+			continue
+		}
+		gotH := d.Hours()
+		if gotH != tc.wantH {
+			t.Errorf("parseSinceDuration(%q) = %v hours, want %v", tc.input, gotH, tc.wantH)
+		}
+	}
+}
+
 func writeTestFile(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {

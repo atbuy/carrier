@@ -49,6 +49,7 @@ Useful flags:
 | `-N`, `--notify-always`      | Always notify.                                                        |
 | `-q`, `--quiet`              | Hide `carrier: run <id>` status output.                               |
 | `--no-redact`                | Persist logs without redaction for this run.                          |
+| `-L`, `--label <text>`       | Attach a label to this run.                                           |
 
 Behavior:
 
@@ -64,9 +65,14 @@ Behavior:
 Show latest run:
 
 ```bash title="Show latest run"
-carrier last
-carrier last --json
+carrier last        # show latest run
+carrier last 5      # show latest 5 runs
+carrier last 5 --json   # JSON array of latest 5
 ```
+
+!!! note
+
+    With N > 1, JSON output is an array.
 
 ## `tui`
 
@@ -97,7 +103,7 @@ to replay them in a real terminal instead.
 | `g` / `G`               | jump to first / last run                         |
 | `ctrl+u` / `ctrl+d`     | scroll the preview pane                          |
 | `/`                     | filter by command, status, cwd, or label         |
-| `enter`                 | rerun the selected command (after the TUI exits) |
+| `r` / `enter`           | rerun the selected command (after the TUI exits) |
 | `l`                     | set or clear the label on the selected run       |
 | `d`                     | delete the selected run (asks `y/N` to confirm)  |
 | `q` / `esc` / `ctrl+c`  | quit                                             |
@@ -230,12 +236,18 @@ Search commands, cwd, and output:
 
 ```bash title="Search"
 carrier search "connection refused"
-carrier search "gcov data not found"
+carrier search --since 24h "timeout"
+carrier search --since 7d --status failed "OOM"
+carrier search --status running "migration"
 carrier search --limit 25 "permission denied"
 carrier search --json "timeout"
 ```
 
 Search uses SQLite FTS over command text, working directory, and stored output snippets. A LIKE fallback catches command/cwd substring matches that token search may miss.
+
+!!! note
+
+    `--since` accepts durations like `30m`, `24h`, `7d` (days are supported). `--status` accepts `success`, `failed`, `killed`, `running`.
 
 ## `stats`
 
@@ -244,8 +256,37 @@ Show run totals, runs per active day, failure rate, average duration, and slowes
 ```bash title="Stats"
 carrier stats
 carrier stats --slowest 10
+carrier stats -c 'go test'          # filter to commands matching substring
+carrier stats --command 'make'
 carrier stats --json
 ```
+
+!!! note
+
+    When filtering with `-c`/`--command`, output includes min/max duration in addition to avg.
+
+## `diff`
+
+Diff the captured output of two runs:
+
+```bash title="Diff two runs"
+carrier diff 41 42
+carrier diff --stream stderr 41 42
+carrier diff --raw 41 42
+```
+
+By default, ANSI escape sequences are stripped before diffing so the output shows readable text. Use `--raw` to diff the log files directly.
+
+`--stream` selects which output stream to compare:
+
+| Value      | Meaning                                              |
+| ---------- | ---------------------------------------------------- |
+| `auto`     | terminal output for shell runs, stdout otherwise     |
+| `stdout`   | captured stdout                                      |
+| `stderr`   | captured stderr                                      |
+| `terminal` | PTY recording (shell runs only)                      |
+
+Colors follow `NO_COLOR` / `CARRIER_COLOR` / `--color` config.
 
 ## `export`
 
@@ -280,6 +321,12 @@ carrier rerun 42 --edit
 
 `rerun` creates a new run. It never overwrites the old record.
 
+Useful flags:
+
+| Flag                   | Meaning                    |
+| ---------------------- | -------------------------- |
+| `-L`, `--label <text>` | Attach a label to this run |
+
 ## `label`
 
 Attach a short label to a run:
@@ -307,7 +354,16 @@ carrier watch --pattern '*.go' go test ./...
 carrier watch --debounce 500ms go test ./...
 ```
 
-`watch` recursively watches the current directory and skips `.git`, `node_modules`, and `vendor`.
+Useful flags:
+
+| Flag                        | Meaning                                                |
+| --------------------------- | ------------------------------------------------------ |
+| `-p`, `--pattern <glob>`    | Only re-run when filename matches glob                 |
+| `-d`, `--debounce <dur>`    | Debounce delay before re-running (default 200ms)       |
+| `-L`, `--label <text>`      | Label to attach to each recorded run                   |
+| `-q`, `--quiet`             | Suppress `carrier: changed: <file>` messages           |
+
+`watch` recursively watches the current directory and skips `.git`, `node_modules`, and `vendor`. Before each re-run, it prints `carrier: changed: <file>` (suppressed by `--quiet`). Ctrl-C correctly stops both the watcher and any running child process. `--help` is supported.
 
 ## `shell`
 
@@ -417,6 +473,27 @@ carrier config show
 carrier config check
 carrier config init
 carrier config init --force
+```
+
+## `completion`
+
+Generate a shell completion script:
+
+```bash title="Install completions"
+# Bash — write once, restart shell
+carrier completion bash > /etc/bash_completion.d/carrier
+
+# Bash — per-session (add to ~/.bashrc for persistence)
+source <(carrier completion bash)
+
+# Zsh
+carrier completion zsh > "${fpath[1]}/_carrier"
+
+# Fish
+carrier completion fish > ~/.config/fish/completions/carrier.fish
+
+# PowerShell (add to $PROFILE)
+carrier completion powershell | Out-String | Invoke-Expression
 ```
 
 ## `version`

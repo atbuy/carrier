@@ -150,6 +150,112 @@ func TestSearchCommandJSONOutput(t *testing.T) {
 	}
 }
 
+func TestSearchCommandSinceFilter(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	old := time.Now().Add(-72 * time.Hour)
+	recent := time.Now().Add(-1 * time.Hour)
+
+	makeRun := func(cmd string, started time.Time) {
+		id, err := st.CreateRun(store.CreateRun{
+			Status: store.StatusSuccess, Mode: store.ModeRun,
+			Command: cmd, ArgvJSON: `["` + cmd + `"]`,
+			CWD: "/tmp", StartedAt: started,
+		})
+		if err != nil {
+			t.Fatalf("create run: %v", err)
+		}
+		if err := st.FinishRun(id, store.StatusSuccess, 0, started.Add(time.Second)); err != nil {
+			t.Fatalf("finish run: %v", err)
+		}
+	}
+
+	makeRun("sincefilter-old", old)
+	makeRun("sincefilter-recent", recent)
+
+	a := &app{st: st}
+	cmd := a.searchCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := cmd.Flags().Set("since", "24h"); err != nil {
+		t.Fatalf("set since flag: %v", err)
+	}
+	if err := cmd.RunE(cmd, []string{"sincefilter"}); err != nil {
+		t.Fatalf("search with --since: %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "sincefilter-old") {
+		t.Errorf("old run should be excluded by --since 24h:\n%s", got)
+	}
+	if !strings.Contains(got, "sincefilter-recent") {
+		t.Errorf("recent run should appear with --since 24h:\n%s", got)
+	}
+}
+
+func TestSearchCommandStatusFilter(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	now := time.Now()
+	for _, status := range []string{store.StatusSuccess, store.StatusFailed} {
+		id, err := st.CreateRun(store.CreateRun{
+			Status: status, Mode: store.ModeRun,
+			Command: "statustest cmd", ArgvJSON: `["statustest","cmd"]`,
+			CWD: "/tmp", StartedAt: now,
+		})
+		if err != nil {
+			t.Fatalf("create run: %v", err)
+		}
+		if err := st.FinishRun(id, status, 0, now.Add(time.Second)); err != nil {
+			t.Fatalf("finish run: %v", err)
+		}
+	}
+
+	a := &app{st: st}
+	cmd := a.searchCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := cmd.Flags().Set("status", "failed"); err != nil {
+		t.Fatalf("set status flag: %v", err)
+	}
+	if err := cmd.RunE(cmd, []string{"statustest"}); err != nil {
+		t.Fatalf("search with --status: %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "success") {
+		t.Errorf("success run should be excluded by --status failed:\n%s", got)
+	}
+	if !strings.Contains(got, "failed") {
+		t.Errorf("failed run should appear:\n%s", got)
+	}
+}
+
+func TestSearchCommandInvalidSince(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	a := &app{st: st}
+	cmd := a.searchCmd()
+	if err := cmd.Flags().Set("since", "bogus"); err != nil {
+		t.Fatalf("set since flag: %v", err)
+	}
+	if err := cmd.RunE(cmd, []string{"anything"}); err == nil {
+		t.Error("expected error for invalid --since value")
+	}
+}
+
 func TestSearchCommandVariadicArgs(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {

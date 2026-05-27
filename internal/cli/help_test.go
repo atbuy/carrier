@@ -141,3 +141,60 @@ func testRootCommand() *cobra.Command {
 	installHelp(root)
 	return root
 }
+
+func TestIsLongHeader(t *testing.T) {
+	cases := []struct {
+		input string
+		want  bool
+	}{
+		{"FLAGS (MUST APPEAR BEFORE THE COMMAND)", true},
+		{"BASH", true},
+		{"ZSH", true},
+		{"EXAMPLES", true},
+		{"Re-runs the command whenever files change.", false},
+		{"source <(carrier completion bash)", false},
+		{"", false},
+		{"lowercase", false},
+		{"Mixed Case", false},
+		{"A", true},
+		{"123", false},
+	}
+	for _, tc := range cases {
+		got := isLongHeader(tc.input)
+		if got != tc.want {
+			t.Errorf("isLongHeader(%q) = %v, want %v", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestLongDescriptionRendered(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	root := &cobra.Command{Use: "carrier"}
+	sub := &cobra.Command{
+		Use:   "sub",
+		Short: "test subcommand",
+		Long: `Plain description line.
+
+FLAGS (MUST APPEAR BEFORE THE COMMAND)
+  -p, --pattern <glob>      match files by glob`,
+	}
+	root.AddCommand(sub)
+	installHelp(root)
+
+	var buf bytes.Buffer
+	printHelp(&buf, sub)
+	out := buf.String()
+
+	if !strings.Contains(out, "Plain description line.") {
+		t.Errorf("plain line missing from Long:\n%s", out)
+	}
+	if !strings.Contains(out, "FLAGS (MUST APPEAR BEFORE THE COMMAND)") {
+		t.Errorf("section header missing from Long:\n%s", out)
+	}
+	if !strings.Contains(out, "-p, --pattern <glob>") {
+		t.Errorf("flag line missing from Long:\n%s", out)
+	}
+	if !strings.Contains(out, "match files by glob") {
+		t.Errorf("flag description missing from Long:\n%s", out)
+	}
+}
