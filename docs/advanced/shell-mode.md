@@ -123,6 +123,16 @@ Show only session headers:
 carrier history --sessions-only
 ```
 
+### Notes
+
+Use `carrier note` inside the shell to record what you were thinking. The note is added to the current session after the last command, so `history` shows why you ran the next one:
+
+```bash title="Add a note"
+carrier note suspect stale DNS cache, flushing next
+```
+
+The `carrier note` command itself is not recorded as a run. List the session's notes with `carrier notes`.
+
 ## Attaching to an existing session
 
 `carrier attach` re-opens a session and starts a new PTY shell that records into it:

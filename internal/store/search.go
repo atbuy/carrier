@@ -122,7 +122,18 @@ func (s *Store) indexRun(id int64) error {
 	if err != nil {
 		return err
 	}
-	return s.upsertSearch(id, r.Command, r.CWD, combinedOutput(r))
+	output := combinedOutput(r)
+	notes, err := s.runNotesText(id)
+	if err != nil {
+		return err
+	}
+	if notes != "" {
+		if output != "" {
+			output += "\n"
+		}
+		output += notes
+	}
+	return s.upsertSearch(id, r.Command, r.CWD, output)
 }
 
 func (s *Store) upsertSearch(id int64, command, cwd, output string) error {

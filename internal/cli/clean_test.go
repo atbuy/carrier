@@ -241,3 +241,46 @@ func TestCleanRequiresYesUnlessDryRun(t *testing.T) {
 		t.Fatalf("dry-run clean failed: %v", err)
 	}
 }
+
+func TestCleanPrunesOrphanedNotes(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	old := time.Now().Add(-48 * time.Hour)
+	id, err := st.CreateRun(store.CreateRun{
+		Status: store.StatusRunning, Mode: store.ModeRun,
+		Command: "old", ArgvJSON: `["old"]`, CWD: "/tmp", StartedAt: old,
+	})
+	if err != nil {
+		t.Fatalf("create old run: %v", err)
+	}
+	if err := st.FinishRun(id, store.StatusSuccess, 0, old.Add(time.Second)); err != nil {
+		t.Fatalf("finish run: %v", err)
+	}
+	if _, err := st.CreateNote(store.CreateNote{RunID: &id, Text: "old note", CreatedAt: old}); err != nil {
+		t.Fatalf("create note: %v", err)
+	}
+
+	cmd := (&app{st: st}).cleanCmd()
+	var out strings.Builder
+	cmd.SetOut(&out)
+	_ = cmd.Flags().Set("older-than", "24h")
+	_ = cmd.Flags().Set("yes", "true")
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("clean --yes failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "pruned 1 orphaned notes") {
+		t.Fatalf("expected orphaned notes to be pruned, got: %s", out.String())
+	}
+	notes, err := st.ListNotes(store.NoteFilter{}, 10)
+	if err != nil {
+		t.Fatalf("list notes: %v", err)
+	}
+	if len(notes) != 0 {
+		t.Fatalf("expected no notes left, got %+v", notes)
+	}
+}

@@ -146,6 +146,15 @@ When runs belong to shell sessions, `history` displays them as a tree with sessi
    1       ✗ failed   15m ago   2.1s   make lint      ~/api
 ```
 
+Notes appear under the run they follow, and notes made before a session's first run appear right under the session header:
+
+```text
+   5  ┬──  active    12m ago   backend-debug
+   3  ├──  ✗ failed   12m ago   1.2s   make test     ~/api
+      │  note: fails only with the new cache layer
+   2  └──  ✓ success  12m ago   0.4s   go vet ./...   ~/api
+```
+
 Filter to a specific session by ID or label:
 
 ```bash title="Filter by session"
@@ -184,6 +193,8 @@ carrier show 42 --env
 ```
 
 `--stdout` and `--stderr` print only that stream, with no metadata header. `--env` prints captured environment variables when `storage.capture_env = true`.
+
+Notes attached to the run are listed after the metadata. `--json` includes them in a `notes` array.
 
 For runs captured in shell mode where a TUI application used the alternate screen (neovim, lazygit, noteui, etc.), the output section shows `(TUI session — terminal output suppressed)` instead of replaying the log. Run metadata is still fully recorded.
 
@@ -344,6 +355,53 @@ carrier label 42
 
 When a run belongs to a shell session, `label` also updates the session label. This keeps the history tree consistent: runs and their session share the same label.
 
+## `note`
+
+Write down what you were thinking, so you can find out later why you ran something:
+
+```bash title="Add notes"
+carrier note suspect stale DNS cache, flushing next
+carrier note -r 42 "flaky: passes on rerun"
+carrier note -s backend-debug "root cause: expired proxy cert"
+```
+
+Where the note goes:
+
+- inside `carrier shell`: the current session, after the last command
+- `--run <id>`: that run (and its session, if any)
+- `--session <id-or-label>`: that session, after its last command
+- otherwise: the latest run
+
+Inside `carrier shell` the `carrier note` command itself is not recorded as a run. Command lines that combine a note with other commands, such as `make test && carrier note done`, are recorded as usual.
+
+Quote the text when it contains shell characters like `;`, `|`, or `$`.
+
+| Flag                             | Meaning                         |
+| -------------------------------- | ------------------------------- |
+| `-r`, `--run <id>`               | Attach to a run                 |
+| `-s`, `--session <id-or-label>`  | Attach to a session             |
+
+Notes show up in `history`, `show`, and `notes`, and their text is searchable with `carrier search`.
+
+## `notes`
+
+List notes oldest-first:
+
+```bash title="List notes"
+carrier notes
+carrier notes --session backend-debug
+carrier notes --run 42
+carrier notes --json
+```
+
+Inside `carrier shell`, `notes` lists only the current session's notes unless `--session` or `--run` is given.
+
+Delete a note by ID:
+
+```bash title="Delete a note"
+carrier notes rm 7
+```
+
 ## `watch`
 
 Re-run a command when files in the current directory change:
@@ -452,6 +510,8 @@ carrier clean --keep-last 500 --yes
 ```
 
 Deletion requires `--yes`. Use `--dry-run` first.
+
+Notes on deleted runs are kept when they belong to a session, and deleted otherwise.
 
 ## `doctor`
 

@@ -82,6 +82,13 @@ Inside the shell, all commands are recorded under that session. Check the curren
 carrier session list
 ```
 
+Write down what you suspect and what you found as you go. Notes are added to the session timeline, after the last command:
+
+```bash title="Take notes while debugging"
+carrier note suspect stale DNS cache, flushing next
+carrier note "root cause: proxy cert expired on 2026-05-18"
+```
+
 If you need to return to the session from a different terminal, use `attach`:
 
 ```bash title="Re-join a session"
