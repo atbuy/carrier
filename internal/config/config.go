@@ -215,25 +215,13 @@ func Load() (Config, error) {
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		return cfg, err
 	}
-	configDir := filepath.Dir(path)
-	for _, pattern := range cfg.Includes {
-		pattern = Expand(pattern)
-		if !filepath.IsAbs(pattern) {
-			pattern = filepath.Join(configDir, pattern)
-		}
-		isGlob := strings.ContainsAny(pattern, "*?[")
-		matches, globErr := filepath.Glob(pattern)
-		if globErr != nil {
-			return cfg, fmt.Errorf("includes: invalid glob %q: %w", pattern, globErr)
-		}
-		if !isGlob && len(matches) == 0 {
-			return cfg, fmt.Errorf("includes: file not found: %s", pattern)
-		}
-		sort.Strings(matches)
-		for _, inc := range matches {
-			if err := mergeInclude(&cfg, inc); err != nil {
-				return cfg, fmt.Errorf("includes: %s: %w", inc, err)
-			}
+	includes, err := IncludeFiles(cfg.Includes, filepath.Dir(path))
+	if err != nil {
+		return cfg, err
+	}
+	for _, inc := range includes {
+		if err := mergeInclude(&cfg, inc); err != nil {
+			return cfg, fmt.Errorf("includes: %s: %w", inc, err)
 		}
 	}
 	cfg.Storage.DataDir = Expand(cfg.Storage.DataDir)
@@ -242,6 +230,29 @@ func Load() (Config, error) {
 		return cfg, err
 	}
 	return cfg, nil
+}
+
+// IncludeFiles resolves include patterns, relative to configDir, into the
+// files they name, in the order they are merged (later files win).
+func IncludeFiles(patterns []string, configDir string) ([]string, error) {
+	var files []string
+	for _, pattern := range patterns {
+		pattern = Expand(pattern)
+		if !filepath.IsAbs(pattern) {
+			pattern = filepath.Join(configDir, pattern)
+		}
+		isGlob := strings.ContainsAny(pattern, "*?[")
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("includes: invalid glob %q: %w", pattern, err)
+		}
+		if !isGlob && len(matches) == 0 {
+			return nil, fmt.Errorf("includes: file not found: %s", pattern)
+		}
+		sort.Strings(matches)
+		files = append(files, matches...)
+	}
+	return files, nil
 }
 
 // mergeInclude decodes the TOML file at path into an overlay Config and merges

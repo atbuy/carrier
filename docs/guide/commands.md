@@ -517,6 +517,36 @@ Use `carrier run` when precise stdout/stderr capture matters. See [Shell mode](.
 | `--program <shell>` | Shell to run instead of `shell.program` or `$SHELL`                  |
 | `--auto`            | Start an automatic session; used by the line from [`init`](#init)    |
 
+## `setup`
+
+Set carrier up one step at a time: recording every terminal, similar-failure hints, desktop notifications, and the `c` alias.
+
+```bash title="Setup"
+carrier setup
+carrier setup --dry-run      # show each change, write nothing
+carrier setup --shell zsh    # set up a shell other than $SHELL
+```
+
+Each step checks what is already configured and says `already on` when there is nothing to do. When there is a change, it shows the exact diff for each file and asks before writing:
+
+```text
+~/.config/carrier/conf.d/hints.toml
+  [hints]
+- similar_failures = false # later
++ similar_failures = true # later
+Apply this change? [Y/n]
+```
+
+How setup changes files:
+
+- carrier config files are edited in place: one value is changed or added, and comments, ordering, and other settings are kept
+- when a setting is set in an included file, that file is edited, since includes override the main config
+- shell configs are only appended to, never rewritten
+- every changed file is backed up first: shell configs next to the file (`~/.zshrc.bak-<time>`), carrier config files in `~/.config/carrier/backups/`, so backups are never loaded as includes
+- a change that would make the config invalid is undone
+- if the config does not load, setup stops without changing anything
+- symlinked files, such as dotfiles from a repository, are edited at their target and stay symlinks
+
 ## `init`
 
 Print the shell config snippet that records every terminal in an automatic session:

@@ -73,7 +73,7 @@ func Execute() int {
 				// init runs on every terminal start; it needs no database.
 				return nil
 			}
-			if strings.HasPrefix(cmd.CommandPath(), "carrier config") {
+			if strings.HasPrefix(cmd.CommandPath(), "carrier config") || cmd.CommandPath() == "carrier setup" {
 				return nil
 			}
 			if err := a.open(); err != nil {
@@ -90,7 +90,7 @@ func Execute() int {
 	root.PersistentFlags().BoolVarP(&a.quiet, "quiet", "q", false, "suppress carrier status output")
 	root.PersistentFlags().BoolVar(&a.noRedact, "no-redact", false, "disable persisted log redaction for this run")
 
-	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
+	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.setupCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
 	installHelp(root)
 	root.SetArgs(rewriteRunRefArgs(root, os.Args[1:]))
 	if err := root.Execute(); err != nil {

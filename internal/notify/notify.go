@@ -51,6 +51,12 @@ func MaybeSend(cfg config.Config, r store.Run) error {
 	return send(title, body)
 }
 
+// Test sends a sample notification, so users can check that notifications
+// reach them.
+func Test() error {
+	return send("carrier: test notification", "notifications are working")
+}
+
 // send dispatches to the platform-appropriate notification command.
 func send(title, body string) error {
 	switch runtimeGOOS {
