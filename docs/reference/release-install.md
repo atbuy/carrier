@@ -13,7 +13,7 @@ curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
 Specific Linux/macOS release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v1.0.0
 ```
 
 Latest Windows release:
@@ -25,7 +25,7 @@ irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
 Specific Windows release:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v1.0.0"
 ```
 
 ## Artifact names
@@ -62,7 +62,7 @@ checksums.txt
 Release notes include the short checksum workflow for each release. Manual validation uses `checksums.txt`:
 
 ```bash
-curl -LO "https://github.com/atbuy/carrier/releases/download/v0.1.0/checksums.txt"
+curl -LO "https://github.com/atbuy/carrier/releases/download/v1.0.0/checksums.txt"
 sha256sum --check --ignore-missing checksums.txt
 ```
 
@@ -77,7 +77,7 @@ sha256sum carrier-linux-amd64.tar.gz
 Download the archive for your OS and architecture from GitHub Releases, extract it, and place the binary on `PATH`.
 
 ```bash
-version=v0.1.0
+version=v1.0.0
 curl -LO "https://github.com/atbuy/carrier/releases/download/${version}/carrier-linux-amd64.tar.gz"
 tar -xzf carrier-linux-amd64.tar.gz
 install -Dm755 carrier-linux-amd64 ~/.local/bin/carrier
@@ -110,8 +110,8 @@ Every release needs an entry in `CHANGELOG.md`:
 Add the entry in the change that will ship in that version. Use the sections `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`, newest version first. The release workflow fails before building when the tag has no entry, and the entry becomes the top of the GitHub release notes. `go test .` checks that the file is well formed.
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 The release workflow also supports manual dispatch for rebuilding assets from an existing tag. Set the `tag` input to the release tag, leave `ref` empty to build that tag, and use the draft or prerelease inputs when needed.

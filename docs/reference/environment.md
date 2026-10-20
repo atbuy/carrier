@@ -14,6 +14,7 @@ This page lists environment variables that affect `carrier`.
 | `SHELL`           | `run`, `rerun`, `shell`   | Used for metadata, shell fallback, and default shell mode program.                              |
 | `EDITOR`          | `rerun --edit`            | Editor used to modify argv JSON before rerun.                                                   |
 | `VISUAL`          | `rerun --edit`            | Fallback editor if `EDITOR` is not set.                                                         |
+| `CARRIER_NO_AUTO` | `carrier init` line       | Any non-empty value starts this terminal without an automatic session.                          |
 
 These variables override the persistent [`[ui] color`](configuration.md#color) config setting for a single invocation. Precedence, highest first: `NO_COLOR` / `TERM=dumb` (always disable) → `CARRIER_COLOR` → `[ui] color` config → automatic TTY detection.
 
