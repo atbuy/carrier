@@ -142,7 +142,10 @@ The `carrier note` command itself is not recorded as a run. List the session's n
 ```bash title="Attach by ID or label"
 carrier attach 5
 carrier attach backend-debug
+carrier attach BUG-1234   # matches the label "BUG-1234: fix login"
 ```
+
+`carrier attach 1234` also works: when there is no session 1234, carrier matches the number against labels. See [Referring to sessions](../guide/commands.md#referring-to-sessions).
 
 This is useful when you want to continue a labeled debugging session from a different terminal, or after a disconnect. Runs recorded during the attached shell appear under the same session in history.
 

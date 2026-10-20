@@ -127,11 +127,7 @@ func (a *app) rerunCmd() *cobra.Command {
 		Short:   "rerun original command from original cwd",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
-			r, err := a.getRun(id)
+			r, err := a.resolveRun(cmd, args[0])
 			if err != nil {
 				return err
 			}

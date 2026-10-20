@@ -20,11 +20,7 @@ func (a *app) tailCmd() *cobra.Command {
 		Short:   "stream captured output",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
-			r, err := a.getRun(id)
+			r, err := a.resolveRun(cmd, args[0])
 			if err != nil {
 				return err
 			}

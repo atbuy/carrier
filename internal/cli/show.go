@@ -72,16 +72,20 @@ func (a *app) showCmd() *cobra.Command {
 	var lines int
 	var onlyStdout, onlyStderr, showEnv bool
 	cmd := &cobra.Command{
-		Use:     "show <id>",
+		Use:     "show <run>",
 		Aliases: []string{"sh"},
 		Short:   "show full run details",
-		Args:    cobra.ExactArgs(1),
+		Long: `Show full run details and captured output.
+
+<run> is a run ID, "last" or -1 for the latest run (-2 is the one before it),
+or a run label; see "Referring to runs" in the docs.
+
+  carrier show 42
+  carrier show -1
+  carrier show deploy`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
-			r, err := a.getRun(id)
+			r, err := a.resolveRun(cmd, args[0])
 			if err != nil {
 				return err
 			}

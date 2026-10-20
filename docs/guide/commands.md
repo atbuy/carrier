@@ -6,7 +6,45 @@ Human-readable output is colorized on TTYs. Set `NO_COLOR=1` to disable colors o
 
 !!! tip "Use IDs as handles"
 
-    Most inspection commands take a run ID. Start with `carrier last`, `carrier history`, `carrier failed`, or `carrier search` to find one.
+    Most inspection commands take a run ID. Start with `carrier last`, `carrier history`, `carrier failed`, or `carrier search` to find one, or use one of the shortcuts below.
+
+## Referring to runs
+
+`show`, `tail`, `export`, `rerun`, `diff`, `label`, `similar`, `note -r`, and `notes -r` accept any of these where they take a run:
+
+| Reference      | Run                                                         |
+| -------------- | ----------------------------------------------------------- |
+| `42`           | run 42; if there is no run 42, a run whose label matches `42` |
+| `last` or `-1` | the latest run                                              |
+| `-2`, `-3`, …  | the run before the latest, and so on                        |
+| `deploy`       | the newest run whose label matches `deploy`                 |
+
+```bash title="Run shortcuts"
+carrier show -1
+carrier diff -2 -1
+carrier rerun deploy
+carrier note -r -2 "this one hung"
+```
+
+## Referring to sessions
+
+`attach`, `history --session`, and `note --session` take a session ID or label. A number that is not a session ID is matched against labels too, so a session labeled `BUG-1234: fix login` can be reached with just `1234`:
+
+```bash title="Attach by label"
+carrier shell "BUG-1234: fix login"
+carrier attach BUG-1234
+carrier attach 1234      # no session 1234: matches the label, and says so
+```
+
+### How labels are matched
+
+Matching ignores case and tries, in order:
+
+1. the whole label: `deploy`
+2. whole words of the label, in order, ignoring punctuation: `1234`, `bug-1234`, and `BUG 1234` all match `BUG-1234: fix login`, but `123` does not
+3. part of the label, when only one label contains it: `fix log`
+
+When several runs or sessions share the matching label, the newest is used. When the reference matches different labels, for example `1234` with both `BUG-1234` and `OPS-1234`, carrier lists them and asks for the ID or more of the label, so you never land in the wrong session.
 
 ## Empty results
 
@@ -480,7 +518,10 @@ Attach to an existing shell session by session ID or label:
 ```bash title="Attach to a session"
 carrier attach 5
 carrier attach backend-debug
+carrier attach 1234
 ```
+
+See [Referring to sessions](#referring-to-sessions) for how labels are matched.
 
 `attach` re-opens the session, starts a new PTY shell that records commands into it, then closes the session when you exit. Runs recorded during the attached shell appear grouped under the same session in `carrier history`.
 

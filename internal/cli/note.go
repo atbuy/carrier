@@ -30,7 +30,7 @@ func noteViewFromStore(n store.Note) noteView {
 
 func (a *app) noteCmd() *cobra.Command {
 	var session string
-	var runID int64
+	var runRef string
 	cmd := &cobra.Command{
 		Use:     "note <text...>",
 		Aliases: []string{"nt"},
@@ -43,6 +43,7 @@ last command. The note command itself is not recorded as a run.
 
   carrier note suspect stale DNS cache, flushing next
   carrier note -r 42 "flaky: passes on rerun"   # attach to run 42
+  carrier note -r -2 "this one hung"             # the run before the latest
   carrier note -s backend-debug "root cause: expired proxy cert"
 
 Outside a session, without --run or --session, the note is attached to the
@@ -55,15 +56,15 @@ latest run.`,
 			}
 			n := store.CreateNote{Text: text, CreatedAt: time.Now()}
 			switch {
-			case runID != 0:
-				r, err := a.getRun(runID)
+			case runRef != "":
+				r, err := a.resolveRun(cmd, runRef)
 				if err != nil {
 					return err
 				}
 				n.RunID = &r.ID
 				n.SessionID = r.SessionID
 			case session != "":
-				sess, err := resolveSession(a.st, session)
+				sess, err := resolveSession(cmd, a.st, session)
 				if err != nil {
 					return err
 				}
@@ -95,14 +96,14 @@ latest run.`,
 		},
 	}
 	cmd.Flags().StringVarP(&session, "session", "s", "", "attach to a session by ID or label")
-	cmd.Flags().Int64VarP(&runID, "run", "r", 0, "attach to a run by ID")
+	cmd.Flags().StringVarP(&runRef, "run", "r", "", "attach to a run (ID, last, -N, or label)")
 	cmd.MarkFlagsMutuallyExclusive("session", "run")
 	return cmd
 }
 
 func (a *app) notesCmd() *cobra.Command {
 	var session string
-	var runID int64
+	var runRef string
 	var limit int
 	var jsonOutput bool
 	cmd := &cobra.Command{
@@ -120,10 +121,14 @@ session are shown unless --session or --run is given.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var f store.NoteFilter
 			switch {
-			case runID != 0:
-				f.RunIDs = []int64{runID}
+			case runRef != "":
+				r, err := a.resolveRun(cmd, runRef)
+				if err != nil {
+					return err
+				}
+				f.RunIDs = []int64{r.ID}
 			case session != "":
-				sess, err := resolveSession(a.st, session)
+				sess, err := resolveSession(cmd, a.st, session)
 				if err != nil {
 					return err
 				}
@@ -161,7 +166,7 @@ session are shown unless --session or --run is given.
 		},
 	}
 	cmd.Flags().StringVarP(&session, "session", "s", "", "only notes for a session ID or label")
-	cmd.Flags().Int64VarP(&runID, "run", "r", 0, "only notes attached to a run ID")
+	cmd.Flags().StringVarP(&runRef, "run", "r", "", "only notes attached to a run (ID, last, -N, or label)")
 	cmd.Flags().IntVarP(&limit, "limit", "l", 500, "maximum number of notes to show")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
 	cmd.MarkFlagsMutuallyExclusive("session", "run")

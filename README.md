@@ -31,8 +31,9 @@ Then daily usage becomes:
 ```bash
 c run go test ./...
 c last
-c show <run-id>
-c rerun <run-id>
+c show <run-id>     # or -1 for the latest run, or a label
+c rerun -1
+c attach BUG-1234  # attach to a session by its label
 c search "connection refused"
 ```
 

@@ -46,7 +46,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := store.HistoryFilter{Status: status, CWD: cwd, Branch: branch, Command: command, Label: label}
 			if session != "" {
-				sess, err := resolveSession(a.st, session)
+				sess, err := resolveSession(cmd, a.st, session)
 				if err != nil {
 					return err
 				}
