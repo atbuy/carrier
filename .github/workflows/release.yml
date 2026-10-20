@@ -69,6 +69,16 @@ jobs:
       - name: Test
         run: make test
 
+      # Every release needs a CHANGELOG.md entry; it becomes the release notes.
+      - name: Check changelog entry
+        run: go run ./cmd/carrier changelog --markdown "${RELEASE_TAG}" > release-notes.md
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+
   build:
     needs: verify
     runs-on: ubuntu-latest
@@ -150,6 +160,15 @@ jobs:
           cd dist
           sha256sum *.tar.gz *.zip > checksums.txt
 
+      - name: Read release notes
+        id: notes
+        run: |
+          {
+            echo 'changelog<<CARRIER_CHANGELOG_EOF'
+            cat dist/release-notes.md
+            echo 'CARRIER_CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -158,6 +177,8 @@ jobs:
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           generate_release_notes: true
           body: |
+            ${{ steps.notes.outputs.changelog }}
+
             ## Install
 
             Linux and macOS:
