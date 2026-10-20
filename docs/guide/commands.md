@@ -183,6 +183,8 @@ carrier history --label deploy
 carrier history --json
 ```
 
+Each run in `--json` output has a `session_id` when it was recorded in a shell session.
+
 ### Session grouping
 
 List rows show a colored status glyph (`✓` success, `✗` failed, `●` running, `⊘` killed), a relative timestamp (`2m ago`), the duration, the command, and the working directory with your home directory collapsed to `~`. Absolute timestamps are shown in `carrier show`.
@@ -216,6 +218,7 @@ Show only session headers, no individual runs:
 
 ```bash title="Sessions only"
 carrier history --sessions-only
+carrier history --sessions-only --json
 ```
 
 Use with `fzf`:
@@ -274,6 +277,7 @@ List failed runs:
 
 ```bash title="List failed runs"
 carrier failed
+carrier failed --json
 ```
 
 ## `running`
@@ -592,9 +596,12 @@ List sessions newest-first:
 ```bash title="List sessions"
 carrier session list
 carrier session list --limit 20
+carrier session list --json
 ```
 
 Output includes session ID, start time, label, and duration (or `active` for open sessions).
+
+`--json` prints an array of sessions with `id`, `label`, `started_at`, `ended_at` (missing while the session is active), `auto`, and `kept`. `carrier history --sessions-only --json` prints the same fields, oldest first.
 
 ### `session label`
 

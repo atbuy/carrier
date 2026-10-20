@@ -30,6 +30,8 @@ carrier last --json
 carrier show 42 --json
 carrier running --json
 carrier history --json
+carrier failed --json
+carrier session list --json
 carrier search --json "connection refused"
 carrier stats --json
 ```

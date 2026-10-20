@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func (a *app) sessionCmd() *cobra.Command {
@@ -62,7 +64,10 @@ Labeled automatic sessions never expire.`,
 }
 
 func (a *app) sessionListCmd() *cobra.Command {
-	var limit int
+	var (
+		limit      int
+		jsonOutput bool
+	)
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "list shell sessions newest-first",
@@ -71,6 +76,9 @@ func (a *app) sessionListCmd() *cobra.Command {
 			sessions, err := a.st.ListSessions(limit)
 			if err != nil {
 				return err
+			}
+			if jsonOutput {
+				return writeSessionsJSON(cmd, sessions)
 			}
 			if len(sessions) == 0 {
 				printHint(cmd, noSessionsHint)
@@ -109,7 +117,27 @@ func (a *app) sessionListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVarP(&limit, "limit", "l", 100, "maximum number of sessions to show")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
 	return cmd
+}
+
+type sessionView struct {
+	ID        int64      `json:"id"`
+	Label     string     `json:"label,omitempty"`
+	StartedAt time.Time  `json:"started_at"`
+	EndedAt   *time.Time `json:"ended_at,omitempty"`
+	Auto      bool       `json:"auto"`
+	Kept      bool       `json:"kept"`
+}
+
+func writeSessionsJSON(cmd *cobra.Command, sessions []store.Session) error {
+	views := make([]sessionView, 0, len(sessions))
+	for _, s := range sessions {
+		views = append(views, sessionView{
+			ID: s.ID, Label: s.Label, StartedAt: s.StartedAt, EndedAt: s.EndedAt, Auto: s.Auto, Kept: s.Kept,
+		})
+	}
+	return writeJSON(cmd, views)
 }
 
 // sessionKeepCmd builds "session keep" (keep=true) or "session unkeep".

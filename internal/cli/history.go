@@ -60,7 +60,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				f.Since = time.Now().Add(-d)
 			}
 			if sessionsOnly {
-				return a.printSessionsOnly(cmd, limit, label)
+				return a.printSessionsOnly(cmd, limit, label, jsonOutput)
 			}
 
 			runs, err := a.st.ListHistory(limit, f)
@@ -223,12 +223,21 @@ func (a *app) historyNotes(runIDs, sessIDs []int64) (map[int64][]store.Note, map
 	return byRun, bySession, nil
 }
 
-func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter string) error {
+func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter string, jsonOutput bool) error {
 	sessions, err := a.st.ListSessions(limit)
 	if err != nil {
 		return err
 	}
 	slices.Reverse(sessions)
+	if jsonOutput {
+		matched := make([]store.Session, 0, len(sessions))
+		for _, sess := range sessions {
+			if labelFilter == "" || containsFold(sess.Label, labelFilter) {
+				matched = append(matched, sess)
+			}
+		}
+		return writeSessionsJSON(cmd, matched)
+	}
 	if len(sessions) == 0 {
 		printHint(cmd, noSessionsHint)
 		return nil
