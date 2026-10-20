@@ -2,7 +2,7 @@
 
 `carrier` is a local command logger for developers. It records what you ran, where you ran it, when it started and finished, how long it took, whether it failed, captured output, and useful Git context.
 
-It is designed for normal terminal work: local projects, long-running build/test commands, deploys, migrations, Docker tasks, zsh/bash, tmux, and terminal emulators such as Ghostty.
+It is designed for normal terminal work: local projects, long-running build/test commands, deploys, migrations, Docker tasks, zsh, bash, fish, tmux, and terminal emulators such as Ghostty.
 
 !!! tip "New here?"
 
@@ -23,9 +23,9 @@ It is designed for normal terminal work: local projects, long-running build/test
     carrier show 1
     ```
 
-!!! warning "Shell mode is alpha"
+!!! tip "Record every terminal"
 
-    `carrier run` is the stable path for precise stdout/stderr capture. `carrier shell` is useful for experiments and long interactive sessions, but depends on PTY output and shell hooks.
+    `carrier setup` can start every new terminal in a recorded shell session, so commands and their output are kept without typing `carrier run` first.
 
 
 ## Fast setup path
@@ -45,7 +45,7 @@ For deeper setup choices, use [Installation](tutorial/installation.md) and [Conf
 - Learn every command and flag: [Commands](guide/commands.md)
 - Build daily workflows with history, labels, export, rerun, and search: [Workflows](guide/workflows.md)
 - Script against JSON output and log paths: [Power-user workflows](advanced/power-user-workflows.md)
-- Understand alpha shell mode, sessions, and `carrier attach`: [Shell mode](advanced/shell-mode.md)
+- Understand shell mode, sessions, and `carrier attach`: [Shell mode](advanced/shell-mode.md)
 - Configure storage, redaction, notifications, and shell behavior: [Configuration reference](reference/configuration.md)
 - Check environment variables: [Environment variables](reference/environment.md)
 - Understand SQLite and log files: [Storage and state](reference/storage-and-state.md)

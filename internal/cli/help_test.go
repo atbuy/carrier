@@ -121,7 +121,7 @@ func testRootCommand() *cobra.Command {
 	root.PersistentFlags().BoolP("notify", "n", false, "request notification when command finishes")
 	root.AddCommand(
 		&cobra.Command{Use: "run <command...>", Short: "run and record one command"},
-		&cobra.Command{Use: "shell", Short: "start tracked shell (alpha)"},
+		&cobra.Command{Use: "shell", Short: "start a recorded shell session"},
 		&cobra.Command{Use: "attach <id-or-label>", Short: "attach to an existing shell session"},
 		&cobra.Command{Use: "rerun <id>", Short: "rerun original command from original cwd"},
 		&cobra.Command{Use: "last", Short: "show latest run"},

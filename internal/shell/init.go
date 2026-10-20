@@ -31,9 +31,16 @@ if [[ $- == *i* && -t 0 && -t 1 && -z "$CARRIER_SESSION_ID" && -z "$CARRIER_NO_A
 fi
 `, quoted), nil
 	case "fish":
+		// In fish, exit while reading config only stops reading it; the shell
+		// keeps running. Leave at the first prompt instead.
 		return fmt.Sprintf(`# carrier: record this terminal in an automatic session.
 if status is-interactive; and isatty stdin; and isatty stdout; and not set -q CARRIER_SESSION_ID; and not set -q CARRIER_NO_AUTO
-    %s shell --auto --program fish; and exit
+    if %s shell --auto --program fish
+        set -g fish_greeting
+        function __carrier_auto_exit --on-event fish_prompt
+            exit
+        end
+    end
 end
 `, quoted), nil
 	default:

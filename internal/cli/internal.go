@@ -31,10 +31,13 @@ func (a *app) internalBeginCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sf := &carriershell.StateFile{Path: statePath}
 			state := sf.Read()
-			if shouldIgnore(command, a.cfg.Shell.IgnoreCommands) {
+			if isHookCommand(command) {
 				_ = sf.Write(carriershell.State{SessionID: state.SessionID})
 				return nil
 			}
+			// Commands in shell.ignore_commands are recorded without output:
+			// knowing that "vim config.yaml" ran matters, its screen does not.
+			recordOutput := !outputIgnored(command, a.cfg.Shell.IgnoreCommands)
 			started := time.Now()
 			host, _ := os.Hostname()
 			argvJSON, _ := json.Marshal([]string{command})
@@ -69,9 +72,12 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			path := logs.TerminalPath(a.cfg.Storage.DataDir, id)
-			if err := a.st.UpdatePaths(id, "", "", path); err != nil {
-				return err
+			path := ""
+			if recordOutput {
+				path = logs.TerminalPath(a.cfg.Storage.DataDir, id)
+				if err := a.st.UpdatePaths(id, "", "", path); err != nil {
+					return err
+				}
 			}
 			if err := sf.Write(carriershell.State{CurrentID: id, CurrentLog: path, SessionID: state.SessionID}); err != nil {
 				return err
@@ -143,7 +149,9 @@ func captureEnvCLI(cfg config.Config) string {
 	return string(b)
 }
 
-func shouldIgnore(cmd string, ignore []string) bool {
+// isHookCommand reports whether cmd is empty or one of carrier's own hook
+// commands, which are never recorded.
+func isHookCommand(cmd string) bool {
 	fields := strings.Fields(cmd)
 	if len(fields) == 0 {
 		return true
@@ -152,12 +160,17 @@ func shouldIgnore(cmd string, ignore []string) bool {
 	if strings.HasPrefix(base, "_carrier_") {
 		return true
 	}
-	if base == "carrier" && len(fields) > 1 && fields[1] == "internal" {
-		return true
+	return (base == "carrier" || strings.HasSuffix(base, "/carrier")) && len(fields) > 1 && fields[1] == "internal"
+}
+
+// outputIgnored reports whether cmd's program is in shell.ignore_commands, so
+// its run is recorded without output.
+func outputIgnored(cmd string, ignore []string) bool {
+	fields := strings.Fields(cmd)
+	if len(fields) == 0 {
+		return false
 	}
-	if strings.HasSuffix(base, "/carrier") && len(fields) > 1 && fields[1] == "internal" {
-		return true
-	}
+	base := fields[0]
 	for _, item := range ignore {
 		if base == item || strings.HasSuffix(base, "/"+item) {
 			return true

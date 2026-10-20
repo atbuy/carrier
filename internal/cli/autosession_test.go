@@ -91,7 +91,7 @@ func TestDropExitRun(t *testing.T) {
 	}
 
 	exitID, exitLog := mkRun("exit")
-	if !a.dropExitRun(carriershell.State{CurrentID: exitID}) {
+	if !a.dropExitRun(sessID, carriershell.State{CurrentID: exitID}) {
 		t.Fatal("exit run should be dropped")
 	}
 	if _, err := a.st.GetRun(exitID); err == nil {
@@ -102,11 +102,24 @@ func TestDropExitRun(t *testing.T) {
 	}
 
 	makeID, _ := mkRun("make test")
-	if a.dropExitRun(carriershell.State{CurrentID: makeID}) {
+	if a.dropExitRun(sessID, carriershell.State{CurrentID: makeID}) {
 		t.Fatal("other commands must not be dropped")
 	}
-	if a.dropExitRun(carriershell.State{}) {
-		t.Fatal("no run in flight: nothing to drop")
+	if a.dropExitRun(sessID, carriershell.State{}) {
+		t.Fatal("latest run is not exit: nothing to drop")
+	}
+
+	// fish finishes the exit run itself, so nothing is in flight.
+	fishExit, fishLog := mkRun("exit")
+	_ = a.st.FinishRun(fishExit, store.StatusSuccess, 0, time.Now())
+	if a.dropExitRun(sessID, carriershell.State{}) {
+		t.Fatal("no run was in flight, so there is nothing left to finish")
+	}
+	if _, err := a.st.GetRun(fishExit); err == nil {
+		t.Fatal("a finished exit run at the end of the session should be deleted")
+	}
+	if _, err := os.Stat(fishLog); !os.IsNotExist(err) {
+		t.Fatal("its log should be removed")
 	}
 	for cmd, want := range map[string]bool{"exit": true, "exit 3": true, "logout": true, "exit && x": false, "exiting": false, "": false} {
 		if got := isExitCommand(cmd); got != want {
@@ -263,7 +276,7 @@ func TestInitCmd(t *testing.T) {
 		t.Fatalf("init zsh: %v\n%s", err, out)
 	}
 	t.Setenv("SHELL", "/usr/bin/fish")
-	if out, _, err := runEmpty(t, a.initCmd(), nil, nil); err != nil || !strings.Contains(out, "--program fish; and exit") {
+	if out, _, err := runEmpty(t, a.initCmd(), nil, nil); err != nil || !strings.Contains(out, "shell --auto --program fish\n") {
 		t.Fatalf("init from $SHELL: %v\n%s", err, out)
 	}
 	t.Setenv("SHELL", "/bin/sh")

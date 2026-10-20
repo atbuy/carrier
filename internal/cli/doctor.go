@@ -51,7 +51,6 @@ func (a *app) runDoctor(w io.Writer) error {
 	check(w, t, "git", commandAvailable("git"), "git executable available", nil)
 	check(w, t, "notify", notify.Available(), "optional desktop notifications", nil)
 	check(w, t, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
-	check(w, t, "shell mode", false, "alpha: use carrier run for precise capture", nil)
 	check(w, t, "auto session", true, autoSessionStatus(a.cfg.Shell.Program, a.cfg.Shell.AutoSessionRetention), nil)
 	check(w, t, "terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
 	return nil
@@ -112,7 +111,7 @@ func shellProgram(configured string) string {
 
 func shellSupported(configured string) bool {
 	name := filepath.Base(shellProgram(configured))
-	return strings.Contains(name, "zsh") || strings.Contains(name, "bash")
+	return strings.Contains(name, "zsh") || strings.Contains(name, "bash") || strings.Contains(name, "fish")
 }
 
 // shellConfigFiles lists the config files that load "carrier init".

@@ -21,9 +21,9 @@ func (a *app) shellCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "shell",
 		Aliases: []string{"s"},
-		Short:   "start tracked shell (alpha)",
-		Long: `Start a PTY-backed tracked shell session. This command is alpha-quality and
-currently best-effort for zsh, bash, and fish.
+		Short:   "start a recorded shell session",
+		Long: `Start a shell session that records every command line with its output, timing,
+exit code, and Git details. Supports zsh, bash, and fish.
 
 To record every terminal automatically, add the line printed by
 "carrier init <shell>" to your shell config; it runs "carrier shell --auto".`,
@@ -46,7 +46,7 @@ To record every terminal automatically, add the line printed by
 				return autoStartError(auto, err)
 			}
 			last, runErr := carriershell.Run(a.cfg, a.shellOptions(sessionID, label, auto))
-			if !auto || !a.dropExitRun(last) {
+			if !auto || !a.dropExitRun(sessionID, last) {
 				a.finishInFlightShellRun(last, runErr)
 			}
 			_ = a.st.EndSession(sessionID, time.Now())
@@ -79,15 +79,20 @@ func (a *app) shellOptions(sessionID int64, label string, quiet bool) carriershe
 	}
 }
 
-// dropExitRun deletes the in-flight run when it is the command that closed an
-// automatic session ("exit", "logout"). Every terminal ends that way, so the
-// run carries no information, and without it a session that ran nothing else
-// is empty and is deleted.
-func (a *app) dropExitRun(last carriershell.State) bool {
-	if last.CurrentID == 0 {
-		return false
+// dropExitRun deletes the run of the command that closed an automatic
+// session ("exit", "logout"). Every terminal ends that way, so the run carries
+// no information, and without it a session that ran nothing else is empty and
+// is deleted. zsh and bash exit before their prompt hook, leaving the run in
+// flight; fish finishes it, so then it is the session's latest run. It
+// reports whether the in-flight run was deleted.
+func (a *app) dropExitRun(sessionID int64, last carriershell.State) bool {
+	var r *store.Run
+	var err error
+	if last.CurrentID != 0 {
+		r, err = a.st.GetRun(last.CurrentID)
+	} else {
+		r, err = a.st.LatestSessionRun(sessionID)
 	}
-	r, err := a.st.GetRun(last.CurrentID)
 	if err != nil || !isExitCommand(r.Command) {
 		return false
 	}
@@ -95,7 +100,7 @@ func (a *app) dropExitRun(last carriershell.State) bool {
 		return false
 	}
 	removeIfSet(r.TerminalOutputPath)
-	return true
+	return r.ID == last.CurrentID
 }
 
 func isExitCommand(command string) bool {

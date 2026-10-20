@@ -236,7 +236,7 @@ If both config and `$SHELL` are empty, carrier falls back to `/bin/zsh`.
 
 Type: list of strings
 
-Commands that shell mode should not track.
+Commands that shell mode records without output: the command line, working directory, timing, and exit code are kept, the terminal output is not. Matched by program name.
 
 Default:
 
@@ -244,7 +244,7 @@ Default:
 ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
 ```
 
-Shell mode also ignores carrier's own internal hook commands.
+carrier's own hook commands are never recorded.
 
 ### `auto_session_retention`
 

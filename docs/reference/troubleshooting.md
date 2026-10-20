@@ -103,14 +103,12 @@ carrier clean --keep-last 500 --dry-run
 
 ## Shell mode records unexpected output
 
-`carrier shell` is alpha. Use `carrier run` for precise capture.
+Shell mode records the terminal as it appeared, so stdout and stderr are mixed and prompts or plugins that print during a command show up too. Use `carrier run` when you need a command's stdout and stderr separately.
 
-Shell mode depends on:
+Things that can affect shell mode:
 
-- PTY output
-- zsh/bash hooks
-- prompt behavior
-- shell plugins
+- other tools that set a bash `DEBUG` trap or `PROMPT_COMMAND`
+- shell plugins that print output from their own hooks
 
 ## Shell mode shows "(TUI session — terminal output suppressed)"
 

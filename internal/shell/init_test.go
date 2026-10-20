@@ -36,18 +36,24 @@ func TestInitScript(t *testing.T) {
 	}
 }
 
-// startBashWithInit runs an interactive bash whose ~/.bashrc loads the bash
-// init snippet, pointing at a stand-in carrier that logs its arguments and
-// exits with fakeExit. It types lines at the prompt and returns the log, the
-// terminal output, and whether bash exited on its own.
+// startBashWithInit runs startShellWithInit with bash.
 func startBashWithInit(t *testing.T, fakeExit string, extraEnv []string, lines []string) (string, string, bool) {
 	t.Helper()
+	return startShellWithInit(t, "bash", fakeExit, extraEnv, lines)
+}
+
+// startShellWithInit runs an interactive shell whose own config loads the
+// init snippet, pointing at a stand-in carrier that logs its arguments and
+// exits with fakeExit. It types lines at the prompt and returns the log, the
+// terminal output, and whether the shell exited on its own.
+func startShellWithInit(t *testing.T, shellName, fakeExit string, extraEnv []string, lines []string) (string, string, bool) {
+	t.Helper()
 	if runtime.GOOS == "windows" {
-		t.Skip("bash init test is Unix-only")
+		t.Skip("init test is Unix-only")
 	}
-	bash, err := exec.LookPath("bash")
+	program, err := exec.LookPath(shellName)
 	if err != nil {
-		t.Skip("bash not installed")
+		t.Skipf("%s not installed", shellName)
 	}
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "calls.log")
@@ -55,15 +61,32 @@ func startBashWithInit(t *testing.T, fakeExit string, extraEnv []string, lines [
 	if err := os.WriteFile(fake, []byte("#!/bin/sh\necho \"$@\" >> '"+logPath+"'\nexit "+fakeExit+"\n"), 0o755); err != nil {
 		t.Fatalf("write fake carrier: %v", err)
 	}
-	snippet, err := InitScript("bash", fake)
+	snippet, err := InitScript(shellName, fake)
 	if err != nil {
 		t.Fatalf("InitScript: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".bashrc"), []byte("PS1='PROMPT> '\n"+snippet), 0o600); err != nil {
-		t.Fatalf("write bashrc: %v", err)
+	config := map[string]struct{ path, prompt string }{
+		"bash": {".bashrc", "PS1='PROMPT> '\n"},
+		"zsh":  {".zshrc", "PS1='PROMPT> '\n"},
+		"fish": {".config/fish/config.fish", "function fish_prompt; echo -n 'PROMPT> '; end\nfunction fish_greeting; end\n"},
+	}[shellName]
+	rc := filepath.Join(dir, config.path)
+	if err := os.MkdirAll(filepath.Dir(rc), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
-	cmd := exec.Command(bash, "-i")
-	cmd.Env = append(os.Environ(), "HOME="+dir, "TERM=dumb", "HISTFILE="+filepath.Join(dir, ".hist"))
+	if err := os.WriteFile(rc, []byte(config.prompt+snippet), 0o600); err != nil {
+		t.Fatalf("write shell config: %v", err)
+	}
+	isolateZsh(t, shellName, dir)
+	cmd := exec.Command(program, "-i")
+	// zsh reads $ZDOTDIR/.zshrc, so ZDOTDIR must be unset rather than empty.
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "ZDOTDIR=") {
+			cmd.Env = append(cmd.Env, kv)
+		}
+	}
+	cmd.Env = append(cmd.Env, "HOME="+dir, "TERM=dumb", "HISTFILE="+filepath.Join(dir, ".hist"),
+		"XDG_CONFIG_HOME="+filepath.Join(dir, ".config"), "XDG_DATA_HOME="+filepath.Join(dir, ".local", "share"))
 	cmd.Env = append(cmd.Env, extraEnv...)
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
@@ -161,5 +184,24 @@ func TestInitSnippetSkipsNonInteractiveShells(t *testing.T) {
 	}
 	if _, err := os.Stat(logPath); err == nil {
 		t.Fatal("carrier must not run in non-interactive shells")
+	}
+}
+
+func TestInitSnippetInZshAndFish(t *testing.T) {
+	for _, sh := range []string{"zsh", "fish"} {
+		t.Run(sh, func(t *testing.T) {
+			calls, _, closed := startShellWithInit(t, sh, "0", nil, nil)
+			if strings.TrimSpace(calls) != "shell --auto --program "+sh || !closed {
+				t.Fatalf("session end should close %s: calls=%q closed=%v", sh, calls, closed)
+			}
+			calls, out, closed := startShellWithInit(t, sh, "1", nil, []string{"echo still-ok", "exit"})
+			if strings.TrimSpace(calls) != "shell --auto --program "+sh || !strings.Contains(out, "still-ok") || !closed {
+				t.Fatalf("%s should fall back to a plain shell: calls=%q closed=%v\n%s", sh, calls, closed, out)
+			}
+			calls, _, _ = startShellWithInit(t, sh, "0", []string{"CARRIER_NO_AUTO=1"}, []string{"exit"})
+			if calls != "" {
+				t.Fatalf("%s with CARRIER_NO_AUTO must not run carrier, calls=%q", sh, calls)
+			}
+		})
 	}
 }

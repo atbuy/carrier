@@ -114,7 +114,7 @@ func fishColor(color string) string {
 
 func zshHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
 	title := termTitle(sessionID, label)
-	// _carrier_rprompt is embedded so no runtime env var lookup is needed.
+	// The indicator is embedded so no runtime env var lookup is needed.
 	rprompt := fmt.Sprintf("%%B%%F{%s}%s%%f%%b", zshColor(labelColor), shellSessionText(sessionID))
 	if label != "" {
 		rprompt += fmt.Sprintf(" %%F{%s}%s%%f", zshColor(labelColor), label)
@@ -127,26 +127,34 @@ _carrier_zle_init() {
   unsetopt warn_create_global 2>/dev/null
 }
 zle -N zle-line-init _carrier_zle_init
+_carrier_rprompt=%s
 _carrier_preexec() {
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
   export CARRIER_HOOK_ACTIVE=1
   command %q internal begin --state %q --cmd "$1" --cwd "$PWD" >/dev/null 2>&1
   unset CARRIER_HOOK_ACTIVE
+  _carrier_ran=1
 }
 _carrier_precmd() {
   local ec="$?"
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
-  export CARRIER_HOOK_ACTIVE=1
-  command %q internal end --state %q --exit "$ec" >/dev/null 2>&1
-  unset CARRIER_HOOK_ACTIVE
+  # precmd also runs at startup and after an empty line; only end a run that
+  # preexec began.
+  if [[ -n "$_carrier_ran" ]]; then
+    _carrier_ran=
+    export CARRIER_HOOK_ACTIVE=1
+    command %q internal end --state %q --exit "$ec" >/dev/null 2>&1
+    unset CARRIER_HOOK_ACTIVE
+  fi
   printf '\033]0;%s\007'
-  RPROMPT="%s${RPROMPT:+ $RPROMPT}"
+  # Add the indicator once; precmd runs before every prompt.
+  [[ "$RPROMPT" == "$_carrier_rprompt"* ]] || RPROMPT="$_carrier_rprompt${RPROMPT:+ $RPROMPT}"
 }
 add-zsh-hook preexec _carrier_preexec
 add-zsh-hook precmd _carrier_precmd
 %s
 printf '\033]0;%s\007'
-`, carrierPath, statePath, carrierPath, statePath, title, rprompt, startupBanner(banner, sessionID, label, labelColor), title)
+`, shellQuote(rprompt), carrierPath, statePath, carrierPath, statePath, title, startupBanner(banner, sessionID, label, labelColor), title)
 }
 
 func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {

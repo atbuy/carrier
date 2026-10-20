@@ -113,7 +113,11 @@ or a run label; see "Referring to runs" in the docs.
 					}
 				}
 			}
-			if r.TerminalOutputPath != "" && !onlyStderr {
+			if r.Mode == store.ModeShell && r.TerminalOutputPath == "" {
+				if !streamOnly {
+					_, _ = fmt.Fprintln(out, "\n"+t.Muted.Render("(output not recorded: the command is in shell.ignore_commands)"))
+				}
+			} else if r.TerminalOutputPath != "" && !onlyStderr {
 				content := readText(r.TerminalOutputPath)
 				if containsTUIOutput(content) {
 					if !streamOnly {
