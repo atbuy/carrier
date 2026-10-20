@@ -187,6 +187,26 @@ func TestSendPlatformBranches(t *testing.T) {
 	}
 }
 
+func TestTestSendsSampleNotification(t *testing.T) {
+	oldGOOS, oldCommand := runtimeGOOS, execCommand
+	t.Cleanup(func() { runtimeGOOS, execCommand = oldGOOS, oldCommand })
+
+	var gotTitle string
+	runtimeGOOS = "linux"
+	execCommand = func(command string, args ...string) *exec.Cmd {
+		if command == "notify-send" && len(args) > 0 {
+			gotTitle = args[0]
+		}
+		return fakeNotifyCommand(command, args...)
+	}
+	if err := Test(); err != nil {
+		t.Fatalf("Test: %v", err)
+	}
+	if gotTitle != "carrier: test notification" {
+		t.Fatalf("title = %q", gotTitle)
+	}
+}
+
 func fakeNotifyCommand(command string, args ...string) *exec.Cmd {
 	cmdArgs := append([]string{"-test.run=TestNotifyHelperProcess", "--", command}, args...)
 	cmd := exec.Command(os.Args[0], cmdArgs...)

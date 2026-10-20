@@ -64,9 +64,32 @@ carrier version
 carrier doctor
 ```
 
+## Set up carrier
+
+Run the setup wizard:
+
+```bash title="Setup"
+carrier setup
+```
+
+It goes through four steps, and for each one checks what is already set up:
+
+1. **Record every terminal**: start new terminals in an automatic session, and how long to keep them
+2. **Similar-failure hints**: point at an earlier run when the same error happens again
+3. **Desktop notifications**: send a test notification and choose the minimum duration
+4. **The `c` alias**: a short name for carrier, skipped if `c` is already taken
+
+Before changing a file, setup shows the exact lines it will add or change and asks first. Existing files keep their comments and other settings, and are backed up before the change. Running setup again only offers what is not set up yet.
+
+Preview without changing anything:
+
+```bash title="Preview setup"
+carrier setup --dry-run
+```
+
 ## Add a short alias
 
-Most examples use:
+If you skipped the alias in setup, most examples use:
 
 ```bash title="Shell alias"
 alias c='carrier'
@@ -84,10 +107,10 @@ Use `source ~/.bashrc` if you use bash.
 ## First five minutes checklist
 
 1. Install `carrier`.
-2. Run `carrier doctor`.
+2. Run `carrier setup`, then `carrier doctor`.
 3. Record one command with `carrier run <command...>`.
 4. Inspect it with `carrier last` and `carrier show <run-id>`.
-5. Add `alias c='carrier'` once you are comfortable with the command.
+5. Use the `c` alias (`carrier setup` can add it) once you are comfortable with the command.
 
 The run ID appears in `last`, `history`, `failed`, `running`, and most JSON output. Use that ID with `show`, `tail`, `export`, `label`, `rerun`, and `clean` previews. You can also use `-1` for the latest run, `-2` for the one before it, or a run's label; see [Referring to runs](../guide/commands.md#referring-to-runs).
 

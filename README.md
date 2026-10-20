@@ -10,17 +10,18 @@ Documentation: [https://atbuy.github.io/carrier/](https://atbuy.github.io/carrie
 
 ## Quick start
 
-Install, verify, and record one command:
+Install, set up, and record one command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
-carrier version
-carrier doctor
+carrier setup
 carrier run go test ./...
 carrier last
 ```
 
-Most users add a short alias:
+`carrier setup` walks through the main settings one step at a time: recording every terminal, similar-failure hints, notifications, and the short `c` alias. It shows each change before making it, edits existing config files in place, and backs them up first. `carrier setup --dry-run` only shows what it would change.
+
+To set the alias by hand instead:
 
 ```bash
 alias c='carrier'
