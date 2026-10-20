@@ -49,6 +49,14 @@ type Session struct {
 	EndedAt   *time.Time
 }
 
+type Note struct {
+	ID        int64
+	SessionID *int64
+	RunID     *int64
+	Text      string
+	CreatedAt time.Time
+}
+
 type CreateSession struct {
 	Label     string
 	StartedAt time.Time

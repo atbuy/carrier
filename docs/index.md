@@ -62,6 +62,7 @@ For deeper setup choices, use [Installation](tutorial/installation.md) and [Conf
 - optional notifications help with slow builds without making every command noisy
 - shell sessions group related commands under a named label, visible as a tree in `carrier history`
 - `carrier attach` re-opens a labeled session from any terminal
+- `carrier note` adds notes to a session timeline so you can record why you ran something
 
 ## Core concepts
 

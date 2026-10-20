@@ -85,15 +85,29 @@ func (a *app) showCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			notes, err := a.st.ListNotes(store.NoteFilter{RunIDs: []int64{r.ID}}, 1000)
+			if err != nil {
+				return err
+			}
 			if jsonOutput {
 				redactor := logs.NewRedactorWithBuiltins(!a.noRedact, a.cfg.Redaction.Patterns)
-				return writeJSON(cmd, runViewFromStoreOpts(r, true, redactor))
+				view := runViewFromStoreOpts(r, true, redactor)
+				for _, n := range notes {
+					view.Notes = append(view.Notes, noteViewFromStore(n))
+				}
+				return writeJSON(cmd, view)
 			}
 			out := cmd.OutOrStdout()
 			t := newTheme(out)
 			streamOnly := onlyStdout || onlyStderr
 			if !streamOnly {
 				printRun(out, r)
+				if len(notes) > 0 {
+					_, _ = fmt.Fprintln(out, "\n"+t.Label.Bold(true).Render("notes"))
+					for _, n := range notes {
+						_, _ = fmt.Fprintf(out, "  %s  %s\n", t.Muted.Render(padRight(formatRelativeTime(n.CreatedAt), 9)), n.Text)
+					}
+				}
 			}
 			if r.TerminalOutputPath != "" && !onlyStderr {
 				content := readText(r.TerminalOutputPath)
@@ -281,6 +295,7 @@ type runView struct {
 	CreatedAt          time.Time         `json:"created_at"`
 	Label              string            `json:"label,omitempty"`
 	Env                map[string]string `json:"env,omitempty"`
+	Notes              []noteView        `json:"notes,omitempty"`
 }
 
 func runViewFromStore(r *store.Run, includeOutput bool) runView {

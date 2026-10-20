@@ -35,7 +35,7 @@ func printRootHelp(w io.Writer, t theme, cmd *cobra.Command) {
 
 	printCommandGroup(w, t, "RUN", cmd, []string{"run", "shell", "attach", "rerun", "watch"})
 	printCommandGroup(w, t, "INSPECT", cmd, []string{"tui", "last", "running", "show", "tail", "failed", "search", "history", "stats", "diff", "export"})
-	printCommandGroup(w, t, "MANAGE", cmd, []string{"label", "session", "clean", "config", "completion", "doctor", "version", "help"})
+	printCommandGroup(w, t, "MANAGE", cmd, []string{"label", "note", "notes", "session", "clean", "config", "completion", "doctor", "version", "help"})
 
 	line(w, t.Header.Render("EXAMPLES"))
 	line(w)
@@ -47,6 +47,7 @@ func printRootHelp(w io.Writer, t theme, cmd *cobra.Command) {
 	printExample(w, t, `carrier search "connection refused"`, "full-text search logs")
 	printExample(w, t, "carrier shell", "start a tracked shell session")
 	printExample(w, t, "carrier attach mylabel", "rejoin a labeled session")
+	printExample(w, t, `carrier note "suspect stale DNS cache"`, "note why you did something")
 	line(w)
 
 	printFlagSet(w, t, "FLAGS", cmd.PersistentFlags())

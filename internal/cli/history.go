@@ -92,6 +92,15 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				return err
 			}
 
+			runIDs := make([]int64, 0, len(runs))
+			for _, r := range runs {
+				runIDs = append(runIDs, r.ID)
+			}
+			notesByRun, sessionNotes, err := a.historyNotes(runIDs, sessIDs)
+			if err != nil {
+				return err
+			}
+
 			// Build ordered items. Session runs are bucketed under their session
 			// header at the position of the first (oldest displayed) run seen for that session.
 			var items []historyItem
@@ -124,6 +133,9 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 			for _, item := range items {
 				if !item.isSession {
 					printRunLine(out, t, &item.run, "")
+					for _, n := range notesByRun[item.run.ID] {
+						printNoteLine(out, t, n, "")
+					}
 					continue
 				}
 				printSessionHeader(out, t, item.session)
@@ -140,13 +152,19 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 						n, s,
 					)
 				} else {
+					for _, n := range sessionNotes[item.session.ID] {
+						printNoteLine(out, t, n, "│")
+					}
 					for i, r := range item.runs {
 						r := r
-						connector := "├──"
+						connector, rail := "├──", "│"
 						if i == len(item.runs)-1 {
-							connector = "└──"
+							connector, rail = "└──", ""
 						}
 						printRunLine(out, t, &r, connector)
+						for _, n := range notesByRun[r.ID] {
+							printNoteLine(out, t, n, rail)
+						}
 					}
 				}
 			}
@@ -175,6 +193,30 @@ func (a *app) hsCmd() *cobra.Command {
 	cmd.Aliases = nil
 	_ = cmd.Flags().Set("short", "true")
 	return cmd
+}
+
+// historyNotes fetches notes for the displayed runs and sessions. Notes linked
+// to a run are keyed by run ID; session notes made before the session's first
+// run are keyed by session ID.
+func (a *app) historyNotes(runIDs, sessIDs []int64) (map[int64][]store.Note, map[int64][]store.Note, error) {
+	byRun := map[int64][]store.Note{}
+	bySession := map[int64][]store.Note{}
+	if len(runIDs) == 0 && len(sessIDs) == 0 {
+		return byRun, bySession, nil
+	}
+	notes, err := a.st.ListNotes(store.NoteFilter{RunIDs: runIDs, SessionIDs: sessIDs}, len(runIDs)*10+len(sessIDs)*10+100)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, n := range notes {
+		switch {
+		case n.RunID != nil:
+			byRun[*n.RunID] = append(byRun[*n.RunID], n)
+		case n.SessionID != nil:
+			bySession[*n.SessionID] = append(bySession[*n.SessionID], n)
+		}
+	}
+	return byRun, bySession, nil
 }
 
 func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter string) error {

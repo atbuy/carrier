@@ -39,6 +39,7 @@ Tables:
 | `runs`             | One row per recorded command                 |
 | `environments`     | Deduplicated env snapshots (SHA-256 indexed) |
 | `shell_sessions`   | Shell session groupings                      |
+| `notes`            | Notes attached to sessions and runs          |
 | `run_search`       | FTS5 full-text search index                  |
 | `goose_db_version` | Applied migration versions                   |
 
@@ -148,6 +149,7 @@ When upgrading from a version that stored env snapshots inline in the `runs` tab
 - working directory
 - stdout and stderr logs from `carrier run`
 - terminal logs from `carrier shell`
+- text of notes attached to the run
 
 The index stores up to 256 KiB of combined output per run. The original log files remain on disk under `runs/`.
 
