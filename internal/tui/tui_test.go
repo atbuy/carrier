@@ -591,3 +591,28 @@ func TestCollapseHomeAndShortEdgeCases(t *testing.T) {
 		t.Fatalf("short short = %q", got)
 	}
 }
+
+func TestViewEmptyStates(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	cfg := config.Default()
+	cfg.Storage.DataDir = dir
+
+	m := newModel(t, st, cfg)
+	if out := stripANSI(m.View()); !strings.Contains(out, "no runs recorded yet") || !strings.Contains(out, "carrier run echo hello") {
+		t.Fatalf("empty store should show first-run hint, got:\n%s", out)
+	}
+
+	seeded, seededCfg := seed(t)
+	m = newModel(t, seeded, seededCfg)
+	m.filter.SetValue("does-not-match-anything")
+	m.applyFilter()
+	out := stripANSI(m.View())
+	if !strings.Contains(out, "no runs match") || strings.Contains(out, "no runs recorded yet") {
+		t.Fatalf("filtered-out list should say no runs match, got:\n%s", out)
+	}
+}

@@ -28,7 +28,7 @@ func (a *app) lastCmd() *cobra.Command {
 				n = int(id)
 			}
 			if n == 1 {
-				r, err := a.st.Latest()
+				r, err := a.latestRun()
 				if err != nil {
 					return err
 				}
@@ -43,7 +43,7 @@ func (a *app) lastCmd() *cobra.Command {
 				return err
 			}
 			if len(runs) == 0 {
-				return fmt.Errorf("no runs found")
+				return errNoRuns
 			}
 			if jsonOutput {
 				views := make([]runView, len(runs))
@@ -81,7 +81,7 @@ func (a *app) showCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r, err := a.st.GetRun(id)
+			r, err := a.getRun(id)
 			if err != nil {
 				return err
 			}
@@ -204,6 +204,10 @@ func (a *app) runningCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(runs) == 0 && !jsonOutput {
+				a.printEmptyRunsHint(cmd, "no runs are running")
+				return nil
+			}
 			if jsonOutput {
 				views := make([]runView, 0, len(runs))
 				for _, r := range runs {
@@ -240,6 +244,10 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 			runs, err := a.st.ListByStatus(status, 100)
 			if err != nil {
 				return err
+			}
+			if len(runs) == 0 {
+				a.printEmptyRunsHint(cmd, "no "+name+" runs")
+				return nil
 			}
 			out := cmd.OutOrStdout()
 			t := newTheme(out)

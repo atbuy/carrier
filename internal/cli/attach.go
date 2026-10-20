@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,14 +40,20 @@ func (a *app) attachCmd() *cobra.Command {
 func resolveSession(st *store.Store, arg string) (*store.Session, error) {
 	if id, err := parseID(arg); err == nil {
 		sess, err := st.GetSession(id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("session %d not found; list sessions with \"carrier session list\"", id)
+		}
 		if err != nil {
-			return nil, fmt.Errorf("session %d not found: %w", id, err)
+			return nil, err
 		}
 		return sess, nil
 	}
 	sess, err := st.FindSessionByLabel(arg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("no session with label %q; list sessions with \"carrier session list\"", arg)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("no session with label %q: %w", arg, err)
+		return nil, err
 	}
 	return sess, nil
 }

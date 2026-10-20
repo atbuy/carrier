@@ -22,12 +22,16 @@ func (a *app) labelCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			run, err := a.getRun(id)
+			if err != nil {
+				return err
+			}
 			label := strings.Join(args[1:], " ")
 			if err := a.st.SetLabel(id, label); err != nil {
 				return err
 			}
 			// Propagate label to the session this run belongs to, if any.
-			if run, err := a.st.GetRun(id); err == nil && run.SessionID != nil {
+			if run.SessionID != nil {
 				_ = a.st.UpdateSessionLabel(*run.SessionID, label)
 			}
 			out := cmd.OutOrStdout()

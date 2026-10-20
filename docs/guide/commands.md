@@ -8,6 +8,18 @@ Human-readable output is colorized on TTYs. Set `NO_COLOR=1` to disable colors o
 
     Most inspection commands take a run ID. Start with `carrier last`, `carrier history`, `carrier failed`, or `carrier search` to find one.
 
+## Empty results
+
+When a list has nothing to show, `carrier` prints a short hint to stderr and exits `0`. Before anything is recorded, the hint suggests a first command:
+
+```text
+carrier: no runs recorded yet; try "carrier run echo hello" or "carrier shell"
+```
+
+Once runs exist, the hint says what was empty instead, for example `no failed runs` or `no runs match "timeout"`. Hints go to stderr, so piped output such as `carrier history | fzf` stays clean, and `--json` output is unchanged (`[]`).
+
+Looking up a run or session that does not exist is an error, with a plain message such as `run 42 not found`.
+
 ## Global flags
 
 These flags apply to any command that runs or inspects commands.
@@ -352,6 +364,8 @@ Clear a label by omitting text:
 ```bash title="Clear a label"
 carrier label 42
 ```
+
+Labeling a run that does not exist fails with `run <id> not found`.
 
 When a run belongs to a shell session, `label` also updates the session label. This keeps the history tree consistent: runs and their session share the same label.
 

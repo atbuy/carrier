@@ -62,6 +62,10 @@ func (a *app) sessionListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(sessions) == 0 {
+				printHint(cmd, noSessionsHint)
+				return nil
+			}
 			out := cmd.OutOrStdout()
 			t := newTheme(out)
 			for _, sess := range sessions {

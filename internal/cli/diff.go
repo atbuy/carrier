@@ -44,11 +44,11 @@ func (a *app) diffCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r1, err := a.st.GetRun(id1)
+			r1, err := a.getRun(id1)
 			if err != nil {
 				return err
 			}
-			r2, err := a.st.GetRun(id2)
+			r2, err := a.getRun(id2)
 			if err != nil {
 				return err
 			}
