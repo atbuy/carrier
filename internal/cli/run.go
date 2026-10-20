@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/duration"
 	"github.com/atbuy/carrier/internal/runner"
 	"github.com/atbuy/carrier/internal/store"
 )
@@ -55,21 +55,21 @@ func (a *app) parseRunFlags(args []string) ([]string, error) {
 			if i+1 >= len(args) {
 				return nil, fmt.Errorf("flag %q requires a value", arg)
 			}
-			d, err := time.ParseDuration(args[i+1])
+			d, err := duration.Parse(args[i+1])
 			if err != nil {
 				return nil, fmt.Errorf("invalid timeout %q: %w", args[i+1], err)
 			}
 			a.timeout = d
 			i += 2
 		case strings.HasPrefix(arg, "--timeout="):
-			d, err := time.ParseDuration(strings.TrimPrefix(arg, "--timeout="))
+			d, err := duration.Parse(strings.TrimPrefix(arg, "--timeout="))
 			if err != nil {
 				return nil, fmt.Errorf("invalid timeout %q: %w", arg, err)
 			}
 			a.timeout = d
 			i++
 		case strings.HasPrefix(arg, "-t="):
-			d, err := time.ParseDuration(strings.TrimPrefix(arg, "-t="))
+			d, err := duration.Parse(strings.TrimPrefix(arg, "-t="))
 			if err != nil {
 				return nil, fmt.Errorf("invalid timeout %q: %w", arg, err)
 			}

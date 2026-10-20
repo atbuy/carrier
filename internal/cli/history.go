@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/duration"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -53,7 +54,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				f.SessionID = &sess.ID
 			}
 			if since != "" {
-				d, err := parseAge(since)
+				d, err := duration.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since duration %q: %w", since, err)
 				}

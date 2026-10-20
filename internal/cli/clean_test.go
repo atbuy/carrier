@@ -9,30 +9,6 @@ import (
 	"github.com/atbuy/carrier/internal/store"
 )
 
-func TestParseAge(t *testing.T) {
-	tests := map[string]time.Duration{
-		"30d": 30 * 24 * time.Hour,
-		"2h":  2 * time.Hour,
-		"15m": 15 * time.Minute,
-	}
-
-	for input, want := range tests {
-		got, err := parseAge(input)
-		if err != nil {
-			t.Fatalf("parseAge(%q) failed: %v", input, err)
-		}
-		if got != want {
-			t.Fatalf("parseAge(%q) = %s, want %s", input, got, want)
-		}
-	}
-}
-
-func TestParseAgeRejectsInvalidInput(t *testing.T) {
-	if _, err := parseAge("bad"); err == nil {
-		t.Fatalf("parseAge accepted invalid input")
-	}
-}
-
 func TestCleanRequiresAtLeastOneFlag(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -282,5 +258,35 @@ func TestCleanPrunesOrphanedNotes(t *testing.T) {
 	}
 	if len(notes) != 0 {
 		t.Fatalf("expected no notes left, got %+v", notes)
+	}
+}
+
+func TestDurationFlagsShareFormat(t *testing.T) {
+	st := openCmdStore(t)
+	defer func() { _ = st.Close() }()
+	a := &app{st: st}
+
+	for _, value := range []string{"30m", "24h", "7d", "2w", "1d12h"} {
+		if _, _, err := runEmpty(t, a.historyCmd(), nil, map[string]string{"since": value}); err != nil {
+			t.Errorf("history --since %s: %v", value, err)
+		}
+		if _, _, err := runEmpty(t, a.searchCmd(), []string{"x"}, map[string]string{"since": value}); err != nil {
+			t.Errorf("search --since %s: %v", value, err)
+		}
+		if _, err := a.previewClean(value, 0); err != nil {
+			t.Errorf("clean --older-than %s: %v", value, err)
+		}
+	}
+
+	_, _, err := runEmpty(t, a.historyCmd(), nil, map[string]string{"since": "soon"})
+	if err == nil || !strings.Contains(err.Error(), `invalid --since duration "soon"`) || !strings.Contains(err.Error(), "7d") {
+		t.Errorf("history --since soon: %v", err)
+	}
+	_, _, err = runEmpty(t, a.searchCmd(), []string{"x"}, map[string]string{"since": "-1d"})
+	if err == nil || !strings.Contains(err.Error(), "negative") {
+		t.Errorf("search --since -1d: %v", err)
+	}
+	if _, err := a.previewClean("bad", 0); err == nil || !strings.Contains(err.Error(), `invalid --older-than duration "bad"`) {
+		t.Errorf("clean --older-than bad: %v", err)
 	}
 }

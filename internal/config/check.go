@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
+
+	"github.com/atbuy/carrier/internal/duration"
 )
 
 const (
@@ -47,19 +48,20 @@ func Check(cfg Config) []Issue {
 	}
 	if strings.TrimSpace(cfg.Notify.MinDuration) == "" {
 		issues = append(issues, Issue{Level: IssueError, Field: "notify.min_duration", Message: "must not be empty"})
-	} else if d, err := time.ParseDuration(cfg.Notify.MinDuration); err != nil {
+	} else if _, err := duration.Parse(cfg.Notify.MinDuration); err != nil {
 		issues = append(issues, Issue{Level: IssueError, Field: "notify.min_duration", Message: "invalid duration: " + err.Error()})
-	} else if d < 0 {
-		issues = append(issues, Issue{Level: IssueError, Field: "notify.min_duration", Message: "must be zero or greater"})
+	}
+	if threshold := strings.TrimSpace(cfg.Storage.StaleRunThreshold); threshold != "" {
+		if _, err := duration.Parse(threshold); err != nil {
+			issues = append(issues, Issue{Level: IssueError, Field: "storage.stale_run_threshold", Message: "invalid duration: " + err.Error()})
+		}
 	}
 	if _, err := ParseRetention(cfg.Shell.AutoSessionRetention); err != nil {
 		issues = append(issues, Issue{Level: IssueError, Field: "shell.auto_session_retention", Message: "invalid retention: " + err.Error()})
 	}
 	if age := strings.TrimSpace(cfg.Hints.SimilarMinAge); age != "" {
-		if d, err := time.ParseDuration(age); err != nil {
+		if _, err := duration.Parse(age); err != nil {
 			issues = append(issues, Issue{Level: IssueError, Field: "hints.similar_min_age", Message: "invalid duration: " + err.Error()})
-		} else if d < 0 {
-			issues = append(issues, Issue{Level: IssueError, Field: "hints.similar_min_age", Message: "must be zero or greater"})
 		}
 	}
 	if cfg.Shell.Program != "" && strings.TrimSpace(cfg.Shell.Program) == "" {

@@ -142,6 +142,12 @@ func TestParseRunFlags_Timeout(t *testing.T) {
 			wantTimeout:   30 * time.Second,
 			wantRemainder: []string{"echo"},
 		},
+		{
+			name:          "days and hours",
+			args:          []string{"-t", "1d12h", "echo"},
+			wantTimeout:   36 * time.Hour,
+			wantRemainder: []string{"echo"},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -157,6 +163,15 @@ func TestParseRunFlags_Timeout(t *testing.T) {
 				t.Errorf("remainder=%v, want %v", rest, tc.wantRemainder)
 			}
 		})
+	}
+}
+
+func TestParseRunFlags_TimeoutInvalid(t *testing.T) {
+	for _, value := range []string{"soon", "-5s"} {
+		a := &app{}
+		if _, err := a.parseRunFlags([]string{"-t", value, "echo"}); err == nil {
+			t.Errorf("-t %s: expected an error", value)
+		}
 	}
 }
 

@@ -46,6 +46,16 @@ Matching ignores case and tries, in order:
 
 When several runs or sessions share the matching label, the newest is used. When the reference matches different labels, for example `1234` with both `BUG-1234` and `OPS-1234`, carrier lists them and asks for the ID or more of the label, so you never land in the wrong session.
 
+## Durations
+
+Flags that take a duration, such as `--since`, `--older-than`, `--timeout`, and `--debounce`, accept a number and a unit: `30s`, `10m`, `1.5h`, `7d`, or `2w`. Units can be combined, as in `1d12h`. Config settings use the same format; see [durations](../reference/configuration.md#durations).
+
+```bash title="Durations"
+carrier history --since 2w
+carrier clean --older-than 1d12h --dry-run
+carrier run --timeout 1h30m make e2e
+```
+
 ## Empty results
 
 When a list has nothing to show, `carrier` prints a short hint to stderr and exits `0`. Before anything is recorded, the hint suggests a first command:
@@ -312,7 +322,7 @@ Search uses SQLite FTS over command text, working directory, and stored output s
 
 !!! note
 
-    `--since` accepts durations like `30m`, `24h`, `7d` (days are supported). `--status` accepts `success`, `failed`, `killed`, `running`.
+    `--since` accepts [durations](#durations) like `30m`, `24h`, `7d`, or `2w`. `--status` accepts `success`, `failed`, `killed`, `running`.
 
 ## `similar`
 

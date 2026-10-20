@@ -2,6 +2,14 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [0.34.0] - 2026-10-20
+
+### Changed
+
+- Every duration flag and setting accepts the same format, including `d` for days and `w` for weeks, combined as in `1d12h`. `--timeout`, `--debounce`, `notify.min_duration`, `storage.stale_run_threshold`, and `hints.similar_min_age` now accept days and weeks, and `--since` and `--older-than` accept weeks and combined units.
+- Negative durations are rejected everywhere, and invalid durations are reported with the accepted format.
+- `carrier config check` reports an invalid `storage.stale_run_threshold`.
+
 ## [0.33.0] - 2026-10-20
 
 ### Added

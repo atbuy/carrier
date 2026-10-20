@@ -14,6 +14,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/duration"
 	"github.com/atbuy/carrier/internal/runner"
 	"github.com/atbuy/carrier/internal/store"
 )
@@ -43,21 +44,21 @@ func parseWatchFlags(args []string) (pattern string, debounce time.Duration, res
 			if i+1 >= len(args) {
 				return "", 0, nil, "", fmt.Errorf("flag %q requires a value", arg)
 			}
-			d, parseErr := time.ParseDuration(args[i+1])
+			d, parseErr := duration.Parse(args[i+1])
 			if parseErr != nil {
 				return "", 0, nil, "", fmt.Errorf("invalid debounce %q: %w", args[i+1], parseErr)
 			}
 			debounce = d
 			i += 2
 		case strings.HasPrefix(arg, "--debounce="):
-			d, parseErr := time.ParseDuration(strings.TrimPrefix(arg, "--debounce="))
+			d, parseErr := duration.Parse(strings.TrimPrefix(arg, "--debounce="))
 			if parseErr != nil {
 				return "", 0, nil, "", fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
 			}
 			debounce = d
 			i++
 		case strings.HasPrefix(arg, "-d="):
-			d, parseErr := time.ParseDuration(strings.TrimPrefix(arg, "-d="))
+			d, parseErr := duration.Parse(strings.TrimPrefix(arg, "-d="))
 			if parseErr != nil {
 				return "", 0, nil, "", fmt.Errorf("invalid debounce %q: %w", arg, parseErr)
 			}

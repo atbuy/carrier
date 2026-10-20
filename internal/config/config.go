@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/atbuy/carrier/internal/duration"
 )
 
 // AutoLabel defines a rule that automatically assigns a label to a run when its
@@ -97,28 +99,13 @@ type HintsConfig struct {
 	SimilarMinAge string `toml:"similar_min_age"`
 }
 
-// ParseRetention parses a retention period: a Go duration, or a whole number
-// of days such as "90d". "0" (or empty) means keep forever and returns 0.
+// ParseRetention parses a retention period such as "30d" (see
+// duration.Parse). "0" (or empty) means keep forever and returns 0.
 func ParseRetention(s string) (time.Duration, error) {
-	s = strings.TrimSpace(s)
-	if s == "" || s == "0" {
+	if strings.TrimSpace(s) == "" {
 		return 0, nil
 	}
-	if days, ok := strings.CutSuffix(s, "d"); ok {
-		n, err := strconv.Atoi(days)
-		if err != nil || n < 0 {
-			return 0, fmt.Errorf("invalid number of days %q", s)
-		}
-		return time.Duration(n) * 24 * time.Hour, nil
-	}
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		return 0, err
-	}
-	if d < 0 {
-		return 0, fmt.Errorf("must be zero or greater")
-	}
-	return d, nil
+	return duration.Parse(s)
 }
 
 // AutoSessionRetentionDuration returns shell.auto_session_retention, or 0
@@ -134,7 +121,7 @@ func (c Config) AutoSessionRetentionDuration() time.Duration {
 // SimilarMinAgeDuration parses SimilarMinAge, defaulting to one hour when it
 // is empty or invalid.
 func (c Config) SimilarMinAgeDuration() time.Duration {
-	if d, err := time.ParseDuration(c.Hints.SimilarMinAge); err == nil && d >= 0 {
+	if d, err := duration.Parse(c.Hints.SimilarMinAge); err == nil {
 		return d
 	}
 	return time.Hour
@@ -385,7 +372,7 @@ func Expand(path string) string {
 }
 
 func (c Config) NotifyMinDuration() time.Duration {
-	d, err := time.ParseDuration(c.Notify.MinDuration)
+	d, err := duration.Parse(c.Notify.MinDuration)
 	if err != nil {
 		return 10 * time.Second
 	}
@@ -393,7 +380,7 @@ func (c Config) NotifyMinDuration() time.Duration {
 }
 
 func (c Config) StaleRunThreshold() time.Duration {
-	d, err := time.ParseDuration(c.Storage.StaleRunThreshold)
+	d, err := duration.Parse(c.Storage.StaleRunThreshold)
 	if err != nil {
 		return 24 * time.Hour
 	}

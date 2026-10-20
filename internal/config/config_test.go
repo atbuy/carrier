@@ -1001,6 +1001,7 @@ func TestParseRetention(t *testing.T) {
 		"30d": 30 * 24 * time.Hour,
 		"1d":  24 * time.Hour,
 		"12h": 12 * time.Hour,
+		"2w":  14 * 24 * time.Hour,
 	}
 	for in, want := range cases {
 		got, err := ParseRetention(in)
@@ -1047,5 +1048,45 @@ auto_session_retention = "7d"
 	}
 	if got := cfg.AutoSessionRetentionDuration(); got != 7*24*time.Hour {
 		t.Fatalf("retention from include = %s, want 7d", got)
+	}
+}
+
+func TestCheckRejectsInvalidDurations(t *testing.T) {
+	for field, set := range map[string]func(*Config){
+		"notify.min_duration":          func(c *Config) { c.Notify.MinDuration = "-1s" },
+		"storage.stale_run_threshold":  func(c *Config) { c.Storage.StaleRunThreshold = "a day" },
+		"shell.auto_session_retention": func(c *Config) { c.Shell.AutoSessionRetention = "30 days" },
+		"hints.similar_min_age":        func(c *Config) { c.Hints.SimilarMinAge = "1mo" },
+	} {
+		cfg := Default()
+		set(&cfg)
+		if !hasIssue(Check(cfg), field) {
+			t.Errorf("expected %s issue", field)
+		}
+	}
+}
+
+func TestDurationSettingsAcceptDays(t *testing.T) {
+	cfg := Default()
+	cfg.Notify.MinDuration = "1m30s"
+	cfg.Storage.StaleRunThreshold = "2d"
+	cfg.Hints.SimilarMinAge = "1w"
+	cfg.Shell.AutoSessionRetention = "1d12h"
+	for _, issue := range Check(cfg) {
+		if issue.Level == IssueError {
+			t.Fatalf("unexpected issue: %+v", issue)
+		}
+	}
+	if got := cfg.NotifyMinDuration(); got != 90*time.Second {
+		t.Errorf("NotifyMinDuration = %s", got)
+	}
+	if got := cfg.StaleRunThreshold(); got != 48*time.Hour {
+		t.Errorf("StaleRunThreshold = %s", got)
+	}
+	if got := cfg.SimilarMinAgeDuration(); got != 7*24*time.Hour {
+		t.Errorf("SimilarMinAgeDuration = %s", got)
+	}
+	if got := cfg.AutoSessionRetentionDuration(); got != 36*time.Hour {
+		t.Errorf("AutoSessionRetentionDuration = %s", got)
 	}
 }
