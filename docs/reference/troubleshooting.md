@@ -184,6 +184,8 @@ The edited file must remain a JSON array, for example:
 
 Search indexes persisted logs. If output was truncated by `storage.max_output_mb`, text past the cap may not be searchable.
 
+Shell mode runs recorded before v0.26.0 were indexed before their terminal log was fully written, so their output may only be partly searchable. Runs recorded since then are indexed once the log is complete.
+
 Search command and cwd terms too:
 
 ```bash title="Search command and cwd"

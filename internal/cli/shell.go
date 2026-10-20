@@ -2,12 +2,14 @@ package cli
 
 import (
 	"errors"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/hints"
 	carriershell "github.com/atbuy/carrier/internal/shell"
 	"github.com/atbuy/carrier/internal/store"
 )
@@ -31,7 +33,7 @@ func (a *app) shellCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			last, runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sessionID, strings.TrimSpace(label))
+			last, runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sessionID, strings.TrimSpace(label), a.onShellRunEnd)
 			a.finishInFlightShellRun(last, runErr)
 			_ = a.st.EndSession(sessionID, time.Now())
 			return runErr
@@ -60,4 +62,20 @@ func (a *app) finishInFlightShellRun(last carriershell.State, runErr error) {
 		}
 	}
 	_ = a.st.FinishRun(last.CurrentID, status, exitCode, time.Now())
+}
+
+// onShellRunEnd runs in the carrier shell process once a command's terminal
+// log is complete. The hooks index a run as soon as it ends, before the log is
+// flushed, so it is re-indexed here for search; failed runs may get a hint.
+func (a *app) onShellRunEnd(runID int64) string {
+	_ = a.st.ReindexRun(runID)
+	r, err := a.st.GetRun(runID)
+	if err != nil || r.Status != store.StatusFailed || r.ExitCode == nil {
+		return ""
+	}
+	hint := hints.SimilarFailure(a.st, a.cfg, runID, *r.ExitCode)
+	if hint == "" {
+		return ""
+	}
+	return newTheme(os.Stdout).Muted.Render("carrier: " + hint)
 }

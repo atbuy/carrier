@@ -28,7 +28,7 @@ func (a *app) attachCmd() *cobra.Command {
 				return err
 			}
 			_ = a.st.ReopenSession(sess.ID)
-			last, runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sess.ID, sess.Label)
+			last, runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sess.ID, sess.Label, a.onShellRunEnd)
 			a.finishInFlightShellRun(last, runErr)
 			_ = a.st.EndSession(sess.ID, time.Now())
 			return runErr

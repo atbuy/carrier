@@ -52,6 +52,13 @@ func Check(cfg Config) []Issue {
 	} else if d < 0 {
 		issues = append(issues, Issue{Level: IssueError, Field: "notify.min_duration", Message: "must be zero or greater"})
 	}
+	if age := strings.TrimSpace(cfg.Hints.SimilarMinAge); age != "" {
+		if d, err := time.ParseDuration(age); err != nil {
+			issues = append(issues, Issue{Level: IssueError, Field: "hints.similar_min_age", Message: "invalid duration: " + err.Error()})
+		} else if d < 0 {
+			issues = append(issues, Issue{Level: IssueError, Field: "hints.similar_min_age", Message: "must be zero or greater"})
+		}
+	}
 	if cfg.Shell.Program != "" && strings.TrimSpace(cfg.Shell.Program) == "" {
 		issues = append(issues, Issue{Level: IssueError, Field: "shell.program", Message: "must not be blank"})
 	}
