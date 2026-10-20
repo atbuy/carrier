@@ -18,7 +18,10 @@ import (
 	"github.com/atbuy/carrier/internal/logs"
 )
 
-func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64, label string) error {
+// Run starts a tracked shell and blocks until it exits. It returns the last
+// hook state, whose CurrentID is non-zero when a command was still in flight
+// as the shell exited (e.g. "exit" itself), so the caller can finish that run.
+func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64, label string) (State, error) {
 	warnShellAlphaOnce(cfg.Storage.DataDir)
 	program := cfg.Shell.Program
 	if program == "" {
@@ -29,14 +32,14 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 	}
 	carrierPath, err := os.Executable()
 	if err != nil {
-		return err
+		return State{}, err
 	}
 	statePath := filepath.Join(os.TempDir(), "carrier-shell-"+strconvPID()+".json")
 	initState, _ := json.Marshal(State{SessionID: sessionID})
 	_ = os.WriteFile(statePath, initState, 0o600)
 	hookDir, err := WriteHookDir(carrierPath, statePath, program, sessionID, label, cfg.UI.Theme.Label)
 	if err != nil {
-		return err
+		return State{}, err
 	}
 	defer func() { _ = os.RemoveAll(hookDir) }()
 	defer func() { _ = os.Remove(statePath) }()
@@ -61,7 +64,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 	)
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
-		return err
+		return State{}, err
 	}
 	defer func() { _ = ptmx.Close() }()
 
@@ -96,7 +99,8 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 			break
 		}
 	}
-	return cmd.Wait()
+	waitErr := cmd.Wait()
+	return state.Read(), waitErr
 }
 
 func shellArgs(program, hookDir string) []string {

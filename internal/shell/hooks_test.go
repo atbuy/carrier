@@ -78,12 +78,17 @@ func TestWriteHookDirBash(t *testing.T) {
 	text := string(contents)
 	for _, want := range []string{
 		"PROMPT_COMMAND", "_carrier_original_prompt_command", "trap _carrier_begin DEBUG",
-		"internal begin", "internal end", "CARRIER_HOOK_ACTIVE",
+		"internal begin", "internal end", "CARRIER_HOOK_ACTIVE", "_carrier_at_prompt", `PS0="${PS0:-}"'$(_carrier_ps0)'`,
 		"build", `\033[38;2;255;0;170;1m`, `\033[38;2;255;0;170mbuild`, `\033]0;`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("bash hook missing %q\n%s", want, text)
 		}
+	}
+	// The DEBUG trap must be installed after the banner and title commands so
+	// they are not recorded as runs.
+	if strings.LastIndex(text, "trap _carrier_begin DEBUG") < strings.LastIndex(text, `\033]0;`) {
+		t.Fatalf("DEBUG trap must be installed last\n%s", text)
 	}
 }
 

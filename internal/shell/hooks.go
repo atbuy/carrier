@@ -146,15 +146,55 @@ func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor
 	if label != "" {
 		indicator += fmt.Sprintf(`\[%s\]%s\[\033[0m\] `, shellANSIColor(labelColor, false), label)
 	}
+	// Each command line begins exactly one run:
+	//   - PS0 (bash >= 4.4) is expanded once per line, including subshell-only
+	//     lines like "(cd x; make)" that never fire DEBUG in this shell. It
+	//     begins the run when the line added a history entry, whose text is
+	//     the exact command line.
+	//   - Otherwise (ignoredups/ignorespace lines, history off, or bash < 4.4)
+	//     the first DEBUG trap after a prompt begins it. DEBUG fires before
+	//     every simple command, so it is gated by _carrier_at_prompt to keep
+	//     "a && b" and "a | b" as one run.
+	// The trap is installed last so startup commands are not recorded.
 	return fmt.Sprintf(`
 [[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
 _carrier_base_ps1="${PS1}"
 _carrier_original_prompt_command="${PROMPT_COMMAND:-}"
+_carrier_has_ps0=
+(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )) && _carrier_has_ps0=1
+# Sets _carrier_hnum and _carrier_htext from the newest history entry.
+_carrier_hist() {
+  local line
+  line="$(HISTTIMEFORMAT= builtin history 1)"
+  _carrier_hnum= _carrier_htext=
+  if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]+(.*)$ ]]; then
+    _carrier_hnum="${BASH_REMATCH[1]}"
+    _carrier_htext="${BASH_REMATCH[2]}"
+  fi
+}
+_carrier_run_begin() {
+  command %q internal begin --state %q --cmd "$1" --cwd "$PWD" >/dev/null 2>&1
+}
+# Runs in the PS0 command substitution, so it cannot set variables here.
+_carrier_ps0() {
+  _carrier_hist
+  [[ -n "$_carrier_hnum" && "$_carrier_hnum" != "$_carrier_last_hist" ]] && _carrier_run_begin "$_carrier_htext"
+}
 _carrier_begin() {
+  [[ -n "$_carrier_at_prompt" ]] || return
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
+  [[ -n "${COMP_LINE:-}" ]] && return
   [[ "$BASH_COMMAND" == _carrier_* ]] && return
+  _carrier_at_prompt=
+  _carrier_hist
+  # A new history entry means PS0 already began this run.
+  [[ -n "$_carrier_has_ps0" && -n "$_carrier_hnum" && "$_carrier_hnum" != "$_carrier_last_hist" ]] && return
+  local cmd="$BASH_COMMAND"
+  # With ignoredups the newest entry is an identical earlier line; with
+  # ignorespace it is an unrelated one, so fall back to $BASH_COMMAND.
+  [[ -n "$_carrier_htext" && "$_carrier_htext" == *"$cmd"* ]] && cmd="$_carrier_htext"
   export CARRIER_HOOK_ACTIVE=1
-  command %q internal begin --state %q --cmd "$BASH_COMMAND" --cwd "$PWD" >/dev/null 2>&1
+  _carrier_run_begin "$cmd"
   unset CARRIER_HOOK_ACTIVE
 }
 _carrier_end() {
@@ -166,16 +206,26 @@ _carrier_end() {
   else
     PS1="%s${_carrier_base_ps1}"
   fi
-  export CARRIER_HOOK_ACTIVE=1
-  command %q internal end --state %q --exit "$ec" >/dev/null 2>&1
-  unset CARRIER_HOOK_ACTIVE
+  _carrier_hist
+  # Skip empty lines: no trap fired and no history entry was added.
+  if [[ -z "$_carrier_at_prompt" || "$_carrier_hnum" != "$_carrier_last_hist" ]]; then
+    export CARRIER_HOOK_ACTIVE=1
+    command %q internal end --state %q --exit "$ec" >/dev/null 2>&1
+    unset CARRIER_HOOK_ACTIVE
+  fi
+  _carrier_last_hist="$_carrier_hnum"
   printf '\033]0;%s\007'
+  _carrier_at_prompt=1
   trap _carrier_begin DEBUG
 }
-trap _carrier_begin DEBUG
-PROMPT_COMMAND=_carrier_end
 %s
 printf '\033]0;%s\007'
+_carrier_hist
+_carrier_last_hist="$_carrier_hnum"
+_carrier_at_prompt=1
+PS0="${PS0:-}"'$(_carrier_ps0)'
+PROMPT_COMMAND=_carrier_end
+trap _carrier_begin DEBUG
 `, carrierPath, statePath, indicator, indicator, carrierPath, statePath, title, shellBanner(sessionID, label, labelColor), title)
 }
 

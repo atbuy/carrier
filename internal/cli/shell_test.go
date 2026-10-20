@@ -1,12 +1,16 @@
 package cli
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/atbuy/carrier/internal/config"
+	carriershell "github.com/atbuy/carrier/internal/shell"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -42,4 +46,90 @@ func TestShellCmdRunsConfiguredProgram(t *testing.T) {
 	if err := cmd.RunE(cmd, nil); err != nil {
 		t.Fatalf("shell command: %v", err)
 	}
+}
+
+func TestShellCmdFinishesRunInFlightAtExit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY shell test is Unix-only")
+	}
+
+	dir := t.TempDir()
+	cfg := config.Default()
+	cfg.Storage.DataDir = filepath.Join(dir, "data")
+	st, err := store.Open(cfg.Storage.DataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	// The run the hooks began for "exit 3"; the shell exits before ending it.
+	id, err := st.CreateRun(store.CreateRun{
+		Status: store.StatusRunning, Mode: store.ModeShell, Command: "exit 3",
+		ArgvJSON: `["exit 3"]`, CWD: dir, StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	program := filepath.Join(dir, "carrier-shell-exit-test")
+	script := fmt.Sprintf("#!/bin/sh\nprintf '{\"current_id\":%d}' > \"$CARRIER_SHELL_STATE\"\nexit 3\n", id)
+	if err := os.WriteFile(program, []byte(script), 0o755); err != nil {
+		t.Fatalf("write shell program: %v", err)
+	}
+	cfg.Shell.Program = program
+
+	a := &app{cfg: cfg, st: st}
+	cmd := a.shellCmd()
+	_ = cmd.RunE(cmd, nil)
+
+	r, err := st.GetRun(id)
+	if err != nil {
+		t.Fatalf("get run: %v", err)
+	}
+	if r.Status != store.StatusFailed || r.ExitCode == nil || *r.ExitCode != 3 {
+		t.Fatalf("in-flight run should be finished as failed with exit 3, got status=%s exit=%v", r.Status, r.ExitCode)
+	}
+}
+
+func TestFinishInFlightShellRun(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses sh to produce exit statuses")
+	}
+	exitErr := func(script string) error {
+		return exec.Command("sh", "-c", script).Run()
+	}
+	cases := []struct {
+		name     string
+		runErr   error
+		status   string
+		exitCode int
+	}{
+		{"clean exit", nil, store.StatusSuccess, 0},
+		{"exit status", exitErr("exit 2"), store.StatusFailed, 2},
+		{"killed by signal", exitErr("kill -9 $$"), store.StatusKilled, -1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st := openCmdStore(t)
+			defer func() { _ = st.Close() }()
+			id, err := st.CreateRun(store.CreateRun{
+				Status: store.StatusRunning, Mode: store.ModeShell, Command: "exit",
+				ArgvJSON: `["exit"]`, CWD: "/tmp", StartedAt: time.Now(),
+			})
+			if err != nil {
+				t.Fatalf("create run: %v", err)
+			}
+			a := &app{st: st}
+			a.finishInFlightShellRun(carriershell.State{CurrentID: id}, tc.runErr)
+			r, err := st.GetRun(id)
+			if err != nil {
+				t.Fatalf("get run: %v", err)
+			}
+			if r.Status != tc.status || r.ExitCode == nil || *r.ExitCode != tc.exitCode {
+				t.Fatalf("got status=%s exit=%v, want %s/%d", r.Status, r.ExitCode, tc.status, tc.exitCode)
+			}
+		})
+	}
+
+	// No run in flight: nothing to do.
+	(&app{}).finishInFlightShellRun(carriershell.State{}, nil)
 }
