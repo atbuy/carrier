@@ -66,7 +66,7 @@ To record every terminal automatically, add the line printed by
 			return autoStartError(auto, runErr)
 		},
 	}
-	cmd.Flags().StringVar(&label, "label", "", "label for this shell session")
+	cmd.Flags().StringVarP(&label, "label", "L", "", "label for this shell session")
 	cmd.Flags().BoolVar(&auto, "auto", false, "start an automatic session from a shell config (see carrier init)")
 	cmd.Flags().StringVar(&program, "program", "", "shell program to run (default: shell.program, then $SHELL)")
 	return cmd

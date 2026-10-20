@@ -183,9 +183,9 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVar(&branch, "branch", "", "filter by git branch (exact match)")
 	cmd.Flags().StringVarP(&command, "command", "c", "", "filter by command (substring match)")
 	cmd.Flags().StringVar(&label, "label", "", "filter by label (substring match)")
-	cmd.Flags().StringVar(&session, "session", "", "filter by session ID or label")
+	cmd.Flags().StringVarP(&session, "session", "s", "", "filter by session ID or label")
 	cmd.Flags().BoolVar(&sessionsOnly, "sessions-only", false, "show only session headers, no individual runs")
-	cmd.Flags().BoolVarP(&short, "short", "s", false, "collapse session children to a single '...' line")
+	cmd.Flags().BoolVar(&short, "short", false, "collapse session children to a single '...' line (or use carrier hs)")
 	return cmd
 }
 

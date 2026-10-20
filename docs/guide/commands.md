@@ -209,7 +209,7 @@ Filter to a specific session by ID or label:
 
 ```bash title="Filter by session"
 carrier history --session 5
-carrier history --session backend-debug
+carrier history -s backend-debug
 ```
 
 Show only session headers, no individual runs:
@@ -504,6 +504,7 @@ Attach a label at start with `--label` or a positional argument:
 
 ```bash title="Labeled session"
 carrier shell --label backend-debug
+carrier shell -L backend-debug
 carrier shell 'backend-debug'
 ```
 
@@ -513,7 +514,7 @@ Use `carrier run` when precise stdout/stderr capture matters. See [Shell mode](.
 
 | Flag                | Meaning                                                              |
 | ------------------- | -------------------------------------------------------------------- |
-| `--label <text>`    | Label for the session                                                |
+| `-L`, `--label <text>` | Label for the session                                             |
 | `--program <shell>` | Shell to run instead of `shell.program` or `$SHELL`                  |
 | `--auto`            | Start an automatic session; used by the line from [`init`](#init)    |
 

@@ -2,6 +2,16 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [0.31.0] - 2026-10-20
+
+### Added
+
+- `carrier shell -L` as the short form of `--label`, like `run`, `rerun`, and `watch`.
+
+### Changed
+
+- **Breaking:** `-s` now means `--session` in every command. `carrier history -s` filters by session, as in `note` and `notes`; `--short` no longer has a short form, so use `carrier history --short` or `carrier hs`.
+
 ## [0.30.0] - 2026-10-20
 
 ### Added

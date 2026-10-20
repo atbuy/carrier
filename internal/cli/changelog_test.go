@@ -40,8 +40,8 @@ func TestChangelogCmd(t *testing.T) {
 	}
 
 	out, _, err = runEmpty(t, a.changelogCmd(), nil, map[string]string{"all": "true"})
-	if err != nil || !strings.Contains(out, "carrier 0.1.0") || strings.Contains(out, "`") {
-		t.Fatalf("--all should list every version without Markdown backticks: %v", err)
+	if err != nil || !strings.Contains(out, "carrier 0.1.0") || strings.Contains(out, "`") || strings.Contains(out, "**") {
+		t.Fatalf("--all should list every version without Markdown markers: %v", err)
 	}
 
 	out, _, err = runEmpty(t, a.changelogCmd(), []string{"0.1.1"}, map[string]string{"json": "true"})
