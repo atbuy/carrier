@@ -36,7 +36,7 @@ printf 'TOKEN=secret\n'
 	cfg.Redaction.Enabled = true
 	cfg.Redaction.Patterns = []string{`TOKEN=\S+`}
 
-	if err := Run(cfg, false, false, false, 0, ""); err != nil {
+	if _, err := Run(cfg, false, false, false, 0, ""); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 

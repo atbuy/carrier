@@ -52,7 +52,9 @@ For zsh, `carrier` uses `preexec` and `precmd` hooks.
 
 After sourcing your `.zshrc`, `carrier` disables zsh's `warn_create_global` option inside the tracked shell. This avoids prompt helper warnings from being printed on every command when prompt functions assign globals.
 
-For bash, `carrier` starts bash with a generated `--rcfile`; support is best-effort through `DEBUG` and `PROMPT_COMMAND` hooks. Existing `PROMPT_COMMAND` content is preserved and run before `carrier` finishes the tracked command.
+For bash, `carrier` starts bash with a generated `--rcfile` and uses `PS0`, a `DEBUG` trap, and `PROMPT_COMMAND`. Each command line becomes one run, including compound lines like `make && make test`, pipelines, and subshells like `(cd api; make)`. The full line is taken from bash history, so it is recorded as typed. Existing `PROMPT_COMMAND` and `PS0` content is preserved, and `PROMPT_COMMAND` runs before `carrier` finishes the tracked command.
+
+Bash 4.4 or newer is recommended. Older versions (such as the bash 3.2 that ships with macOS) have no `PS0`, so lines made only of a subshell are not recorded there.
 
 `carrier` guards its hook internals so internal `carrier internal ...` commands and `_carrier_*` helper functions are not recorded as user commands.
 
@@ -146,10 +148,10 @@ This is useful when you want to continue a labeled debugging session from a diff
 
 ## What gets recorded
 
-Shell mode creates one run per detected command. Shell runs use:
+Shell mode creates one run per command line. Shell runs use:
 
 - mode: `shell`
-- status: `running`, `success`, or `failed`
+- status: `running`, `success`, `failed`, or `killed`
 - command text from the shell hook
 - cwd
 - Git metadata
@@ -157,6 +159,8 @@ Shell mode creates one run per detected command. Shell runs use:
 - session ID
 
 Unlike `carrier run`, shell mode stores terminal output instead of separate stdout and stderr logs.
+
+The command that ends the shell, such as `exit`, is finished with the shell's exit status when the shell exits. If the shell is killed by a signal, that run is marked `killed`.
 
 ## TUI applications
 
@@ -170,6 +174,7 @@ TUI programs (alternate-screen apps like neovim, lazygit, noteui) run normally i
 - TUI (alternate-screen) output is suppressed from terminal logs and cannot be replayed
 - hook internals may behave differently across shell versions
 - bash hook behavior can vary when other tools also modify `DEBUG` or `PROMPT_COMMAND`
+- in bash, lines hidden from history with `HISTCONTROL=ignorespace` are recorded by their first command only, for example ` export A=1 && make` is recorded as `export A=1`
 - `carrier shell` is not a drop-in replacement for shell history
 
 ## Inspect shell runs

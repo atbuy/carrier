@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"errors"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -29,11 +31,33 @@ func (a *app) shellCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sessionID, strings.TrimSpace(label))
+			last, runErr := carriershell.Run(a.cfg, a.notify, a.notifyAlways, a.noRedact, sessionID, strings.TrimSpace(label))
+			a.finishInFlightShellRun(last, runErr)
 			_ = a.st.EndSession(sessionID, time.Now())
 			return runErr
 		},
 	}
 	cmd.Flags().StringVar(&label, "label", "", "label for this shell session")
 	return cmd
+}
+
+// finishInFlightShellRun finishes the run that was still in flight when the
+// shell exited. The shell exits before its prompt hook can end that run, so
+// without this "exit" (or a command killed with the shell) stays running.
+func (a *app) finishInFlightShellRun(last carriershell.State, runErr error) {
+	if last.CurrentID == 0 {
+		return
+	}
+	status, exitCode := store.StatusSuccess, 0
+	var exitErr *exec.ExitError
+	if errors.As(runErr, &exitErr) {
+		exitCode = exitErr.ExitCode()
+		switch {
+		case exitCode < 0:
+			status = store.StatusKilled
+		case exitCode > 0:
+			status = store.StatusFailed
+		}
+	}
+	_ = a.st.FinishRun(last.CurrentID, status, exitCode, time.Now())
 }
