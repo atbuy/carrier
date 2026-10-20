@@ -18,10 +18,16 @@ import (
 	"github.com/atbuy/carrier/internal/logs"
 )
 
+// RunEndFunc is called after a command's run has ended and its terminal log
+// has been flushed, so the log is complete. A non-empty return value is
+// printed to the terminal as its own line before further shell output.
+type RunEndFunc func(runID int64) string
+
 // Run starts a tracked shell and blocks until it exits. It returns the last
 // hook state, whose CurrentID is non-zero when a command was still in flight
 // as the shell exited (e.g. "exit" itself), so the caller can finish that run.
-func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64, label string) (State, error) {
+// onRunEnd may be nil.
+func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64, label string, onRunEnd RunEndFunc) (State, error) {
 	warnShellAlphaOnce(cfg.Storage.DataDir)
 	program := cfg.Shell.Program
 	if program == "" {
@@ -85,12 +91,25 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 	logWriter := &sessionLogWriter{redactor: redactor, maxOutputBytes: maxOutputBytes}
 	defer func() { _ = logWriter.Close() }()
 	buf := make([]byte, 32*1024)
+	var prevID int64
 	for {
 		n, err := ptmx.Read(buf)
 		if n > 0 {
 			chunk := buf[:n]
-			_, _ = os.Stdout.Write(chunk)
 			cur := state.Read()
+			if prevID != 0 && cur.CurrentID != prevID {
+				// The hooks have ended prevID. Flush its log (the redacting
+				// writer holds back its tail) before the caller reads it, and
+				// print any message ahead of the prompt that follows.
+				_ = logWriter.Close()
+				if onRunEnd != nil {
+					if msg := onRunEnd(prevID); msg != "" {
+						_, _ = io.WriteString(os.Stdout, "\r"+msg+"\r\n")
+					}
+				}
+			}
+			prevID = cur.CurrentID
+			_, _ = os.Stdout.Write(chunk)
 			if cur.CurrentLog != "" {
 				_, _ = logWriter.Write(cur.CurrentLog, chunk)
 			}

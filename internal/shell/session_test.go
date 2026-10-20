@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -36,7 +37,7 @@ printf 'TOKEN=secret\n'
 	cfg.Redaction.Enabled = true
 	cfg.Redaction.Patterns = []string{`TOKEN=\S+`}
 
-	if _, err := Run(cfg, false, false, false, 0, ""); err != nil {
+	if _, err := Run(cfg, false, false, false, 0, "", nil); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -370,5 +371,75 @@ func TestShellArgsUsesBashRcFile(t *testing.T) {
 	}
 	if got := shellArgs("/bin/zsh", dir); len(got) != 1 || got[0] != "-i" {
 		t.Fatalf("zsh args = %#v", got)
+	}
+}
+
+func TestRunCallsOnRunEndWithFlushedLog(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY shell test is Unix-only")
+	}
+
+	dir := t.TempDir()
+	program := filepath.Join(dir, "carrier-shell-end-test")
+	// Mimic the hooks: begin run 7, print its output, end it, then print the
+	// next prompt.
+	script := `#!/bin/sh
+printf '{"current_id":7,"current_log":"%s","session_id":1}' "$TEST_LOG_PATH" > "$CARRIER_SHELL_STATE"
+printf 'connection refused\n'
+sleep 0.3
+printf '{"session_id":1}' > "$CARRIER_SHELL_STATE"
+printf 'PROMPT$ '
+sleep 0.3
+`
+	if err := os.WriteFile(program, []byte(script), 0o755); err != nil {
+		t.Fatalf("write shell program: %v", err)
+	}
+	logPath := filepath.Join(dir, "run7.log")
+	t.Setenv("TEST_LOG_PATH", logPath)
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = filepath.Join(dir, "data")
+	cfg.Shell.Program = program
+	cfg.Redaction.Enabled = true
+
+	var endedID int64
+	var logAtEnd string
+	onRunEnd := func(id int64) string {
+		endedID = id
+		b, _ := os.ReadFile(logPath)
+		logAtEnd = string(b)
+		return "carrier: seen before"
+	}
+
+	// Capture what Run writes to the terminal.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	_, runErr := Run(cfg, false, false, false, 1, "", onRunEnd)
+	os.Stdout = stdout
+	_ = w.Close()
+	terminal, _ := io.ReadAll(r)
+	if runErr != nil {
+		t.Fatalf("Run: %v", runErr)
+	}
+
+	if endedID != 7 {
+		t.Fatalf("onRunEnd called with %d, want 7", endedID)
+	}
+	// The redacting writer holds back short output until closed, so this only
+	// holds if the log was flushed before the callback.
+	if !strings.Contains(logAtEnd, "connection refused") {
+		t.Fatalf("log was not flushed before onRunEnd: %q", logAtEnd)
+	}
+	out := string(terminal)
+	hint, prompt := strings.Index(out, "carrier: seen before\r\n"), strings.Index(out, "PROMPT$ ")
+	if hint < 0 || prompt < 0 || hint > prompt {
+		t.Fatalf("hint should be printed before the prompt, got %q", out)
+	}
+	if b, _ := os.ReadFile(logPath); strings.Contains(string(b), "seen before") || strings.Contains(string(b), "PROMPT") {
+		t.Fatalf("hint and prompt must not be saved in the run log: %q", b)
 	}
 }

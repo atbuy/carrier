@@ -3,6 +3,7 @@ package runner
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -602,5 +603,55 @@ func TestRunAutoLabelNotOverriddenByExplicit(t *testing.T) {
 	}
 	if run.Label != "manual" {
 		t.Errorf("Label = %q, want manual", run.Label)
+	}
+}
+
+func TestRunPrintsSimilarFailureHint(t *testing.T) {
+	dataDir := t.TempDir()
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	cfg := config.Default()
+	cfg.Storage.DataDir = dataDir
+	cfg.Hints.SimilarFailures = true
+	cfg.Hints.SimilarMinAge = "0s"
+	t.Setenv("CARRIER_COLOR", "never")
+
+	fail := func(port string, quiet bool) string {
+		t.Helper()
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatalf("pipe: %v", err)
+		}
+		done := make(chan []byte)
+		go func() { b, _ := io.ReadAll(r); done <- b }()
+		stderr := os.Stderr
+		os.Stderr = w
+		_, runErr := Run(cfg, st, Options{
+			Mode:  store.ModeRun,
+			Argv:  []string{"sh", "-c", "echo 'dial tcp 127.0.0.1:" + port + ": connect: connection refused' >&2; exit 1"},
+			CWD:   t.TempDir(),
+			Quiet: quiet,
+		})
+		os.Stderr = stderr
+		_ = w.Close()
+		out := <-done
+		if runErr != nil {
+			t.Fatalf("Run: %v", runErr)
+		}
+		return string(out)
+	}
+
+	if out := fail("5432", false); strings.Contains(out, "seen before") {
+		t.Fatalf("first failure has nothing to match, got %q", out)
+	}
+	if out := fail("6543", false); !strings.Contains(out, "carrier: seen before in run 1 (just now): carrier show 1\n") {
+		t.Fatalf("second failure should hint at run 1, got %q", out)
+	}
+	if out := fail("7654", true); strings.Contains(out, "seen before") {
+		t.Fatalf("--quiet should suppress the hint, got %q", out)
 	}
 }

@@ -117,6 +117,9 @@ FROM runs WHERE ` + strings.Join(whereClauses, " AND ") + extraWhere + ` ORDER B
 	return results, rows.Err()
 }
 
+// ReindexRun refreshes a run's search entry from its current logs and notes.
+func (s *Store) ReindexRun(id int64) error { return s.indexRun(id) }
+
 func (s *Store) indexRun(id int64) error {
 	r, err := s.GetRun(id)
 	if err != nil {

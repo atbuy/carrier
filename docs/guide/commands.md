@@ -272,6 +272,23 @@ Search uses SQLite FTS over command text, working directory, and stored output s
 
     `--since` accepts durations like `30m`, `24h`, `7d` (days are supported). `--status` accepts `success`, `failed`, `killed`, `running`.
 
+## `similar`
+
+List earlier failed runs whose output contains the same error as a run:
+
+```bash title="Find the same error before"
+carrier similar 57
+carrier similar 57 --limit 5
+carrier similar 57 --json
+```
+
+```text
+42  failed  docker compose up api  ~/api
+    3 weeks ago · session "db-debug" · 2 notes
+```
+
+Runs with notes or a label are listed first. Matching ignores numbers, so the same error on a different port or line still matches; see [`hints.similar_failures`](../reference/configuration.md#similar_failures) for how errors are compared and to get a hint automatically when a run fails.
+
 ## `stats`
 
 Show run totals, runs per active day, failure rate, average duration, and slowest commands:

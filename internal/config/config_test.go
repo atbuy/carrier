@@ -940,3 +940,56 @@ includes = ["~/my-labels.toml"]
 		t.Errorf("tilde expansion failed: %v", cfg.AutoLabels)
 	}
 }
+
+func TestHintsDefaultsAreOptIn(t *testing.T) {
+	cfg := Default()
+	if cfg.Hints.SimilarFailures {
+		t.Fatal("similar failure hints must be off by default")
+	}
+	if got := cfg.SimilarMinAgeDuration(); got != time.Hour {
+		t.Fatalf("default similar_min_age = %s, want 1h", got)
+	}
+	cfg.Hints.SimilarMinAge = "bogus"
+	if got := cfg.SimilarMinAgeDuration(); got != time.Hour {
+		t.Fatalf("invalid similar_min_age should fall back to 1h, got %s", got)
+	}
+	cfg.Hints.SimilarMinAge = "0s"
+	if got := cfg.SimilarMinAgeDuration(); got != 0 {
+		t.Fatalf("similar_min_age 0s = %s", got)
+	}
+}
+
+func TestHintsFromConfigAndInclude(t *testing.T) {
+	configDir := setupConfig(t, `
+includes = ["hints.toml"]
+
+[hints]
+similar_failures = true
+`)
+	if err := os.WriteFile(filepath.Join(configDir, "hints.toml"), []byte(`
+[hints]
+similar_min_age = "30m"
+`), 0o600); err != nil {
+		t.Fatalf("write include: %v", err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.Hints.SimilarFailures {
+		t.Fatal("similar_failures from main config was lost")
+	}
+	if got := cfg.SimilarMinAgeDuration(); got != 30*time.Minute {
+		t.Fatalf("similar_min_age from include = %s, want 30m", got)
+	}
+}
+
+func TestCheckRejectsInvalidSimilarMinAge(t *testing.T) {
+	for _, value := range []string{"soon", "-5m"} {
+		cfg := Default()
+		cfg.Hints.SimilarMinAge = value
+		if !hasIssue(Check(cfg), "hints.similar_min_age") {
+			t.Fatalf("expected hints.similar_min_age issue for %q", value)
+		}
+	}
+}

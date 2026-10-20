@@ -17,6 +17,7 @@ import (
 	"github.com/atbuy/carrier/internal/command"
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/gitmeta"
+	"github.com/atbuy/carrier/internal/hints"
 	"github.com/atbuy/carrier/internal/logs"
 	"github.com/atbuy/carrier/internal/notify"
 	"github.com/atbuy/carrier/internal/store"
@@ -110,6 +111,11 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 		EnvID: envID, Status: status, ExitCode: exit, Started: started, Finished: finished,
 	}); err != nil && finishErr == nil {
 		finishErr = err
+	}
+	if status == store.StatusFailed && !opts.Quiet {
+		if hint := hints.SimilarFailure(st, cfg, id, exit); hint != "" {
+			_, _ = io.WriteString(os.Stderr, hintLine(os.Stderr, hint, cfg.UI.Theme))
+		}
 	}
 	if opts.Notify || opts.NotifyAlways {
 		if r, err := st.GetRun(id); err == nil {

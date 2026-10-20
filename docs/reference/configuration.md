@@ -65,6 +65,10 @@ failure = true
 program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
 
+[hints]
+similar_failures = false
+similar_min_age = "1h"
+
 [ui]
 color = "auto"
 
@@ -240,6 +244,33 @@ Default:
 ```
 
 Shell mode also ignores carrier's own internal hook commands.
+
+## `[hints]`
+
+Optional hints printed after a run finishes. All hints are off by default.
+
+### `similar_failures`
+
+Type: boolean  
+Default: `false`
+
+When a run fails, look for an earlier failed run with the same error and point at it:
+
+```text
+dial tcp 10.0.0.7:6543: connect: connection refused
+carrier: seen before in run 42 (3 weeks ago, session "db-debug", 2 notes): carrier show 42
+```
+
+Carrier takes the error lines near the end of the failed run's output (lines mentioning `error`, `failed`, `refused`, `panic`, and similar, or the last line if none do), drops words containing digits so ports, PIDs, line numbers, and hashes do not matter, and searches the output of earlier failed runs for the remaining words. Runs with notes or a label are preferred, since they record what happened. When more than one run matches, the hint ends with `carrier similar <id>` to list them all.
+
+The hint is printed after `carrier run` (not with `--quiet`) and inside `carrier shell` before the next prompt. Commands stopped with Ctrl-C do not get a hint. `carrier similar <id>` works whether or not this is enabled.
+
+### `similar_min_age`
+
+Type: Go duration string  
+Default: `"1h"`
+
+Ignore matches newer than this, so retrying a failing command does not point at the attempt you just made. Use `"0s"` to consider every earlier run.
 
 ## `[ui]`
 
@@ -463,6 +494,7 @@ when no label is provided at invocation time.
 | `notify.min_duration`     | error if empty, invalid, or negative                  |
 | `shell.program`           | error if blank whitespace                             |
 | `shell.ignore_commands[]` | warning for blank command names                       |
+| `hints.similar_min_age`   | error if invalid or negative                          |
 | `ui.color`                | error if not `auto`, `always`, or `never`             |
 | `ui.theme.*`              | error for invalid `#hex` color values                 |
 | `auto_label[N].label`     | error if empty                                        |

@@ -51,6 +51,7 @@ type Config struct {
 	Notify     NotifyConfig    `toml:"notify"`
 	Shell      ShellConfig     `toml:"shell"`
 	UI         UIConfig        `toml:"ui"`
+	Hints      HintsConfig     `toml:"hints"`
 	AutoLabels []AutoLabel     `toml:"auto_label"`
 	// Includes lists additional TOML files to merge into this config. Paths
 	// are resolved relative to the directory containing this config file.
@@ -84,6 +85,25 @@ type ShellConfig struct {
 
 // UIConfig controls terminal presentation: when to emit ANSI color and which
 // colors to use for each semantic style.
+// HintsConfig controls optional hints printed after a run.
+type HintsConfig struct {
+	// SimilarFailures prints a hint when a failed run's error output matches
+	// an earlier failed run.
+	SimilarFailures bool `toml:"similar_failures"`
+	// SimilarMinAge ignores matches newer than this, so retrying a failing
+	// command does not hint at the attempt just before it.
+	SimilarMinAge string `toml:"similar_min_age"`
+}
+
+// SimilarMinAgeDuration parses SimilarMinAge, defaulting to one hour when it
+// is empty or invalid.
+func (c Config) SimilarMinAgeDuration() time.Duration {
+	if d, err := time.ParseDuration(c.Hints.SimilarMinAge); err == nil && d >= 0 {
+		return d
+	}
+	return time.Hour
+}
+
 type UIConfig struct {
 	// Color selects when to colorize output: "auto" (color only on a TTY,
 	// honoring NO_COLOR), "always" (force color), or "never" (plain text).
@@ -126,6 +146,7 @@ func Default() Config {
 		Shell: ShellConfig{
 			IgnoreCommands: []string{"nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"},
 		},
+		Hints: HintsConfig{SimilarFailures: false, SimilarMinAge: "1h"},
 		UI: UIConfig{
 			Color: ColorAuto,
 			Theme: ThemeColors{
@@ -227,6 +248,12 @@ func mergeInclude(base *Config, path string) error {
 	}
 	if meta.IsDefined("shell", "program") {
 		base.Shell.Program = overlay.Shell.Program
+	}
+	if meta.IsDefined("hints", "similar_failures") {
+		base.Hints.SimilarFailures = overlay.Hints.SimilarFailures
+	}
+	if meta.IsDefined("hints", "similar_min_age") {
+		base.Hints.SimilarMinAge = overlay.Hints.SimilarMinAge
 	}
 	if meta.IsDefined("ui", "color") {
 		base.UI.Color = overlay.UI.Color

@@ -138,6 +138,23 @@ Clear the label:
 carrier label 42
 ```
 
+## Find the same error from before
+
+Turn on similar-failure hints once:
+
+```toml title="~/.config/carrier/config.toml"
+[hints]
+similar_failures = true
+```
+
+When a command fails with an error you have seen before, carrier points at the earlier run, and at any notes you wrote while fixing it:
+
+```text
+carrier: seen before in run 42 (3 weeks ago, session "db-debug", 2 notes): carrier show 42
+```
+
+List every earlier match with `carrier similar <id>`.
+
 ## Search old output
 
 ```bash title="Search"

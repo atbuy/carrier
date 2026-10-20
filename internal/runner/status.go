@@ -21,6 +21,11 @@ func runStartedLine(w io.Writer, id int64, theme config.ThemeColors) string {
 		runnerPaint(color, runnerANSIColor(theme.Accent), strconvID(id)) + "\n"
 }
 
+// hintLine renders an optional post-run hint in the muted theme color.
+func hintLine(w io.Writer, hint string, theme config.ThemeColors) string {
+	return runnerPaint(runnerShouldColor(w), runnerANSIColor(theme.Muted), "carrier: "+hint) + "\n"
+}
+
 func runnerPaint(enabled bool, color, text string) string {
 	if !enabled || color == "" {
 		return text
