@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -262,5 +264,28 @@ func TestHistoryCmdSinceInvalidDuration(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "invalid --since") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// Short flags mean the same thing in every command: -s is --session and -L
+// is --label.
+func TestShortFlagsAreConsistent(t *testing.T) {
+	a := &app{}
+	for name, cmd := range map[string]*cobra.Command{
+		"history": a.historyCmd(), "hs": a.hsCmd(), "note": a.noteCmd(), "notes": a.notesCmd(),
+	} {
+		if f := cmd.Flags().ShorthandLookup("s"); f == nil || f.Name != "session" {
+			t.Errorf("%s -s should be --session, got %v", name, f)
+		}
+	}
+	if f := a.historyCmd().Flags().Lookup("short"); f == nil || f.Shorthand != "" {
+		t.Errorf("history --short should have no short form, got %+v", f)
+	}
+	// run and watch parse -L themselves so they can pass other flags to the
+	// child command; see the run flag tests.
+	for name, cmd := range map[string]*cobra.Command{"shell": a.shellCmd(), "rerun": a.rerunCmd()} {
+		if f := cmd.Flags().ShorthandLookup("L"); f == nil || f.Name != "label" {
+			t.Errorf("%s -L should be --label, got %v", name, f)
+		}
 	}
 }

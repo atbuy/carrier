@@ -130,8 +130,8 @@ func printRelease(w io.Writer, t theme, r changelog.Release) {
 	for _, sec := range r.Sections {
 		_, _ = fmt.Fprintln(w, "  "+t.Bold.Render(sec.Name))
 		for _, item := range sec.Items {
-			// Markdown code spans read fine without their backticks.
-			plain := strings.ReplaceAll(item, "`", "")
+			// Code spans and bold read fine without their Markdown markers.
+			plain := strings.NewReplacer("`", "", "**", "").Replace(item)
 			for j, line := range wrapWords(plain, changelogWrapWidth-6) {
 				prefix := "    • "
 				if j > 0 {
