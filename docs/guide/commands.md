@@ -710,3 +710,18 @@ carrier completion powershell | Out-String | Invoke-Expression
 ```bash title="Version"
 carrier version
 ```
+
+## `changelog`
+
+Show what changed in each version. The changelog is built into the binary, so it works offline and matches the installed version.
+
+```bash title="Changelog"
+carrier changelog                    # the installed version
+carrier changelog 0.24.0             # one version
+carrier changelog --since 0.20.0     # everything newer than 0.20.0, e.g. after upgrading
+carrier changelog --all              # every version
+carrier changelog 0.24.0 --json
+carrier changelog 0.24.0 --markdown
+```
+
+The same entries are in [CHANGELOG.md](https://github.com/atbuy/carrier/blob/main/CHANGELOG.md).

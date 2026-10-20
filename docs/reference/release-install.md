@@ -93,6 +93,22 @@ Expand-Archive .\carrier-windows-amd64.zip
 
 Publishing a `v*` tag builds Linux, macOS, and Windows assets, then publishes a GitHub release with generated release notes and `checksums.txt`.
 
+Every release needs an entry in `CHANGELOG.md`:
+
+```markdown
+## [0.30.0] - 2026-11-02
+
+### Added
+
+- What users can do now that they could not before.
+
+### Fixed
+
+- What no longer goes wrong.
+```
+
+Add the entry in the change that will ship in that version. Use the sections `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`, newest version first. The release workflow fails before building when the tag has no entry, and the entry becomes the top of the GitHub release notes. `go test .` checks that the file is well formed.
+
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
