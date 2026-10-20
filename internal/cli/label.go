@@ -18,14 +18,11 @@ func (a *app) labelCmd() *cobra.Command {
   carrier label 42               # clear label`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
+			run, err := a.resolveRun(cmd, args[0])
 			if err != nil {
 				return err
 			}
-			run, err := a.getRun(id)
-			if err != nil {
-				return err
-			}
+			id := run.ID
 			label := strings.Join(args[1:], " ")
 			if err := a.st.SetLabel(id, label); err != nil {
 				return err

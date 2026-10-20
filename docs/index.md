@@ -68,7 +68,7 @@ For deeper setup choices, use [Installation](tutorial/installation.md) and [Conf
 
 ### A run is one recorded command
 
-Every recorded command gets an integer ID. Use that ID with `show`, `tail`, `export`, `label`, and `rerun`.
+Every recorded command gets an integer ID. Use that ID with `show`, `tail`, `export`, `label`, and `rerun`, or refer to recent runs as `-1`, `-2`, … and labeled runs by label.
 
 ```bash
 carrier run go test ./...

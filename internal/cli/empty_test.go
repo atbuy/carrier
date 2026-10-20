@@ -155,13 +155,13 @@ func TestResolveSessionMissing(t *testing.T) {
 	st := openCmdStore(t)
 	defer func() { _ = st.Close() }()
 
-	if _, err := resolveSession(st, "5"); err == nil || !strings.HasPrefix(err.Error(), "session 5 not found;") {
+	if _, err := resolveSession(nil, st, "5"); err == nil || !strings.HasPrefix(err.Error(), "session 5 not found;") {
 		t.Fatalf("missing session ID: got %v", err)
 	}
-	if _, err := resolveSession(st, "dbg"); err == nil || !strings.HasPrefix(err.Error(), `no session with label "dbg";`) {
+	if _, err := resolveSession(nil, st, "dbg"); err == nil || !strings.HasPrefix(err.Error(), `no session with label "dbg";`) {
 		t.Fatalf("missing session label: got %v", err)
 	}
-	if _, err := resolveSession(st, "dbg"); strings.Contains(err.Error(), "sql:") {
+	if _, err := resolveSession(nil, st, "dbg"); strings.Contains(err.Error(), "sql:") {
 		t.Fatalf("error should not leak database text: %v", err)
 	}
 }

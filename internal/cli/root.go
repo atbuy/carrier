@@ -75,6 +75,7 @@ func Execute() int {
 
 	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
 	installHelp(root)
+	root.SetArgs(rewriteRunRefArgs(root, os.Args[1:]))
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, newTheme(os.Stderr).Danger.Render("carrier:"), err)
 		return 1

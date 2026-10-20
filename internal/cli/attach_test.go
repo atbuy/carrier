@@ -26,7 +26,7 @@ func TestResolveSessionByIDAndLabel(t *testing.T) {
 		t.Fatalf("create new session: %v", err)
 	}
 
-	byID, err := resolveSession(st, strconv.FormatInt(oldID, 10))
+	byID, err := resolveSession(nil, st, strconv.FormatInt(oldID, 10))
 	if err != nil {
 		t.Fatalf("resolve by id: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestResolveSessionByIDAndLabel(t *testing.T) {
 		t.Fatalf("by id = %+v, want id %d label build", byID, oldID)
 	}
 
-	byLabel, err := resolveSession(st, "build")
+	byLabel, err := resolveSession(nil, st, "build")
 	if err != nil {
 		t.Fatalf("resolve by label: %v", err)
 	}
@@ -50,11 +50,11 @@ func TestResolveSessionReportsUsefulErrors(t *testing.T) {
 	}
 	defer func() { _ = st.Close() }()
 
-	_, err = resolveSession(st, "123")
+	_, err = resolveSession(nil, st, "123")
 	if err == nil || !strings.Contains(err.Error(), "session 123 not found") {
 		t.Fatalf("missing id error = %v", err)
 	}
-	_, err = resolveSession(st, "missing-label")
+	_, err = resolveSession(nil, st, "missing-label")
 	if err == nil || !strings.Contains(err.Error(), `no session with label "missing-label"`) {
 		t.Fatalf("missing label error = %v", err)
 	}

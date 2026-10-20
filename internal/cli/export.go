@@ -31,11 +31,7 @@ func (a *app) exportCmd() *cobra.Command {
 			if len(args) == 0 {
 				return fmt.Errorf("export requires <id> for markdown/json formats")
 			}
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
-			r, err := a.getRun(id)
+			r, err := a.resolveRun(cmd, args[0])
 			if err != nil {
 				return err
 			}
@@ -75,11 +71,7 @@ func (a *app) exportCSV(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if len(args) == 1 {
-		id, err := parseID(args[0])
-		if err != nil {
-			return err
-		}
-		r, err := a.getRun(id)
+		r, err := a.resolveRun(cmd, args[0])
 		if err != nil {
 			return err
 		}

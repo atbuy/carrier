@@ -28,13 +28,11 @@ Set hints.similar_failures = true in the config to be told about the best
 match automatically when a run fails.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
+			r, err := a.resolveRun(cmd, args[0])
 			if err != nil {
 				return err
 			}
-			if _, err := a.getRun(id); err != nil {
-				return err
-			}
+			id := r.ID
 			matches, err := a.st.SimilarFailures(id, time.Now(), limit)
 			if err != nil {
 				return err

@@ -36,22 +36,15 @@ func (a *app) diffCmd() *cobra.Command {
   carrier diff --raw 41 42`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id1, err := parseID(args[0])
+			r1, err := a.resolveRun(cmd, args[0])
 			if err != nil {
 				return err
 			}
-			id2, err := parseID(args[1])
+			r2, err := a.resolveRun(cmd, args[1])
 			if err != nil {
 				return err
 			}
-			r1, err := a.getRun(id1)
-			if err != nil {
-				return err
-			}
-			r2, err := a.getRun(id2)
-			if err != nil {
-				return err
-			}
+			id1, id2 := r1.ID, r2.ID
 
 			path1, err := diffStreamPath(r1, stream)
 			if err != nil {

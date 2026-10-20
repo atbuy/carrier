@@ -89,7 +89,7 @@ Use `source ~/.bashrc` if you use bash.
 4. Inspect it with `carrier last` and `carrier show <run-id>`.
 5. Add `alias c='carrier'` once you are comfortable with the command.
 
-The run ID appears in `last`, `history`, `failed`, `running`, and most JSON output. Use that ID with `show`, `tail`, `export`, `label`, `rerun`, and `clean` previews.
+The run ID appears in `last`, `history`, `failed`, `running`, and most JSON output. Use that ID with `show`, `tail`, `export`, `label`, `rerun`, and `clean` previews. You can also use `-1` for the latest run, `-2` for the one before it, or a run's label; see [Referring to runs](../guide/commands.md#referring-to-runs).
 
 ## Record your first command
 
