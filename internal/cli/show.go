@@ -244,7 +244,8 @@ func (a *app) runningCmd() *cobra.Command {
 }
 
 func listStatusCmd(name, status string, a *app) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   name,
 		Short: "list " + name + " runs",
 		Args:  cobra.NoArgs,
@@ -252,6 +253,13 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 			runs, err := a.st.ListByStatus(status, 100)
 			if err != nil {
 				return err
+			}
+			if jsonOutput {
+				views := make([]runView, 0, len(runs))
+				for _, r := range runs {
+					views = append(views, runViewFromStore(&r, false))
+				}
+				return writeJSON(cmd, views)
 			}
 			if len(runs) == 0 {
 				a.printEmptyRunsHint(cmd, "no "+name+" runs")
@@ -277,6 +285,8 @@ func listStatusCmd(name, status string, a *app) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output JSON")
+	return cmd
 }
 
 func timeSinceMS(t time.Time) int64 {
@@ -310,6 +320,7 @@ type runView struct {
 	NotifyAlways       bool              `json:"notify_always"`
 	CreatedAt          time.Time         `json:"created_at"`
 	Label              string            `json:"label,omitempty"`
+	SessionID          *int64            `json:"session_id,omitempty"`
 	Env                map[string]string `json:"env,omitempty"`
 	Notes              []noteView        `json:"notes,omitempty"`
 }
@@ -326,7 +337,7 @@ func runViewFromStoreOpts(r *store.Run, includeOutput bool, redactor logs.Redact
 		Hostname: r.Hostname, Shell: r.Shell, GitRoot: r.GitRoot, GitBranch: r.GitBranch, GitCommit: r.GitCommit,
 		GitDirty: r.GitDirty, StdoutPath: r.StdoutPath, StderrPath: r.StderrPath, TerminalOutputPath: r.TerminalOutputPath,
 		NotifyRequested: r.NotifyRequested, NotifyAlways: r.NotifyAlways, CreatedAt: r.CreatedAt,
-		Label: r.Label,
+		Label: r.Label, SessionID: r.SessionID,
 	}
 	if includeOutput {
 		view.Stdout = readText(r.StdoutPath)

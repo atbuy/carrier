@@ -2,6 +2,13 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [0.33.0] - 2026-10-20
+
+### Added
+
+- `--json` in `carrier failed`, `carrier session list`, and `carrier history --sessions-only`.
+- Run JSON includes `session_id` for runs recorded in a shell session, so `history --json` keeps the session grouping.
+
 ## [0.32.0] - 2026-10-20
 
 ### Changed
