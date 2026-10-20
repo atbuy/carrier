@@ -56,9 +56,9 @@ latest run.`,
 			n := store.CreateNote{Text: text, CreatedAt: time.Now()}
 			switch {
 			case runID != 0:
-				r, err := a.st.GetRun(runID)
+				r, err := a.getRun(runID)
 				if err != nil {
-					return fmt.Errorf("run %d not found: %w", runID, err)
+					return err
 				}
 				n.RunID = &r.ID
 				n.SessionID = r.SessionID
@@ -78,7 +78,7 @@ latest run.`,
 			default:
 				r, err := a.st.Latest()
 				if errors.Is(err, sql.ErrNoRows) {
-					return fmt.Errorf("no runs to attach the note to; use carrier note inside carrier shell or pass --run")
+					return fmt.Errorf("no runs to attach the note to; record one first, use carrier note inside carrier shell, or pass --session")
 				}
 				if err != nil {
 					return err
@@ -135,6 +135,10 @@ session are shown unless --session or --run is given.
 			if err != nil {
 				return err
 			}
+			if len(notes) == 0 && !jsonOutput {
+				printHint(cmd, emptyNotesHint(f))
+				return nil
+			}
 			if jsonOutput {
 				views := make([]noteView, 0, len(notes))
 				for _, n := range notes {
@@ -184,6 +188,17 @@ func (a *app) notesRmCmd() *cobra.Command {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "carrier: note %d deleted\n", id)
 			return nil
 		},
+	}
+}
+
+func emptyNotesHint(f store.NoteFilter) string {
+	switch {
+	case len(f.RunIDs) == 1:
+		return fmt.Sprintf("no notes for run %d", f.RunIDs[0])
+	case len(f.SessionIDs) == 1:
+		return fmt.Sprintf(`no notes for session %d; add one with "carrier note <text>"`, f.SessionIDs[0])
+	default:
+		return `no notes yet; add one with "carrier note <text>"`
 	}
 }
 

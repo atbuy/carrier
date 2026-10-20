@@ -30,9 +30,14 @@ func (a *app) searchCmd() *cobra.Command {
 				t := time.Now().Add(-d)
 				f.Since = &t
 			}
-			results, err := a.st.SearchRuns(strings.Join(args, " "), limit, f)
+			query := strings.Join(args, " ")
+			results, err := a.st.SearchRuns(query, limit, f)
 			if err != nil {
 				return err
+			}
+			if len(results) == 0 && !jsonOutput {
+				a.printEmptyRunsHint(cmd, fmt.Sprintf("no runs match %q", query))
+				return nil
 			}
 			if jsonOutput {
 				type searchView struct {

@@ -131,7 +131,7 @@ func (a *app) rerunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r, err := a.st.GetRun(id)
+			r, err := a.getRun(id)
 			if err != nil {
 				return err
 			}

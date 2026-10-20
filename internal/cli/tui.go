@@ -38,7 +38,7 @@ terminal.`,
 
 // rerunByID reruns the original command of the given run in the current terminal.
 func (a *app) rerunByID(id int64) error {
-	r, err := a.st.GetRun(id)
+	r, err := a.getRun(id)
 	if err != nil {
 		return err
 	}

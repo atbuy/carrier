@@ -68,6 +68,10 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				return err
 			}
 			slices.Reverse(runs)
+			if len(runs) == 0 && !jsonOutput {
+				a.printEmptyRunsHint(cmd, "no runs match these filters")
+				return nil
+			}
 			if jsonOutput {
 				views := make([]runView, 0, len(runs))
 				for _, r := range runs {
@@ -225,13 +229,22 @@ func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter strin
 		return err
 	}
 	slices.Reverse(sessions)
+	if len(sessions) == 0 {
+		printHint(cmd, noSessionsHint)
+		return nil
+	}
 	out := cmd.OutOrStdout()
 	t := newTheme(out)
+	shown := 0
 	for _, sess := range sessions {
 		if labelFilter != "" && !containsFold(sess.Label, labelFilter) {
 			continue
 		}
 		printSessionHeader(out, t, sess)
+		shown++
+	}
+	if shown == 0 {
+		printHint(cmd, fmt.Sprintf("no sessions match label %q", labelFilter))
 	}
 	return nil
 }

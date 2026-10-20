@@ -437,7 +437,10 @@ func (m Model) renderList() string {
 		}
 		b.WriteString("\n")
 	}
-	if len(m.filtered) == 0 {
+	switch {
+	case len(m.runs) == 0:
+		b.WriteString(m.styles.muted.Render("  no runs recorded yet\n  try: carrier run echo hello\n  or:  carrier shell"))
+	case len(m.filtered) == 0:
 		b.WriteString(m.styles.muted.Render("  no runs match"))
 	}
 	return lipgloss.NewStyle().Width(listWidth).Render(b.String())

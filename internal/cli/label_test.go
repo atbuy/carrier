@@ -110,8 +110,6 @@ func TestLabelCmd_BadID(t *testing.T) {
 }
 
 func TestLabelCmd_NonExistentID(t *testing.T) {
-	// SetLabel does an UPDATE which silently affects 0 rows for a non-existent ID;
-	// the command succeeds without error (same as SQLite UPDATE semantics).
 	st := openLabelStore(t)
 	defer func() { _ = st.Close() }()
 
@@ -121,10 +119,10 @@ func TestLabelCmd_NonExistentID(t *testing.T) {
 	cmd.SetOut(&out)
 
 	err := cmd.RunE(cmd, []string{"99999", "some", "label"})
-	if err != nil {
-		t.Fatalf("expected no error for non-existent run ID (UPDATE is a no-op), got: %v", err)
+	if err == nil || err.Error() != "run 99999 not found" {
+		t.Fatalf("expected run not found error, got: %v", err)
 	}
-	if !strings.Contains(out.String(), "labeled") {
-		t.Fatalf("expected confirmation output, got: %s", out.String())
+	if out.Len() != 0 {
+		t.Fatalf("expected no confirmation output, got: %s", out.String())
 	}
 }

@@ -35,7 +35,7 @@ func (a *app) exportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r, err := a.st.GetRun(id)
+			r, err := a.getRun(id)
 			if err != nil {
 				return err
 			}
@@ -79,7 +79,7 @@ func (a *app) exportCSV(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		r, err := a.st.GetRun(id)
+		r, err := a.getRun(id)
 		if err != nil {
 			return err
 		}

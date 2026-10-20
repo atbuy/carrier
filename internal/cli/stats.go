@@ -29,6 +29,13 @@ func (a *app) statsCmd() *cobra.Command {
 				return writeJSON(cmd, statsViewFromStore(stats))
 			}
 			printStats(cmd, stats, commandPattern)
+			if stats.TotalRuns == 0 {
+				if commandPattern != "" {
+					a.printEmptyRunsHint(cmd, fmt.Sprintf("no runs match command %q", commandPattern))
+				} else {
+					printHint(cmd, firstRunHint)
+				}
+			}
 			return nil
 		},
 	}
