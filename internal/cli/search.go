@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/duration"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -23,9 +24,9 @@ func (a *app) searchCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := store.SearchFilter{Status: status}
 			if since != "" {
-				d, err := parseSinceDuration(since)
+				d, err := duration.Parse(since)
 				if err != nil {
-					return fmt.Errorf("--since: %w", err)
+					return fmt.Errorf("invalid --since duration %q: %w", since, err)
 				}
 				t := time.Now().Add(-d)
 				f.Since = &t

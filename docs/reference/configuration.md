@@ -36,6 +36,19 @@ If the config file is missing, code defaults are used.
 
     Run `carrier config check` after editing config. It catches invalid regexes, invalid durations, blank paths, and risky output cap settings.
 
+## Durations
+
+Every duration setting, and every duration flag such as `--since`, `--older-than`, `--timeout`, and `--debounce`, uses the same format: a number and a unit, like `30s`, `10m`, `1.5h`, `7d`, or `2w`. Units can be combined, as in `1d12h` or `1h30m`.
+
+| Unit | Meaning |
+| ---- | ------- |
+| `ms`, `us`, `ns` | milliseconds, microseconds, nanoseconds |
+| `s`, `m`, `h` | seconds, minutes, hours |
+| `d` | days (24 hours) |
+| `w` | weeks (7 days) |
+
+`0` needs no unit. Negative durations are rejected.
+
 ## Full example
 
 ```toml title="~/.config/carrier/config.toml"
@@ -115,7 +128,7 @@ Set `0` to disable the cap. `carrier config check` warns when the cap is disable
 
 ### `stale_run_threshold`
 
-Type: Go duration string
+Type: [duration](#durations)  
 Default: `"24h"`
 
 When `carrier` starts, runs stuck in `running` longer than this threshold are marked `killed`.
@@ -187,7 +200,7 @@ Notifications are opt-in per command. Carrier uses `notify-send` on Linux, `osas
 
 ### `min_duration`
 
-Type: Go duration string  
+Type: [duration](#durations)  
 Default: `"10s"`
 
 Used with `-n` / `--notify`.
@@ -248,7 +261,7 @@ carrier's own hook commands are never recorded.
 
 ### `auto_session_retention`
 
-Type: duration, with `d` for days  
+Type: [duration](#durations)  
 Default: `"30d"`
 
 How long automatic sessions (started by the line from `carrier init`) are kept after they end. Expired sessions are deleted with their runs and logs. Sessions with a label, notes, or `carrier session keep` never expire, nor do sessions started with `carrier shell`. `"0"` keeps everything.
@@ -280,7 +293,7 @@ The hint is printed after `carrier run` (not with `--quiet`) and inside `carrier
 
 ### `similar_min_age`
 
-Type: Go duration string  
+Type: [duration](#durations)  
 Default: `"1h"`
 
 Ignore matches newer than this, so retrying a failing command does not point at the attempt you just made. Use `"0s"` to consider every earlier run.
@@ -504,6 +517,7 @@ when no label is provided at invocation time.
 | `storage.max_output_mb`   | error if negative, warning if zero                    |
 | `redaction.patterns`      | warning if redaction is enabled with no patterns      |
 | `redaction.patterns[]`    | error for invalid regex, warning for blank pattern    |
+| `storage.stale_run_threshold` | error if invalid or negative                      |
 | `notify.min_duration`     | error if empty, invalid, or negative                  |
 | `shell.program`           | error if blank whitespace                             |
 | `shell.ignore_commands[]` | warning for blank command names                       |

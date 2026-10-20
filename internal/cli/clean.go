@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/atbuy/carrier/internal/duration"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -103,9 +104,9 @@ func (a *app) previewClean(olderThan string, keepLast int) ([]store.Run, error) 
 	seen := map[int64]bool{}
 	var result []store.Run
 	if olderThan != "" {
-		d, err := parseAge(olderThan)
+		d, err := duration.Parse(olderThan)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid --older-than duration %q: %w", olderThan, err)
 		}
 		runs, err := a.st.ListOlderThan(time.Now().Add(-d))
 		if err != nil {
@@ -136,9 +137,9 @@ func (a *app) execClean(olderThan string, keepLast int) ([]store.Run, error) {
 	seen := map[int64]bool{}
 	var result []store.Run
 	if olderThan != "" {
-		d, err := parseAge(olderThan)
+		d, err := duration.Parse(olderThan)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid --older-than duration %q: %w", olderThan, err)
 		}
 		runs, err := a.st.DeleteOlderThan(time.Now().Add(-d))
 		if err != nil {
@@ -162,15 +163,6 @@ func (a *app) execClean(olderThan string, keepLast int) ([]store.Run, error) {
 		}
 	}
 	return result, nil
-}
-
-func parseAge(s string) (time.Duration, error) {
-	if len(s) > 1 && s[len(s)-1] == 'd' {
-		h := s[:len(s)-1] + "h"
-		d, err := time.ParseDuration(h)
-		return d * 24, err
-	}
-	return time.ParseDuration(s)
 }
 
 func removeIfSet(path string) {

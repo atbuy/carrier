@@ -18,6 +18,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/duration"
 	"github.com/atbuy/carrier/internal/notify"
 	carriershell "github.com/atbuy/carrier/internal/shell"
 )
@@ -215,10 +216,7 @@ func (e *setupEnv) stepNotify() error {
 	}
 	current := e.cfg.Notify.MinDuration
 	value := e.askValue("With -n, notify for commands that run longer than", current, func(s string) error {
-		d, err := time.ParseDuration(s)
-		if err == nil && d < 0 {
-			err = errors.New("must be zero or greater")
-		}
+		_, err := duration.Parse(s)
 		return err
 	})
 	if value == current {
