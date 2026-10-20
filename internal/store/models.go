@@ -47,6 +47,11 @@ type Session struct {
 	Label     string
 	StartedAt time.Time
 	EndedAt   *time.Time
+	// Auto marks sessions started automatically by "carrier shell --auto";
+	// only these expire under shell.auto_session_retention.
+	Auto bool
+	// Kept pins a session so it never expires.
+	Kept bool
 }
 
 type Note struct {
@@ -60,6 +65,7 @@ type Note struct {
 type CreateSession struct {
 	Label     string
 	StartedAt time.Time
+	Auto      bool
 }
 
 type CreateRun struct {

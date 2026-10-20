@@ -81,10 +81,12 @@ type NotifyConfig struct {
 type ShellConfig struct {
 	Program        string   `toml:"program"`
 	IgnoreCommands []string `toml:"ignore_commands"`
+	// AutoSessionRetention is how long sessions started by "carrier shell
+	// --auto" are kept after they end, e.g. "30d"; "0" keeps them forever.
+	// Labeled, noted, and kept sessions never expire.
+	AutoSessionRetention string `toml:"auto_session_retention"`
 }
 
-// UIConfig controls terminal presentation: when to emit ANSI color and which
-// colors to use for each semantic style.
 // HintsConfig controls optional hints printed after a run.
 type HintsConfig struct {
 	// SimilarFailures prints a hint when a failed run's error output matches
@@ -93,6 +95,40 @@ type HintsConfig struct {
 	// SimilarMinAge ignores matches newer than this, so retrying a failing
 	// command does not hint at the attempt just before it.
 	SimilarMinAge string `toml:"similar_min_age"`
+}
+
+// ParseRetention parses a retention period: a Go duration, or a whole number
+// of days such as "90d". "0" (or empty) means keep forever and returns 0.
+func ParseRetention(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "0" {
+		return 0, nil
+	}
+	if days, ok := strings.CutSuffix(s, "d"); ok {
+		n, err := strconv.Atoi(days)
+		if err != nil || n < 0 {
+			return 0, fmt.Errorf("invalid number of days %q", s)
+		}
+		return time.Duration(n) * 24 * time.Hour, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, err
+	}
+	if d < 0 {
+		return 0, fmt.Errorf("must be zero or greater")
+	}
+	return d, nil
+}
+
+// AutoSessionRetentionDuration returns shell.auto_session_retention, or 0
+// (keep forever) when it is "0" or invalid.
+func (c Config) AutoSessionRetentionDuration() time.Duration {
+	d, err := ParseRetention(c.Shell.AutoSessionRetention)
+	if err != nil {
+		return 0
+	}
+	return d
 }
 
 // SimilarMinAgeDuration parses SimilarMinAge, defaulting to one hour when it
@@ -104,6 +140,8 @@ func (c Config) SimilarMinAgeDuration() time.Duration {
 	return time.Hour
 }
 
+// UIConfig controls terminal presentation: when to emit ANSI color and which
+// colors to use for each semantic style.
 type UIConfig struct {
 	// Color selects when to colorize output: "auto" (color only on a TTY,
 	// honoring NO_COLOR), "always" (force color), or "never" (plain text).
@@ -144,7 +182,8 @@ func Default() Config {
 		},
 		Notify: NotifyConfig{MinDuration: "10s", Success: true, Failure: true},
 		Shell: ShellConfig{
-			IgnoreCommands: []string{"nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"},
+			IgnoreCommands:       []string{"nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"},
+			AutoSessionRetention: "30d",
 		},
 		Hints: HintsConfig{SimilarFailures: false, SimilarMinAge: "1h"},
 		UI: UIConfig{
@@ -248,6 +287,9 @@ func mergeInclude(base *Config, path string) error {
 	}
 	if meta.IsDefined("shell", "program") {
 		base.Shell.Program = overlay.Shell.Program
+	}
+	if meta.IsDefined("shell", "auto_session_retention") {
+		base.Shell.AutoSessionRetention = overlay.Shell.AutoSessionRetention
 	}
 	if meta.IsDefined("hints", "similar_failures") {
 		base.Hints.SimilarFailures = overlay.Hints.SimilarFailures

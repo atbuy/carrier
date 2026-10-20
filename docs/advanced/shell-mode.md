@@ -135,6 +135,37 @@ carrier note suspect stale DNS cache, flushing next
 
 The `carrier note` command itself is not recorded as a run. List the session's notes with `carrier notes`.
 
+## Record every terminal
+
+Add one line to your shell config, after `PATH` is set, to start every interactive terminal in an automatic session:
+
+```bash title="~/.zshrc"
+eval "$(carrier init zsh)"
+```
+
+Use `carrier init bash` in `~/.bashrc`, or `carrier init fish | source` in `~/.config/fish/config.fish`. `carrier doctor` shows whether it is set up.
+
+How it behaves:
+
+- it only runs in interactive terminals, never in scripts, `ssh host cmd`, or pipes
+- it never runs inside an existing carrier session, so `carrier shell` loading your config again does not loop
+- exiting the recorded shell closes the terminal, as usual
+- if carrier cannot start, it prints why and the terminal continues as a normal shell
+- a terminal opened and closed without running anything leaves no session behind
+- each terminal, and each tmux pane, is its own session
+
+Turn it off for one terminal with `CARRIER_NO_AUTO=1`, for example `CARRIER_NO_AUTO=1 zsh`, or remove the line from your config.
+
+### Keep or expire automatic sessions
+
+Automatic sessions expire [`shell.auto_session_retention`](../reference/configuration.md#auto_session_retention) after they end (30 days by default), with their runs and logs. A session is kept for good when it has:
+
+- a label: `carrier session label api-debug` from inside the session
+- a note: `carrier note ...`
+- a pin: `carrier session keep`
+
+Sessions you start yourself with `carrier shell` never expire. Expired sessions are cleaned up at most once a day when a shell starts; `carrier clean --sessions --dry-run` shows what would go.
+
 ## Attaching to an existing session
 
 `carrier attach` re-opens a session and starts a new PTY shell that records into it:

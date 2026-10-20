@@ -621,8 +621,8 @@ func redactEnvJSON(envJSON string, redactor logs.Redactor) (string, error) {
 }
 
 func (s *Store) CreateSession(r CreateSession) (int64, error) {
-	res, err := s.db.Exec(`INSERT INTO shell_sessions (label, started_at) VALUES (?, ?)`,
-		r.Label, fmtTime(r.StartedAt))
+	res, err := s.db.Exec(`INSERT INTO shell_sessions (label, started_at, auto) VALUES (?, ?, ?)`,
+		r.Label, fmtTime(r.StartedAt), boolInt(r.Auto))
 	if err != nil {
 		return 0, err
 	}
@@ -640,12 +640,12 @@ func (s *Store) UpdateSessionLabel(id int64, label string) error {
 }
 
 func (s *Store) GetSession(id int64) (*Session, error) {
-	row := s.db.QueryRow(`SELECT id, label, started_at, ended_at FROM shell_sessions WHERE id=?`, id)
+	row := s.db.QueryRow(`SELECT `+sessionCols+` FROM shell_sessions WHERE id=?`, id)
 	return scanSession(row)
 }
 
 func (s *Store) FindSessionByLabel(label string) (*Session, error) {
-	row := s.db.QueryRow(`SELECT id, label, started_at, ended_at FROM shell_sessions WHERE label=? ORDER BY id DESC LIMIT 1`, label)
+	row := s.db.QueryRow(`SELECT `+sessionCols+` FROM shell_sessions WHERE label=? ORDER BY id DESC LIMIT 1`, label)
 	return scanSession(row)
 }
 
@@ -659,7 +659,7 @@ func (s *Store) GetSessionsByIDs(ids []int64) (map[int64]Session, error) {
 	for i, id := range ids {
 		args[i] = id
 	}
-	rows, err := s.db.Query(`SELECT id, label, started_at, ended_at FROM shell_sessions WHERE id IN (`+placeholders+`)`, args...)
+	rows, err := s.db.Query(`SELECT `+sessionCols+` FROM shell_sessions WHERE id IN (`+placeholders+`)`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +681,7 @@ func (s *Store) ReopenSession(id int64) error {
 }
 
 func (s *Store) ListSessions(limit int) ([]Session, error) {
-	rows, err := s.db.Query(`SELECT id, label, started_at, ended_at FROM shell_sessions ORDER BY id DESC LIMIT ?`, limit)
+	rows, err := s.db.Query(`SELECT `+sessionCols+` FROM shell_sessions ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -701,14 +701,19 @@ type sessionScanner interface {
 	Scan(dest ...any) error
 }
 
+// sessionCols lists the shell_sessions columns read by scanSession.
+const sessionCols = `id, label, started_at, ended_at, auto, kept`
+
 func scanSession(row sessionScanner) (*Session, error) {
 	var sess Session
 	var started sql.NullString
 	var ended sql.NullString
 	var label string
-	if err := row.Scan(&sess.ID, &label, &started, &ended); err != nil {
+	var auto, kept int
+	if err := row.Scan(&sess.ID, &label, &started, &ended, &auto, &kept); err != nil {
 		return nil, err
 	}
+	sess.Auto, sess.Kept = auto != 0, kept != 0
 	sess.Label = label
 	sess.StartedAt, _ = parseTime(started.String)
 	if ended.Valid && ended.String != "" {

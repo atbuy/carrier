@@ -23,12 +23,28 @@ import (
 // printed to the terminal as its own line before further shell output.
 type RunEndFunc func(runID int64) string
 
+// Options configures a tracked shell started by Run.
+type Options struct {
+	Notify       bool
+	NotifyAlways bool
+	NoRedact     bool
+	SessionID    int64
+	Label        string
+	// Quiet skips the startup banner and the one-time alpha warning, for
+	// shells started automatically from a shell config.
+	Quiet bool
+	// OnRunEnd may be nil.
+	OnRunEnd RunEndFunc
+}
+
 // Run starts a tracked shell and blocks until it exits. It returns the last
 // hook state, whose CurrentID is non-zero when a command was still in flight
 // as the shell exited (e.g. "exit" itself), so the caller can finish that run.
-// onRunEnd may be nil.
-func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64, label string, onRunEnd RunEndFunc) (State, error) {
-	warnShellAlphaOnce(cfg.Storage.DataDir)
+func Run(cfg config.Config, opts Options) (State, error) {
+	if !opts.Quiet {
+		warnShellAlphaOnce(cfg.Storage.DataDir)
+	}
+	sessionID, label, onRunEnd := opts.SessionID, opts.Label, opts.OnRunEnd
 	program := cfg.Shell.Program
 	if program == "" {
 		program = os.Getenv("SHELL")
@@ -43,7 +59,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 	statePath := filepath.Join(os.TempDir(), "carrier-shell-"+strconvPID()+".json")
 	initState, _ := json.Marshal(State{SessionID: sessionID})
 	_ = os.WriteFile(statePath, initState, 0o600)
-	hookDir, err := WriteHookDir(carrierPath, statePath, program, sessionID, label, cfg.UI.Theme.Label)
+	hookDir, err := WriteHookDir(carrierPath, statePath, program, sessionID, label, cfg.UI.Theme.Label, !opts.Quiet)
 	if err != nil {
 		return State{}, err
 	}
@@ -64,9 +80,9 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 		"CARRIER_SHELL_STATE="+statePath,
 		fmt.Sprintf("CARRIER_SESSION_ID=%d", sessionID),
 		"CARRIER_SESSION_LABEL="+label,
-		boolEnv("CARRIER_NOTIFY", notify),
-		boolEnv("CARRIER_NOTIFY_ALWAYS", notifyAlways),
-		boolEnv("CARRIER_NO_REDACT", noRedact),
+		boolEnv("CARRIER_NOTIFY", opts.Notify),
+		boolEnv("CARRIER_NOTIFY_ALWAYS", opts.NotifyAlways),
+		boolEnv("CARRIER_NO_REDACT", opts.NoRedact),
 	)
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
@@ -85,7 +101,7 @@ func Run(cfg config.Config, notify, notifyAlways, noRedact bool, sessionID int64
 		defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 	}
 	go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
-	redactor := logs.NewRedactorWithBuiltins(cfg.Redaction.Enabled && !noRedact, cfg.Redaction.Patterns)
+	redactor := logs.NewRedactorWithBuiltins(cfg.Redaction.Enabled && !opts.NoRedact, cfg.Redaction.Patterns)
 	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
 	state := &StateFile{Path: statePath}
 	logWriter := &sessionLogWriter{redactor: redactor, maxOutputBytes: maxOutputBytes}

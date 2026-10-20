@@ -192,3 +192,7 @@ Search command and cwd terms too:
 carrier search "go test"
 carrier search "project-name"
 ```
+
+## Every terminal starts a carrier session
+
+That is the line from `carrier init` in your shell config. Skip it for one terminal with `CARRIER_NO_AUTO=1`, or remove the line to turn it off. If carrier cannot start, the terminal continues as a normal shell and prints the reason.

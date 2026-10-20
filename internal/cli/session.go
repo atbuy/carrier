@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,7 +18,7 @@ func (a *app) sessionCmd() *cobra.Command {
 		Aliases: []string{"se"},
 		Short:   "manage shell session labels and history",
 	}
-	cmd.AddCommand(a.sessionLabelCmd(), a.sessionListCmd())
+	cmd.AddCommand(a.sessionLabelCmd(), a.sessionListCmd(), a.sessionKeepCmd(true), a.sessionKeepCmd(false))
 	return cmd
 }
 
@@ -29,7 +31,12 @@ func (a *app) sessionLabelCmd() *cobra.Command {
   carrier session label 3 debug run     # set label on session 3
   carrier session label debug run       # set label on $CARRIER_SESSION_ID
   carrier session label 3               # clear label on session 3
-  carrier session label                 # clear label on $CARRIER_SESSION_ID`,
+  carrier session label                 # clear label on $CARRIER_SESSION_ID
+
+A label that starts with a number is read as a session ID; pass the ID first
+("carrier session label $CARRIER_SESSION_ID 1234 fix") to use one.
+
+Labeled automatic sessions never expire.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, labelParts, err := parseSessionIDAndLabel(args)
@@ -45,6 +52,9 @@ func (a *app) sessionLabelCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(out, "carrier: session %d label cleared\n", id)
 			} else {
 				_, _ = fmt.Fprintf(out, "carrier: session %d labeled %q\n", id, label)
+				if sess, err := a.st.GetSession(id); err == nil && sess.Auto && !sess.Kept {
+					printHint(cmd, "labeled automatic sessions are kept and never expire")
+				}
 			}
 			return nil
 		},
@@ -79,12 +89,20 @@ func (a *app) sessionListCmd() *cobra.Command {
 				} else {
 					duration = " " + t.Success.Render("active")
 				}
+				flags := ""
+				if sess.Auto {
+					flags += " " + t.Muted.Render("auto")
+				}
+				if sess.Kept {
+					flags += " " + t.Accent.Render("kept")
+				}
 				_, _ = fmt.Fprintf(
-					out, "%s  %s  %s%s\n",
+					out, "%s  %s  %s%s%s\n",
 					t.Accent.Render(fmt.Sprintf("%6d", sess.ID)),
 					t.Muted.Render(padRight(formatRelativeTime(sess.StartedAt), 9)),
 					t.Label.Render(label),
 					duration,
+					flags,
 				)
 			}
 			return nil
@@ -92,6 +110,45 @@ func (a *app) sessionListCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVarP(&limit, "limit", "l", 100, "maximum number of sessions to show")
 	return cmd
+}
+
+// sessionKeepCmd builds "session keep" (keep=true) or "session unkeep".
+func (a *app) sessionKeepCmd(keep bool) *cobra.Command {
+	use, short, done := "keep", "keep a session so it never expires", "kept"
+	if !keep {
+		use, short, done = "unkeep", "let an automatic session expire again", "no longer kept"
+	}
+	return &cobra.Command{
+		Use:   use + " [<id-or-label>]",
+		Short: short,
+		Long: fmt.Sprintf(`Automatic sessions (started by "carrier shell --auto") expire after
+shell.auto_session_retention unless they have a label, notes, or are kept.
+
+  carrier session %[1]s           # the current session ($CARRIER_SESSION_ID)
+  carrier session %[1]s 12        # session 12
+  carrier session %[1]s api-debug # by label`, use),
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var id int64
+			if len(args) == 1 {
+				sess, err := resolveSession(cmd, a.st, args[0])
+				if err != nil {
+					return err
+				}
+				id = sess.ID
+			} else if id = currentSessionID(); id == 0 {
+				return fmt.Errorf("no session given and $CARRIER_SESSION_ID is not set")
+			}
+			if err := a.st.SetSessionKept(id, keep); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return fmt.Errorf("session %d not found", id)
+				}
+				return err
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "carrier: session %d %s\n", id, done)
+			return nil
+		},
+	}
 }
 
 // parseSessionIDAndLabel splits args into (sessionID, labelParts).
