@@ -186,3 +186,5 @@ Keep only the latest N runs:
 carrier clean --keep-last 500 --dry-run
 carrier clean --keep-last 500 --yes
 ```
+
+Automatic sessions expire on their own after `shell.auto_session_retention`; see [Keep or expire automatic sessions](../advanced/shell-mode.md#keep-or-expire-automatic-sessions).

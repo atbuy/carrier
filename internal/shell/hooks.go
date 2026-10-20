@@ -8,7 +8,9 @@ import (
 	"strings"
 )
 
-func WriteHookDir(carrierPath, statePath, shellProgram string, sessionID int64, label, labelColor string) (string, error) {
+// WriteHookDir writes the shell hooks for shellProgram into a new temporary
+// directory. banner prints the one-line session banner at startup.
+func WriteHookDir(carrierPath, statePath, shellProgram string, sessionID int64, label, labelColor string, banner bool) (string, error) {
 	dir, err := os.MkdirTemp("", "carrier-shell-*")
 	if err != nil {
 		return "", err
@@ -16,13 +18,13 @@ func WriteHookDir(carrierPath, statePath, shellProgram string, sessionID int64, 
 	name := filepath.Base(shellProgram)
 	switch {
 	case strings.Contains(name, "zsh"):
-		return dir, os.WriteFile(filepath.Join(dir, ".zshrc"), []byte(zshHooks(carrierPath, statePath, sessionID, label, labelColor)), 0o600)
+		return dir, os.WriteFile(filepath.Join(dir, ".zshrc"), []byte(zshHooks(carrierPath, statePath, sessionID, label, labelColor, banner)), 0o600)
 	case strings.Contains(name, "bash"):
-		return dir, os.WriteFile(filepath.Join(dir, ".bashrc"), []byte(bashHooks(carrierPath, statePath, sessionID, label, labelColor)), 0o600)
+		return dir, os.WriteFile(filepath.Join(dir, ".bashrc"), []byte(bashHooks(carrierPath, statePath, sessionID, label, labelColor, banner)), 0o600)
 	case strings.Contains(name, "fish"):
-		return dir, os.WriteFile(filepath.Join(dir, "carrier.fish"), []byte(fishHooks(carrierPath, statePath, sessionID, label, labelColor)), 0o600)
+		return dir, os.WriteFile(filepath.Join(dir, "carrier.fish"), []byte(fishHooks(carrierPath, statePath, sessionID, label, labelColor, banner)), 0o600)
 	default:
-		return dir, os.WriteFile(filepath.Join(dir, ".zshrc"), []byte(zshHooks(carrierPath, statePath, sessionID, label, labelColor)), 0o600)
+		return dir, os.WriteFile(filepath.Join(dir, ".zshrc"), []byte(zshHooks(carrierPath, statePath, sessionID, label, labelColor, banner)), 0o600)
 	}
 }
 
@@ -32,6 +34,14 @@ func termTitle(sessionID int64, label string) string {
 		return fmt.Sprintf("carrier #%d · %s", sessionID, label)
 	}
 	return fmt.Sprintf("carrier #%d", sessionID)
+}
+
+// startupBanner returns the banner command, or nothing when banner is false.
+func startupBanner(banner bool, sessionID int64, label, labelColor string) string {
+	if !banner {
+		return ""
+	}
+	return shellBanner(sessionID, label, labelColor)
 }
 
 // shellBanner returns a printf command that prints a one-line colored startup
@@ -102,7 +112,7 @@ func fishColor(color string) string {
 	return color
 }
 
-func zshHooks(carrierPath, statePath string, sessionID int64, label, labelColor string) string {
+func zshHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
 	title := termTitle(sessionID, label)
 	// _carrier_rprompt is embedded so no runtime env var lookup is needed.
 	rprompt := fmt.Sprintf("%%B%%F{%s}%s%%f%%b", zshColor(labelColor), shellSessionText(sessionID))
@@ -136,10 +146,10 @@ add-zsh-hook preexec _carrier_preexec
 add-zsh-hook precmd _carrier_precmd
 %s
 printf '\033]0;%s\007'
-`, carrierPath, statePath, carrierPath, statePath, title, rprompt, shellBanner(sessionID, label, labelColor), title)
+`, carrierPath, statePath, carrierPath, statePath, title, rprompt, startupBanner(banner, sessionID, label, labelColor), title)
 }
 
-func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor string) string {
+func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
 	title := termTitle(sessionID, label)
 	// Static indicator embedded at hook-write time; no env var lookups at runtime.
 	indicator := fmt.Sprintf(`\[%s\]%s\[\033[0m\] `, shellANSIColor(labelColor, true), shellSessionText(sessionID))
@@ -226,10 +236,10 @@ _carrier_at_prompt=1
 PS0="${PS0:-}"'$(_carrier_ps0)'
 PROMPT_COMMAND=_carrier_end
 trap _carrier_begin DEBUG
-`, carrierPath, statePath, indicator, indicator, carrierPath, statePath, title, shellBanner(sessionID, label, labelColor), title)
+`, carrierPath, statePath, indicator, indicator, carrierPath, statePath, title, startupBanner(banner, sessionID, label, labelColor), title)
 }
 
-func fishHooks(carrierPath, statePath string, sessionID int64, label, labelColor string) string {
+func fishHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
 	title := termTitle(sessionID, label)
 	// Build the carrier indicator string for fish_right_prompt.
 	indicator := fmt.Sprintf("carrier #%d", sessionID)
@@ -273,5 +283,5 @@ function fish_right_prompt
 end
 %s
 printf '\033]0;%s\007'
-`, carrierPath, statePath, carrierPath, statePath, title, fishColor(labelColor), indicator, labelIndicator, fishColor(labelColor), labelIndicator, shellBanner(sessionID, label, labelColor), title)
+`, carrierPath, statePath, carrierPath, statePath, title, fishColor(labelColor), indicator, labelIndicator, fishColor(labelColor), labelIndicator, startupBanner(banner, sessionID, label, labelColor), title)
 }

@@ -993,3 +993,59 @@ func TestCheckRejectsInvalidSimilarMinAge(t *testing.T) {
 		}
 	}
 }
+
+func TestParseRetention(t *testing.T) {
+	cases := map[string]time.Duration{
+		"":    0,
+		"0":   0,
+		"30d": 30 * 24 * time.Hour,
+		"1d":  24 * time.Hour,
+		"12h": 12 * time.Hour,
+	}
+	for in, want := range cases {
+		got, err := ParseRetention(in)
+		if err != nil || got != want {
+			t.Errorf("ParseRetention(%q) = %s, %v; want %s", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"soon", "-1d", "xd", "-5h"} {
+		if _, err := ParseRetention(bad); err == nil {
+			t.Errorf("ParseRetention(%q) should fail", bad)
+		}
+	}
+}
+
+func TestAutoSessionRetentionDefaultAndCheck(t *testing.T) {
+	cfg := Default()
+	if got := cfg.AutoSessionRetentionDuration(); got != 30*24*time.Hour {
+		t.Fatalf("default auto_session_retention = %s, want 30d", got)
+	}
+	cfg.Shell.AutoSessionRetention = "0"
+	if got := cfg.AutoSessionRetentionDuration(); got != 0 {
+		t.Fatalf("0 should keep forever, got %s", got)
+	}
+	cfg.Shell.AutoSessionRetention = "bogus"
+	if got := cfg.AutoSessionRetentionDuration(); got != 0 {
+		t.Fatalf("invalid retention should not expire anything, got %s", got)
+	}
+	if !hasIssue(Check(cfg), "shell.auto_session_retention") {
+		t.Fatal("expected shell.auto_session_retention issue")
+	}
+}
+
+func TestAutoSessionRetentionFromInclude(t *testing.T) {
+	configDir := setupConfig(t, `includes = ["shell.toml"]`)
+	if err := os.WriteFile(filepath.Join(configDir, "shell.toml"), []byte(`
+[shell]
+auto_session_retention = "7d"
+`), 0o600); err != nil {
+		t.Fatalf("write include: %v", err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.AutoSessionRetentionDuration(); got != 7*24*time.Hour {
+		t.Fatalf("retention from include = %s, want 7d", got)
+	}
+}

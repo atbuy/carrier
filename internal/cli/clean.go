@@ -15,16 +15,41 @@ func (a *app) cleanCmd() *cobra.Command {
 	var keepLast int
 	var dryRun bool
 	var yes bool
+	var sessions bool
 	cmd := &cobra.Command{
 		Use:     "clean",
 		Aliases: []string{"cl"},
 		Short:   "delete old records and logs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if olderThan == "" && keepLast == 0 {
-				return fmt.Errorf("at least one of --older-than or --keep-last is required")
+			if olderThan == "" && keepLast == 0 && !sessions {
+				return fmt.Errorf("at least one of --older-than, --keep-last, or --sessions is required")
 			}
 			out := cmd.OutOrStdout()
 			t := newTheme(out)
+			if sessions {
+				if !dryRun && !yes {
+					return fmt.Errorf("refusing to delete without --yes; use --dry-run to preview")
+				}
+				expired, runs, err := a.expireAutoSessions(time.Now(), dryRun)
+				if err != nil {
+					return err
+				}
+				verb := t.Danger.Render("deleted")
+				if dryRun {
+					verb = t.Warning.Render("would delete")
+					for _, sess := range expired {
+						_, _ = fmt.Fprintf(out, "%s  %s  %s\n",
+							t.Accent.Render(fmt.Sprintf("%d", sess.ID)),
+							t.Muted.Render(formatRelativeTime(sess.StartedAt)),
+							t.Muted.Render("auto session"))
+					}
+				}
+				_, _ = fmt.Fprintf(out, "%s %s %s (%s runs)\n", verb, t.ID.Render(fmt.Sprintf("%d", len(expired))),
+					"expired automatic sessions", t.ID.Render(fmt.Sprintf("%d", len(runs))))
+				if olderThan == "" && keepLast == 0 {
+					return nil
+				}
+			}
 
 			if dryRun {
 				runs, err := a.previewClean(olderThan, keepLast)
@@ -69,6 +94,7 @@ func (a *app) cleanCmd() *cobra.Command {
 	cmd.Flags().IntVar(&keepLast, "keep-last", 0, "keep only the N most recent runs, delete the rest")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "show records that would be deleted without deleting")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "confirm deletion")
+	cmd.Flags().BoolVar(&sessions, "sessions", false, "delete automatic sessions older than shell.auto_session_retention")
 	return cmd
 }
 

@@ -45,7 +45,7 @@ printf '%s %s\n' "$2" "$6" >> "` + logPath + `"
 		t.Fatalf("write fake carrier: %v", err)
 	}
 
-	hookDir, err := WriteHookDir(fakeCarrier, filepath.Join(dir, "state.json"), bash, 1, "", "")
+	hookDir, err := WriteHookDir(fakeCarrier, filepath.Join(dir, "state.json"), bash, 1, "", "", true)
 	if err != nil {
 		t.Fatalf("WriteHookDir: %v", err)
 	}

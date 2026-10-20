@@ -64,6 +64,7 @@ failure = true
 [shell]
 program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
+auto_session_retention = "30d"
 
 [hints]
 similar_failures = false
@@ -244,6 +245,18 @@ Default:
 ```
 
 Shell mode also ignores carrier's own internal hook commands.
+
+### `auto_session_retention`
+
+Type: duration, with `d` for days  
+Default: `"30d"`
+
+How long automatic sessions (started by the line from `carrier init`) are kept after they end. Expired sessions are deleted with their runs and logs. Sessions with a label, notes, or `carrier session keep` never expire, nor do sessions started with `carrier shell`. `"0"` keeps everything.
+
+```toml
+[shell]
+auto_session_retention = "30d"
+```
 
 ## `[hints]`
 
@@ -494,6 +507,7 @@ when no label is provided at invocation time.
 | `notify.min_duration`     | error if empty, invalid, or negative                  |
 | `shell.program`           | error if blank whitespace                             |
 | `shell.ignore_commands[]` | warning for blank command names                       |
+| `shell.auto_session_retention` | error if invalid or negative                     |
 | `hints.similar_min_age`   | error if invalid or negative                          |
 | `ui.color`                | error if not `auto`, `always`, or `never`             |
 | `ui.theme.*`              | error for invalid `#hex` color values                 |

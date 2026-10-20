@@ -511,6 +511,29 @@ The label appears in `carrier history` session headers and in `carrier session l
 
 Use `carrier run` when precise stdout/stderr capture matters. See [Shell mode](../advanced/shell-mode.md).
 
+| Flag                | Meaning                                                              |
+| ------------------- | -------------------------------------------------------------------- |
+| `--label <text>`    | Label for the session                                                |
+| `--program <shell>` | Shell to run instead of `shell.program` or `$SHELL`                  |
+| `--auto`            | Start an automatic session; used by the line from [`init`](#init)    |
+
+## `init`
+
+Print the shell config snippet that records every terminal in an automatic session:
+
+```bash title="Record every terminal"
+# ~/.zshrc
+eval "$(carrier init zsh)"
+
+# ~/.bashrc
+eval "$(carrier init bash)"
+
+# ~/.config/fish/config.fish
+carrier init fish | source
+```
+
+Without an argument, `init` uses the shell from `$SHELL`. See [Record every terminal](../advanced/shell-mode.md#record-every-terminal) for how it works and how to turn it off.
+
 ## `attach`
 
 Attach to an existing shell session by session ID or label:
@@ -558,6 +581,23 @@ carrier session label backend-debug
 carrier session label               # clear current session label
 ```
 
+A first word that is a number is read as a session ID, so `carrier session label 1234 fix` labels session 1234. To start a label with a number, pass the ID first: `carrier session label $CARRIER_SESSION_ID 1234 fix`.
+
+Labeling an automatic session also keeps it from expiring.
+
+### `session keep`
+
+Keep an automatic session so it never expires, or let it expire again:
+
+```bash title="Keep sessions"
+carrier session keep              # the current session
+carrier session keep 12
+carrier session keep api-debug
+carrier session unkeep 12
+```
+
+`carrier session list` marks automatic sessions with `auto` and kept ones with `kept`.
+
 ## `clean`
 
 Preview deletion:
@@ -579,6 +619,13 @@ Keep only recent records:
 ```bash title="Retention by count"
 carrier clean --keep-last 500 --dry-run
 carrier clean --keep-last 500 --yes
+```
+
+Delete automatic sessions older than [`shell.auto_session_retention`](../reference/configuration.md#auto_session_retention), with their runs and logs:
+
+```bash title="Expire automatic sessions"
+carrier clean --sessions --dry-run
+carrier clean --sessions --yes
 ```
 
 Deletion requires `--yes`. Use `--dry-run` first.

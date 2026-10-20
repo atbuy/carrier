@@ -23,15 +23,25 @@ const (
 // It checks whether the sidecar timestamp file is older than interval, which
 // prevents the (usually no-op) UPDATE from firing on every carrier invocation.
 func staleCheckDue(dataDir string, interval time.Duration) bool {
-	info, err := os.Stat(filepath.Join(dataDir, staleCheckFilename))
+	return sidecarDue(dataDir, staleCheckFilename, interval)
+}
+
+func touchStaleCheck(dataDir string) {
+	touchSidecar(dataDir, staleCheckFilename)
+}
+
+// sidecarDue reports whether the timestamp file name in dataDir is missing or
+// older than interval, for throttling periodic maintenance.
+func sidecarDue(dataDir, name string, interval time.Duration) bool {
+	info, err := os.Stat(filepath.Join(dataDir, name))
 	if err != nil {
 		return true
 	}
 	return time.Since(info.ModTime()) >= interval
 }
 
-func touchStaleCheck(dataDir string) {
-	_ = os.WriteFile(filepath.Join(dataDir, staleCheckFilename), []byte(time.Now().UTC().Format(time.RFC3339)), 0o600)
+func touchSidecar(dataDir, name string) {
+	_ = os.WriteFile(filepath.Join(dataDir, name), []byte(time.Now().UTC().Format(time.RFC3339)), 0o600)
 }
 
 type app struct {
@@ -59,13 +69,20 @@ func Execute() int {
 			if _, err := a.ensureConfig(); err != nil {
 				return err
 			}
-			if cmd.CommandPath() == "carrier version" {
+			if cmd.CommandPath() == "carrier version" || cmd.CommandPath() == "carrier init" {
+				// init runs on every terminal start; it needs no database.
 				return nil
 			}
 			if strings.HasPrefix(cmd.CommandPath(), "carrier config") {
 				return nil
 			}
-			return a.open()
+			if err := a.open(); err != nil {
+				if auto, _ := cmd.Flags().GetBool("auto"); auto && cmd.Name() == "shell" {
+					return autoStartError(true, err)
+				}
+				return err
+			}
+			return nil
 		},
 	}
 	root.PersistentFlags().BoolVarP(&a.notify, "notify", "n", false, "request notification when command finishes")
@@ -73,7 +90,7 @@ func Execute() int {
 	root.PersistentFlags().BoolVarP(&a.quiet, "quiet", "q", false, "suppress carrier status output")
 	root.PersistentFlags().BoolVar(&a.noRedact, "no-redact", false, "disable persisted log redaction for this run")
 
-	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
+	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
 	installHelp(root)
 	root.SetArgs(rewriteRunRefArgs(root, os.Args[1:]))
 	if err := root.Execute(); err != nil {

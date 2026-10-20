@@ -37,7 +37,7 @@ printf 'TOKEN=secret\n'
 	cfg.Redaction.Enabled = true
 	cfg.Redaction.Patterns = []string{`TOKEN=\S+`}
 
-	if _, err := Run(cfg, false, false, false, 0, "", nil); err != nil {
+	if _, err := Run(cfg, Options{}); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -418,7 +418,7 @@ sleep 0.3
 	}
 	stdout := os.Stdout
 	os.Stdout = w
-	_, runErr := Run(cfg, false, false, false, 1, "", onRunEnd)
+	_, runErr := Run(cfg, Options{SessionID: 1, OnRunEnd: onRunEnd})
 	os.Stdout = stdout
 	_ = w.Close()
 	terminal, _ := io.ReadAll(r)

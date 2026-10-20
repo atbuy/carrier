@@ -46,7 +46,7 @@ func TestCleanRequiresAtLeastOneFlag(t *testing.T) {
 	if err == nil {
 		t.Fatalf("clean without any filter flag succeeded")
 	}
-	if !strings.Contains(err.Error(), "--older-than or --keep-last") {
+	if !strings.Contains(err.Error(), "--older-than, --keep-last, or --sessions") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

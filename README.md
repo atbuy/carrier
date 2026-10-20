@@ -53,6 +53,7 @@ New users should start with the [Getting started guide](https://atbuy.github.io/
 - `carrier shell` starts a PTY-backed tracked shell session (alpha). Each shell session groups its runs in `carrier history`, `carrier history --session my-session`, and `carrier history --sessions-only`.
 - `carrier attach <id-or-label>` re-opens an existing shell session from a different terminal.
 - `carrier session list` lists shell sessions; `carrier session label` sets or clears a session label.
+- `eval "$(carrier init zsh)"` in your shell config records every terminal in an automatic session; unlabeled ones expire after 30 days (`shell.auto_session_retention`).
 - optional similar-failure hints point at an earlier run with the same error (`[hints] similar_failures = true`); `carrier similar <id>` lists them.
 - `carrier note <text>` adds a note to the current shell session or a run, so you can record why you ran something. Notes show up in `history` and `show` and are searchable.
 
@@ -144,6 +145,8 @@ carrier shell 'my-session'         # alpha: start named session
 carrier attach my-session          # alpha: re-join existing session
 carrier session list               # list sessions
 carrier session label 5 my-label   # label a session
+carrier session keep               # keep the current automatic session
+carrier init zsh                   # shell config line to record every terminal
 carrier note suspect DNS cache     # note in the current session
 carrier notes                      # list notes
 carrier last
@@ -199,6 +202,7 @@ failure = true
 [shell]
 program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
+auto_session_retention = "30d"
 ```
 
 ## Shell Mode Status

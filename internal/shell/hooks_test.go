@@ -8,7 +8,7 @@ import (
 )
 
 func TestWriteHookDirZsh(t *testing.T) {
-	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/zsh", 3, "my-label", "#FF00AA")
+	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/zsh", 3, "my-label", "#FF00AA", true)
 	if err != nil {
 		t.Fatalf("WriteHookDir zsh: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestWriteHookDirZsh(t *testing.T) {
 }
 
 func TestWriteHookDirFish(t *testing.T) {
-	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/fish", 7, "work", "#00FF66")
+	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/fish", 7, "work", "#00FF66", true)
 	if err != nil {
 		t.Fatalf("WriteHookDir fish: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestWriteHookDirFish(t *testing.T) {
 }
 
 func TestWriteHookDirUnsupportedShellFallsBackToZsh(t *testing.T) {
-	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/unknown", 1, "", "#FF00AA")
+	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/unknown", 1, "", "#FF00AA", true)
 	if err != nil {
 		t.Fatalf("WriteHookDir unknown: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestWriteHookDirUnsupportedShellFallsBackToZsh(t *testing.T) {
 }
 
 func TestWriteHookDirBash(t *testing.T) {
-	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/bash", 5, "build", "#FF00AA")
+	dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", "/bin/bash", 5, "build", "#FF00AA", true)
 	if err != nil {
 		t.Fatalf("WriteHookDir bash: %v", err)
 	}
@@ -117,5 +117,23 @@ func TestShellLabelColorFormats(t *testing.T) {
 	}
 	if got := fishColor("#01020A"); got != "01020A" {
 		t.Fatalf("fishColor hex = %q", got)
+	}
+}
+
+func TestWriteHookDirWithoutBanner(t *testing.T) {
+	for _, program := range []string{"/bin/zsh", "/bin/bash", "/bin/fish"} {
+		dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", program, 4, "quiet", "#FF00AA", false)
+		if err != nil {
+			t.Fatalf("WriteHookDir %s: %v", program, err)
+		}
+		entries, _ := os.ReadDir(dir)
+		contents, _ := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+		_ = os.RemoveAll(dir)
+		if strings.Contains(string(contents), shellBanner(4, "quiet", "#FF00AA")) {
+			t.Fatalf("%s hooks should not print the banner when quiet", program)
+		}
+		if !strings.Contains(string(contents), "internal begin") {
+			t.Fatalf("%s hooks missing tracking", program)
+		}
 	}
 }

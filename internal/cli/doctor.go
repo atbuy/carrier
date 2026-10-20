@@ -14,6 +14,7 @@ import (
 
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/notify"
+	carriershell "github.com/atbuy/carrier/internal/shell"
 	"github.com/atbuy/carrier/internal/version"
 )
 
@@ -51,6 +52,7 @@ func (a *app) runDoctor(w io.Writer) error {
 	check(w, t, "notify", notify.Available(), "optional desktop notifications", nil)
 	check(w, t, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
 	check(w, t, "shell mode", false, "alpha: use carrier run for precise capture", nil)
+	check(w, t, "auto session", true, autoSessionStatus(a.cfg.Shell.Program, a.cfg.Shell.AutoSessionRetention), nil)
 	check(w, t, "terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
 	return nil
 }
@@ -111,6 +113,40 @@ func shellProgram(configured string) string {
 func shellSupported(configured string) bool {
 	name := filepath.Base(shellProgram(configured))
 	return strings.Contains(name, "zsh") || strings.Contains(name, "bash")
+}
+
+// shellConfigFiles lists the config files that load "carrier init".
+func shellConfigFiles(home string) map[string]string {
+	zdot := os.Getenv("ZDOTDIR")
+	if zdot == "" {
+		zdot = home
+	}
+	return map[string]string{
+		"zsh":  filepath.Join(zdot, ".zshrc"),
+		"bash": filepath.Join(home, ".bashrc"),
+		"fish": filepath.Join(home, ".config", "fish", "config.fish"),
+	}
+}
+
+// autoSessionStatus reports which shell configs run "carrier init", or how to
+// turn automatic sessions on for the current shell.
+func autoSessionStatus(configured, retention string) string {
+	home, _ := os.UserHomeDir()
+	files := shellConfigFiles(home)
+	var enabled []string
+	for _, name := range carriershell.InitShells {
+		if b, err := os.ReadFile(files[name]); err == nil && strings.Contains(string(b), "carrier init") {
+			enabled = append(enabled, collapseHome(files[name]))
+		}
+	}
+	if len(enabled) > 0 {
+		return fmt.Sprintf("on in %s (kept %s)", strings.Join(enabled, ", "), retention)
+	}
+	name := filepath.Base(shellProgram(configured))
+	if file, ok := files[name]; ok {
+		return fmt.Sprintf("off; add %s to %s", carriershell.InitLine(name), collapseHome(file))
+	}
+	return "off; see carrier init"
 }
 
 func dirSize(path string) int64 {

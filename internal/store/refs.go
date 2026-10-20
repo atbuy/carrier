@@ -31,7 +31,7 @@ func (s *Store) ListLabeledRuns() ([]Run, error) {
 
 // ListLabeledSessions returns every session with a label, newest first.
 func (s *Store) ListLabeledSessions() ([]Session, error) {
-	rows, err := s.db.Query(`SELECT id, label, started_at, ended_at FROM shell_sessions WHERE label != '' ORDER BY id DESC`)
+	rows, err := s.db.Query(`SELECT ` + sessionCols + ` FROM shell_sessions WHERE label != '' ORDER BY id DESC`)
 	if err != nil {
 		return nil, err
 	}
