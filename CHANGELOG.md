@@ -2,6 +2,17 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.0.0] - 2026-10-20
+
+### Changed
+
+- carrier 1.0 is the first stable release. From now on, commands, flags, exit codes, JSON output, config settings, and your data are meant to stay compatible across 1.x releases, and anything that has to break is marked **Breaking:** here. See the Compatibility page in the docs for what is covered.
+- Since 0.1.0, carrier has grown from recording single commands into a record of whole debugging sessions: shell mode for zsh, bash, and fish, automatic sessions for every terminal, notes, labels and run shortcuts, similar-failure hints, full-text search, a TUI, and the `carrier setup` wizard. Run `carrier changelog --since 0.1.0` for the full history.
+
+### Added
+
+- A Compatibility page in the docs describing what we aim to keep stable from 1.0, such as commands, flags, exit codes, JSON fields, config settings, and data upgrades, and what may change in any release.
+
 ## [0.34.0] - 2026-10-20
 
 ### Changed

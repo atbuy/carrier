@@ -11,7 +11,7 @@ This page covers supported install paths.
     ```
 
     ```bash title="Install a specific version"
-    curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
+    curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v1.0.0
     ```
 
     ```bash title="Install system-wide"
@@ -25,7 +25,7 @@ This page covers supported install paths.
     ```
 
     ```powershell title="Install a specific version"
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v1.0.0"
     ```
 
     ```powershell title="Install system-wide"

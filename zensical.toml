@@ -26,6 +26,7 @@ nav = [
     "reference/environment.md",
     "reference/storage-and-state.md",
     "reference/release-install.md",
+    "reference/compatibility.md",
     "reference/troubleshooting.md"
   ]},
   {"FAQ" = "faq.md"}

@@ -118,6 +118,8 @@ Yes, but prefer read-only queries.
 sqlite3 ~/.local/share/carrier/carrier.db 'select id,status,command from runs order by id desc limit 10;'
 ```
 
+The database schema can change in any release, so scripts should use `--json` instead. See [Compatibility](reference/compatibility.md).
+
 ## How do I delete old data?
 
 Preview:
@@ -160,3 +162,7 @@ carrier doctor
 ## Where do I find every command and flag?
 
 See [Commands](guide/commands.md).
+
+## Will upgrading break my scripts?
+
+It should not within a major version. We aim to keep commands, flags, exit codes, JSON fields, and config settings compatible across 1.x releases, and your data is upgraded automatically. Anything that does break is marked **Breaking:** in the changelog. See [Compatibility](reference/compatibility.md) for the details and what may change.

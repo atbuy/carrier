@@ -71,7 +71,7 @@ curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh
 Install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v0.1.0
+curl -fsSL https://raw.githubusercontent.com/atbuy/carrier/main/install.sh | sh -s -- --version v1.0.0
 ```
 
 Windows PowerShell:
@@ -83,7 +83,7 @@ irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1 | iex
 Install a specific version on Windows:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v0.1.0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v1.0.0"
 ```
 
 Installers download prebuilt binaries from [GitHub Releases](https://github.com/atbuy/carrier/releases). Release notes include checksum verification details for users who want manual validation.
