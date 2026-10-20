@@ -1,39 +1,25 @@
 # Shell mode
 
-`carrier shell` is alpha-quality.
-
-It starts your shell inside a PTY and injects shell hooks so `carrier` can detect command start and end. Each detected command becomes a run grouped under the current session.
+`carrier shell` starts your shell inside a PTY and adds shell hooks so carrier knows when each command line starts and ends. Every command line becomes a run, with its terminal output, exit code, timing, and Git details, grouped under the current session.
 
 ```bash title="Start shell mode"
 carrier shell
 ```
 
-!!! warning
+To record every terminal without starting `carrier shell` yourself, see [Record every terminal](#record-every-terminal).
 
-    Shell mode is useful for experiments and interactive work. Use `carrier run` for precise stdout/stderr capture, reliable exit-code handling, and CI-like command records.
+## Shell mode or `carrier run`
 
-## When to use it
+Both record the command, exit code, timing, working directory, and Git details. They differ in how output is kept:
 
-Use shell mode when:
-
-- you want multi-command tracking under a single session
-- commands are interactive
-- stdout/stderr separation is not important
-- convenience matters more than precision
-
-Use `carrier run` when:
-
-- exit code preservation is critical
-- stdout and stderr must be separate
-- you need reliable output capture
-- you are recording CI-like commands
+- `carrier shell` records the terminal as you saw it, with stdout and stderr together. Use it for everyday work and debugging sessions, where what happened and in what order matters.
+- `carrier run` keeps stdout and stderr in separate logs. Use it when a single command's streams matter on their own, for example in scripts or CI-like checks.
 
 ## Supported shells
 
-Shell mode is best-effort for:
-
 - zsh
-- bash
+- bash (4.4 or newer recommended)
+- fish
 
 `carrier doctor` reports whether the configured shell looks supported.
 
@@ -44,7 +30,7 @@ Architecture:
 ```text
 terminal/tmux
   -> carrier PTY recorder
-    -> zsh/bash
+    -> zsh/bash/fish
       -> user commands
 ```
 
@@ -202,12 +188,9 @@ TUI programs (alternate-screen apps like neovim, lazygit, noteui) run normally i
 
 ## Limitations
 
-- stdout and stderr may be merged
-- prompts and shell plugins can affect detection
-- aliases may change displayed commands
-- TUI (alternate-screen) output is suppressed from terminal logs and cannot be replayed
-- hook internals may behave differently across shell versions
-- bash hook behavior can vary when other tools also modify `DEBUG` or `PROMPT_COMMAND`
+- stdout and stderr are recorded together, as shown in the terminal
+- full-screen (alternate-screen) output is left out of terminal logs, since it cannot be replayed as text
+- in bash, other tools that also set a `DEBUG` trap or `PROMPT_COMMAND` can interfere with the hooks
 - in bash, lines hidden from history with `HISTCONTROL=ignorespace` are recorded by their first command only, for example ` export A=1 && make` is recorded as `export A=1`
 - `carrier shell` is not a drop-in replacement for shell history
 
@@ -229,16 +212,16 @@ Show only terminal output:
 carrier tail 42 --stream terminal
 ```
 
-## Ignore noisy commands
+## Commands recorded without output
 
-Configure commands that shell mode should not track:
+Commands in `shell.ignore_commands` are recorded with their command line, working directory, timing, and exit code, but without their terminal output:
 
 ```toml title="Config"
 [shell]
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
 ```
 
-Interactive full-screen programs are ignored by default because their terminal output is usually noisy.
+Full-screen programs are listed by default: knowing that you opened `vim config.yaml` or `less app.log` matters when you look back, but their screen output cannot be replayed as text. `carrier show` notes that the output was not recorded.
 
 ## Choose a shell
 
@@ -256,6 +239,6 @@ Set a shell explicitly:
 program = "/bin/zsh"
 ```
 
-## Current recommendation
+## Recommendation
 
-Use `carrier run` for important records. Treat `carrier shell` as an experimental convenience layer. When a session matters, label it at start and use `carrier attach` to return to it.
+Record every terminal with the line from `carrier init`, label sessions you will want to find again, and write down what you were thinking with `carrier note`. Use `carrier run` when you need a single command's stdout and stderr kept apart.

@@ -30,8 +30,8 @@ type Options struct {
 	NoRedact     bool
 	SessionID    int64
 	Label        string
-	// Quiet skips the startup banner and the one-time alpha warning, for
-	// shells started automatically from a shell config.
+	// Quiet skips the startup banner, for shells started automatically from
+	// a shell config.
 	Quiet bool
 	// OnRunEnd may be nil.
 	OnRunEnd RunEndFunc
@@ -41,9 +41,6 @@ type Options struct {
 // hook state, whose CurrentID is non-zero when a command was still in flight
 // as the shell exited (e.g. "exit" itself), so the caller can finish that run.
 func Run(cfg config.Config, opts Options) (State, error) {
-	if !opts.Quiet {
-		warnShellAlphaOnce(cfg.Storage.DataDir)
-	}
 	sessionID, label, onRunEnd := opts.SessionID, opts.Label, opts.OnRunEnd
 	program := cfg.Shell.Program
 	if program == "" {
@@ -148,21 +145,6 @@ func shellArgs(program, hookDir string) []string {
 	default:
 		return []string{"-i"}
 	}
-}
-
-func warnShellAlphaOnce(dataDir string) {
-	if dataDir == "" {
-		return
-	}
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return
-	}
-	path := filepath.Join(dataDir, "shell-alpha-warning")
-	if _, err := os.Stat(path); err == nil {
-		return
-	}
-	_, _ = os.Stderr.WriteString("carrier: shell mode is alpha; use carrier run for precise capture\n")
-	_ = os.WriteFile(path, []byte("shown\n"), 0o600)
 }
 
 func boolEnv(k string, v bool) string {

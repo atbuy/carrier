@@ -58,7 +58,7 @@ carrier running
 carrier tail 42
 ```
 
-For interactive terminal sessions, try alpha shell mode:
+For interactive terminal sessions, use shell mode:
 
 ```bash title="Start tracked shell"
 carrier shell

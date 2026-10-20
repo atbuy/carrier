@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/atbuy/carrier/internal/store"
 )
 
 func TestLastNLines(t *testing.T) {
@@ -111,5 +114,22 @@ func TestLastNLinesMultilineNoTrailingNewline(t *testing.T) {
 	lines := strings.Split(strings.TrimSuffix(got, "\n"), "\n")
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 lines, got %d: %q", len(lines), got)
+	}
+}
+
+func TestShowCmdExplainsMissingShellOutput(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	st := openCmdStore(t)
+	defer func() { _ = st.Close() }()
+	id, err := st.CreateRun(store.CreateRun{
+		Status: store.StatusRunning, Mode: store.ModeShell, Command: "vim notes.md", ArgvJSON: `["vim notes.md"]`,
+		CWD: "/tmp", StartedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	out, _, err := runEmpty(t, (&app{st: st}).showCmd(), []string{fmt.Sprint(id)}, nil)
+	if err != nil || !strings.Contains(out, "output not recorded: the command is in shell.ignore_commands") {
+		t.Fatalf("show: %v\n%s", err, out)
 	}
 }

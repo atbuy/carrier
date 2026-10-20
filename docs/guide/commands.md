@@ -494,7 +494,7 @@ Useful flags:
 
 ## `shell`
 
-Start an alpha tracked shell session:
+Start a recorded shell session:
 
 ```bash title="Shell mode"
 carrier shell

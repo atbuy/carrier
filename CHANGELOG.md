@@ -2,6 +2,21 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [0.32.0] - 2026-10-20
+
+### Changed
+
+- Shell mode is no longer experimental: the alpha warning, the `(alpha)` label in help, and the `doctor` warning are gone. zsh, bash, and fish are tested in a real shell for every change.
+- Commands in `shell.ignore_commands`, such as `vim` and `less`, are recorded with their command line, timing, and exit code instead of being skipped; only their output is left out, and `carrier show` says so.
+- `carrier doctor` reports fish as a supported shell.
+
+### Fixed
+
+- In zsh, the session indicator on the right of the prompt no longer repeats after every command.
+- In zsh, pressing Enter on an empty line no longer starts an extra carrier process before the prompt.
+- With fish, closing an automatic session now closes the terminal instead of leaving a second, unrecorded fish prompt.
+- In fish automatic sessions, a terminal opened and closed without running anything no longer leaves a session behind.
+
 ## [0.31.0] - 2026-10-20
 
 ### Added

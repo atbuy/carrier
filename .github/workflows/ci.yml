@@ -22,6 +22,10 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install zsh and fish
+        # The shell hook tests run every supported shell for real.
+        run: sudo apt-get update -q && sudo apt-get install -y -q zsh fish
+
       - name: Install tools
         run: |
           go install mvdan.cc/gofumpt@latest

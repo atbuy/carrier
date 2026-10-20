@@ -43,8 +43,11 @@ func TestDoctorShellProgramAndSupport(t *testing.T) {
 	if !shellSupported("/bin/zsh") {
 		t.Fatalf("zsh should be supported")
 	}
-	if shellSupported("/bin/fish") {
-		t.Fatalf("fish should not be supported")
+	if !shellSupported("/bin/fish") {
+		t.Fatalf("fish should be supported")
+	}
+	if shellSupported("/bin/tcsh") {
+		t.Fatalf("tcsh should not be supported")
 	}
 }
 

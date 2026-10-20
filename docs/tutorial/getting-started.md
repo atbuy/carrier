@@ -208,7 +208,7 @@ c tui
 
 Inside the browser you can move through runs, filter by command/status/cwd/label, label important runs, delete old runs, and choose a run to rerun. Reruns start after the browser exits so the command runs in your normal terminal.
 
-## Shell sessions (alpha)
+## Shell sessions
 
 `carrier shell` starts a tracked shell where every command is recorded automatically and grouped under a session. Label it so you can find it later:
 
@@ -228,7 +228,7 @@ Use `carrier attach` to re-open a session from a different terminal:
 c attach my-debug-session
 ```
 
-Shell mode is alpha and best-effort for zsh/bash. See [Shell mode](../advanced/shell-mode.md) for details.
+Shell mode supports zsh, bash, and fish. To record every terminal automatically, run `carrier setup`. See [Shell mode](../advanced/shell-mode.md) for details.
 
 ## Next steps
 

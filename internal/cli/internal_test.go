@@ -12,28 +12,35 @@ import (
 	"github.com/atbuy/carrier/internal/store"
 )
 
-func TestShouldIgnoreCarrierInternalCommands(t *testing.T) {
-	tests := []string{
+func TestIsHookCommand(t *testing.T) {
+	for _, input := range []string{
 		"",
 		"_carrier_begin",
 		"_carrier_end",
 		"carrier internal begin --state /tmp/state --cmd ls",
 		"/usr/local/bin/carrier internal end --state /tmp/state --exit 0",
-		"vim file.go",
-		"/usr/bin/vim file.go",
+	} {
+		if !isHookCommand(input) {
+			t.Fatalf("isHookCommand(%q) = false, want true", input)
+		}
 	}
-
-	for _, input := range tests {
-		if !shouldIgnore(input, []string{"vim"}) {
-			t.Fatalf("shouldIgnore(%q) = false, want true", input)
+	for _, input := range []string{"go test ./...", "carrier status", "echo carrier internal", "vim file.go"} {
+		if isHookCommand(input) {
+			t.Fatalf("isHookCommand(%q) = true, want false", input)
 		}
 	}
 }
 
-func TestShouldIgnoreAllowsNormalCommands(t *testing.T) {
-	for _, input := range []string{"go test ./...", "carrier status", "echo carrier internal"} {
-		if shouldIgnore(input, []string{"vim"}) {
-			t.Fatalf("shouldIgnore(%q) = true, want false", input)
+func TestOutputIgnored(t *testing.T) {
+	for input, want := range map[string]bool{
+		"vim file.go":          true,
+		"/usr/bin/vim file.go": true,
+		"vimdiff a b":          false,
+		"go test ./...":        false,
+		"":                     false,
+	} {
+		if got := outputIgnored(input, []string{"vim"}); got != want {
+			t.Errorf("outputIgnored(%q) = %v, want %v", input, got, want)
 		}
 	}
 }
@@ -117,7 +124,7 @@ func TestInternalBeginEndRoundTrip(t *testing.T) {
 	}
 }
 
-func TestInternalBeginIgnoresFilteredCommand(t *testing.T) {
+func TestInternalBeginRecordsIgnoredCommandWithoutOutput(t *testing.T) {
 	dir := t.TempDir()
 	st, err := store.Open(dir)
 	if err != nil {
@@ -127,24 +134,36 @@ func TestInternalBeginIgnoresFilteredCommand(t *testing.T) {
 
 	statePath := filepath.Join(dir, "state.json")
 	cfg := config.Default()
-	cfg.Shell.IgnoreCommands = []string{"ls"}
+	cfg.Storage.DataDir = dir
+	cfg.Shell.IgnoreCommands = []string{"vim"}
 	a := &app{st: st, cfg: cfg}
 
-	beginCmd := a.internalBeginCmd()
-	if err := beginCmd.Flags().Set("state", statePath); err != nil {
-		t.Fatalf("set state flag: %v", err)
-	}
-	if err := beginCmd.Flags().Set("cmd", "ls -la"); err != nil {
-		t.Fatalf("set cmd flag: %v", err)
-	}
-	if err := beginCmd.RunE(beginCmd, nil); err != nil {
-		t.Fatalf("internalBeginCmd: %v", err)
+	begin := func(command string) carriershell.State {
+		t.Helper()
+		cmd := a.internalBeginCmd()
+		_ = cmd.Flags().Set("state", statePath)
+		_ = cmd.Flags().Set("cmd", command)
+		_ = cmd.Flags().Set("cwd", dir)
+		if err := cmd.RunE(cmd, nil); err != nil {
+			t.Fatalf("internal begin %q: %v", command, err)
+		}
+		return (&carriershell.StateFile{Path: statePath}).Read()
 	}
 
-	// State should be empty since command was ignored.
-	state := (&carriershell.StateFile{Path: statePath}).Read()
-	if state.CurrentID != 0 {
-		t.Fatalf("expected no run created for ignored command, got ID=%d", state.CurrentID)
+	state := begin("vim config.yaml")
+	if state.CurrentID == 0 || state.CurrentLog != "" {
+		t.Fatalf("ignored command should be recorded without a log, got %+v", state)
+	}
+	r, err := st.GetRun(state.CurrentID)
+	if err != nil || r.Command != "vim config.yaml" || r.TerminalOutputPath != "" || r.Status != store.StatusRunning {
+		t.Fatalf("run = %+v, %v", r, err)
+	}
+
+	if state := begin("carrier internal end --state x --exit 0"); state.CurrentID != 0 {
+		t.Fatalf("hook commands must not be recorded, got %+v", state)
+	}
+	if state := begin("make test"); state.CurrentID == 0 || state.CurrentLog == "" {
+		t.Fatalf("other commands record output, got %+v", state)
 	}
 }
 

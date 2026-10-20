@@ -50,11 +50,9 @@ prints:
 7
 ```
 
-## Why is `carrier shell` alpha?
+## Should I use `carrier shell` or `carrier run`?
 
-Shell mode needs PTY recording and shell hooks. Prompt plugins, aliases, tmux, shell differences, and interactive apps can affect tracking.
-
-Use `carrier run` for important records.
+Both record the command, exit code, timing, and Git details. `carrier shell` records every command line in a session, with output as it appeared in the terminal. `carrier run` records one command and keeps stdout and stderr separate. Most people record every terminal with shell mode and use `carrier run` in scripts.
 
 ## What is a shell session?
 

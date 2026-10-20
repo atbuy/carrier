@@ -52,24 +52,6 @@ printf 'TOKEN=secret\n'
 	if strings.Contains(got, "TOKEN=secret") {
 		t.Fatalf("secret leaked in session log: %q", got)
 	}
-
-	if _, err := os.Stat(filepath.Join(cfg.Storage.DataDir, "shell-alpha-warning")); err != nil {
-		t.Fatalf("warning marker missing: %v", err)
-	}
-}
-
-func TestWarnShellAlphaOnceNoDataDir(t *testing.T) {
-	warnShellAlphaOnce("")
-}
-
-func TestWarnShellAlphaOnceIgnoresMkdirError(t *testing.T) {
-	dir := t.TempDir()
-	filePath := filepath.Join(dir, "not-dir")
-	if err := os.WriteFile(filePath, []byte("x"), 0o600); err != nil {
-		t.Fatalf("write file: %v", err)
-	}
-
-	warnShellAlphaOnce(filepath.Join(filePath, "child"))
 }
 
 func TestStateFileReadWrite(t *testing.T) {
@@ -138,16 +120,6 @@ func TestStateFileCacheInvalidatesOnWrite(t *testing.T) {
 	if got != s2 {
 		t.Fatalf("after invalidation: got %#v want %#v", got, s2)
 	}
-}
-
-func TestWarnShellAlphaOnceWritesMarker(t *testing.T) {
-	dir := t.TempDir()
-
-	warnShellAlphaOnce(dir)
-	if _, err := os.Stat(filepath.Join(dir, "shell-alpha-warning")); err != nil {
-		t.Fatalf("warning marker missing: %v", err)
-	}
-	warnShellAlphaOnce(dir)
 }
 
 func TestBoolEnv(t *testing.T) {
