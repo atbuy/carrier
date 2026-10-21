@@ -45,6 +45,9 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			if state.SessionID != 0 {
 				v := state.SessionID
 				sessionID = &v
+				// Another terminal recording into this session may have
+				// ended it when it closed; this one is still recording.
+				_ = a.st.ReopenSession(v)
 			}
 
 			// Start git and env collection concurrently.

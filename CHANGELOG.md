@@ -2,6 +2,21 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.1.0] - 2026-10-21
+
+### Added
+
+- Switch a recorded shell to another session without starting a new shell: `carrier attach <session>` inside a recorded shell records into that session from the next command on, and the prompt, title, and `CARRIER_SESSION_ID` follow. An automatic session left with nothing in it is deleted.
+- `carrier session pin` writes a `.carrier-session` file, like `.python-version`, so every new terminal or tmux window started in that directory or below it joins the pinned session instead of starting its own automatic session. `carrier session unpin` removes it.
+- `carrier session reload` switches the shell to the session pinned for the current directory. Changing directory never switches sessions on its own.
+- `carrier attach --new-shell` starts a new shell even inside a recorded shell.
+
+### Changed
+
+- `carrier attach` inside a recorded shell switches sessions instead of starting a shell inside the shell.
+- Relabeling the current session with `carrier session label` updates the prompt.
+- A session several terminals record into stays active while any of them runs commands.
+
 ## [1.0.1] - 2026-10-21
 
 ### Added

@@ -591,9 +591,20 @@ carrier attach 1234
 
 See [Referring to sessions](#referring-to-sessions) for how labels are matched.
 
-`attach` re-opens the session, starts a new PTY shell that records commands into it, then closes the session when you exit. Runs recorded during the attached shell appear grouped under the same session in `carrier history`.
+Inside a recorded shell, `attach` switches that shell to the session instead of opening another one. From the next command on, runs are recorded into the session, and the prompt, terminal title, and `CARRIER_SESSION_ID` follow. The session you leave is ended, or deleted if it is an automatic session with nothing in it. The `attach` command itself is not recorded.
 
-This is useful when you need to return to a named session after disconnecting, or when you want to continue work in a labeled debugging context from a different terminal.
+```text
+% carrier attach 1234
+carrier: switched to session 12 "BUG-1234: fix login"
+```
+
+Outside a recorded shell, `attach` re-opens the session, starts a new shell that records into it, and ends the session when you exit. Use `--new-shell` to start a new shell from inside a recorded one too.
+
+| Flag          | Meaning                                              |
+| ------------- | ---------------------------------------------------- |
+| `--new-shell` | Start a new shell even inside a recorded shell.      |
+
+To make new terminals in a directory join a session on their own, [pin it](#session-pin).
 
 ## `session`
 
@@ -645,6 +656,43 @@ carrier session unkeep 12
 ```
 
 `carrier session list` marks automatic sessions with `auto` and kept ones with `kept`.
+
+### `session pin`
+
+Pin the current directory to a session, so new terminals started here join it, like `.python-version` for pyenv and uv:
+
+```bash title="Pin a session"
+cd ~/src/api
+carrier session pin              # the session of this shell
+carrier session pin BUG-1234     # a session by ID or label
+```
+
+`pin` writes a `.carrier-session` file holding the session's label, or its ID when the session has no label or shares it with another session. You can also write the file yourself: carrier reads its first line that is not empty or a `#` comment, and accepts anything [`attach`](#attach) does.
+
+An [automatic session](../advanced/shell-mode.md#record-every-terminal) that starts in the directory, or anywhere below it, joins the pinned session instead of starting a new one. Every terminal and tmux window you open in the repository for a ticket then records into that ticket's session. If the file names a session that does not exist, carrier says so and starts a normal automatic session.
+
+Changing directory never switches sessions, even into a directory with a different pin, so commands you run in another repository while testing stay in your session. Pinning an automatic session keeps it from expiring.
+
+Sessions are local to your machine, so keep `.carrier-session` out of version control, for example with a global gitignore.
+
+### `session unpin`
+
+Remove the `.carrier-session` file in the current directory:
+
+```bash title="Unpin"
+carrier session unpin
+```
+
+### `session reload`
+
+Switch this recorded shell to the session pinned for the current directory, read from the nearest `.carrier-session` in it or its parents:
+
+```bash title="Switch to the pinned session"
+cd ~/src/infra
+carrier session reload
+```
+
+Like `attach`, it switches in place and is not recorded itself.
 
 ## `clean`
 

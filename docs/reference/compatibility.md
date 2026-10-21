@@ -64,6 +64,7 @@ Everything else about human-readable output may change; see below.
 ### Shell setup
 
 - The line you add to your shell config for `carrier init`, such as `eval "$(carrier init zsh)"`, should keep working.
+- The `.carrier-session` file format: a session ID or label on its first line that is not empty or a `#` comment.
 - zsh, bash, and fish are supported in shell mode.
 
 ### Your data

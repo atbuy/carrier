@@ -2,7 +2,9 @@ package shell
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -48,4 +50,16 @@ func (s *StateFile) Write(state State) error {
 	defer s.mu.Unlock()
 	b, _ := json.Marshal(state)
 	return os.WriteFile(s.Path, b, 0o600)
+}
+
+// SessionInfoPath is the file the shell hooks read before every prompt to
+// learn the current session's ID and label. Switching sessions rewrites it,
+// so the prompt, title, and CARRIER_SESSION_ID follow without a new shell.
+func SessionInfoPath(statePath string) string { return statePath + ".session" }
+
+// WriteSessionInfo writes the session ID and label for the hooks: one per
+// line, read with shell builtins so prompts stay fast.
+func WriteSessionInfo(statePath string, sessionID int64, label string) error {
+	label = strings.Join(strings.Fields(label), " ")
+	return os.WriteFile(SessionInfoPath(statePath), []byte(fmt.Sprintf("%d\n%s\n", sessionID, label)), 0o600)
 }

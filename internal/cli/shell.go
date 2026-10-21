@@ -26,7 +26,9 @@ func (a *app) shellCmd() *cobra.Command {
 exit code, and Git details. Supports zsh, bash, and fish.
 
 To record every terminal automatically, add the line printed by
-"carrier init <shell>" to your shell config; it runs "carrier shell --auto".`,
+"carrier init <shell>" to your shell config; it runs "carrier shell --auto".
+An automatic session started in a directory pinned with "carrier session pin"
+joins the pinned session instead.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 && label == "" {
@@ -37,26 +39,35 @@ To record every terminal automatically, add the line printed by
 				a.cfg.Shell.Program = program
 			}
 			a.expireAutoSessionsIfDue(cmd)
-			sessionID, err := a.st.CreateSession(store.CreateSession{
-				Label:     label,
-				StartedAt: time.Now(),
-				Auto:      auto,
-			})
-			if err != nil {
-				return autoStartError(auto, err)
+			var sessionID int64
+			quiet := auto
+			if pinned := a.autoPinnedSession(cmd, auto, label); pinned != nil {
+				// Joining a pinned session is worth the banner: it says which
+				// task this terminal records into.
+				sessionID, label, quiet = pinned.ID, pinned.Label, false
+				_ = a.st.ReopenSession(sessionID)
+			} else {
+				var err error
+				sessionID, err = a.st.CreateSession(store.CreateSession{
+					Label:     label,
+					StartedAt: time.Now(),
+					Auto:      auto,
+				})
+				if err != nil {
+					return autoStartError(auto, err)
+				}
 			}
-			last, runErr := carriershell.Run(a.cfg, a.shellOptions(sessionID, label, auto))
-			if !auto || !a.dropExitRun(sessionID, last) {
+			last, runErr := carriershell.Run(a.cfg, a.shellOptions(sessionID, label, quiet))
+			final := finalSession(sessionID, last)
+			if !auto || !a.dropExitRun(final, last) {
 				a.finishInFlightShellRun(last, runErr)
 			}
-			_ = a.st.EndSession(sessionID, time.Now())
+			_ = a.st.EndSession(final, time.Now())
 			if !auto {
 				return runErr
 			}
 			// Opening and closing a terminal should not leave a session behind.
-			if empty, err := a.st.SessionIsEmpty(sessionID); err == nil && empty {
-				_, _ = a.st.DeleteSession(sessionID)
-			}
+			a.deleteIfEmptyAuto(final)
 			var exitErr *exec.ExitError
 			if errors.As(runErr, &exitErr) {
 				// The user's shell ended; its status is not a carrier failure,
@@ -70,6 +81,15 @@ To record every terminal automatically, add the line printed by
 	cmd.Flags().BoolVar(&auto, "auto", false, "start an automatic session from a shell config (see carrier init)")
 	cmd.Flags().StringVar(&program, "program", "", "shell program to run (default: shell.program, then $SHELL)")
 	return cmd
+}
+
+// autoPinnedSession returns the session pinned for the current directory when
+// an automatic session starts without a label, or nil.
+func (a *app) autoPinnedSession(cmd *cobra.Command, auto bool, label string) *store.Session {
+	if !auto || label != "" {
+		return nil
+	}
+	return a.pinnedSession(cmd)
 }
 
 func (a *app) shellOptions(sessionID int64, label string, quiet bool) carriershell.Options {

@@ -52,7 +52,8 @@ New users should start with the [Getting started guide](https://atbuy.github.io/
 - optional notifications use `notify-send` on Linux.
 - human-readable output is colorized on TTYs; use `NO_COLOR=1` to disable or `CARRIER_COLOR=always` to force.
 - `carrier shell` starts a recorded shell session for zsh, bash, or fish. Each shell session groups its runs in `carrier history`, `carrier history --session my-session`, and `carrier history --sessions-only`.
-- `carrier attach <id-or-label>` re-opens an existing shell session from a different terminal.
+- `carrier attach <id-or-label>` switches a recorded shell to an existing session, or opens it in a new shell from any other terminal.
+- `carrier session pin` pins a directory to a session, so every new terminal or tmux window started there joins it.
 - `carrier session list` lists shell sessions; `carrier session label` sets or clears a session label.
 - `eval "$(carrier init zsh)"` in your shell config records every terminal in an automatic session; unlabeled ones expire after 30 days (`shell.auto_session_retention`).
 - optional similar-failure hints point at an earlier run with the same error (`[hints] similar_failures = true`); `carrier similar <id>` lists them.
@@ -143,7 +144,8 @@ carrier -n run docker compose build
 carrier -N run ls
 carrier shell                      # start a recorded shell session
 carrier shell 'my-session'         # start a named session
-carrier attach my-session          # re-join an existing session
+carrier attach my-session          # switch to an existing session
+carrier session pin my-session     # new terminals in this directory join it
 carrier session list               # list sessions
 carrier session label 5 my-label   # label a session
 carrier session keep               # keep the current automatic session
