@@ -69,7 +69,7 @@ carrier history --session incident-123
 
 `carrier shell` creates a new session.
 
-`carrier attach <id-or-label>` re-opens an existing session. Runs recorded in the attached shell are added to the same session, so they appear together in history.
+`carrier attach <id-or-label>` records into an existing session. Inside a recorded shell it switches that shell to the session; elsewhere it starts a new shell for it. Either way the runs are added to the same session, so they appear together in history.
 
 ## Can I continue a session from a different terminal?
 
@@ -80,6 +80,17 @@ carrier attach incident-123
 ```
 
 This is useful if you disconnected, moved to a different window, or want to continue labeled work from another session.
+
+## How do I get every tmux window for a ticket into one session?
+
+Pin the repository to the ticket's session:
+
+```bash
+cd ~/src/api
+carrier session pin BUG-1234
+```
+
+New automatic sessions started in that directory or below it join the pinned session instead of starting their own. See [`session pin`](guide/commands.md#session-pin).
 
 ## When should I use `watch`?
 

@@ -72,7 +72,7 @@ latest run.`,
 					return err
 				}
 			case currentSessionID() != 0:
-				a.dropShellNoteRun()
+				a.dropShellRun(isNoteInvocation)
 				if err := a.attachToSession(&n, currentSessionID()); err != nil {
 					return err
 				}
@@ -222,11 +222,12 @@ func (a *app) attachToSession(n *store.CreateNote, sessionID int64) error {
 	return nil
 }
 
-// dropShellNoteRun removes the run the shell hooks recorded for this
-// "carrier note" invocation, so notes don't clutter the session with runs.
-// It only acts when the in-flight run is a plain note command; compound
-// lines like "make test && carrier note done" are kept.
-func (a *app) dropShellNoteRun() {
+// dropShellRun removes the run the shell hooks recorded for this carrier
+// invocation, such as "carrier note", so session bookkeeping doesn't clutter
+// the session with runs. It only acts when the in-flight run is a plain
+// command that match accepts; compound lines like "make test && carrier note
+// done" are kept.
+func (a *app) dropShellRun(match func(line string) bool) {
 	statePath := os.Getenv("CARRIER_SHELL_STATE")
 	if statePath == "" {
 		return
@@ -237,7 +238,7 @@ func (a *app) dropShellNoteRun() {
 		return
 	}
 	r, err := a.st.GetRun(state.CurrentID)
-	if err != nil || r.Status != store.StatusRunning || !isNoteInvocation(r.Command) {
+	if err != nil || r.Status != store.StatusRunning || !match(r.Command) {
 		return
 	}
 	if _, err := a.st.DeleteByID(r.ID); err != nil {
@@ -248,9 +249,17 @@ func (a *app) dropShellNoteRun() {
 }
 
 // isNoteInvocation reports whether a shell command line is a single note
-// command, e.g. "carrier note ..." or an alias like "c note ...". Lines with
-// unquoted control operators or substitutions are never treated as notes.
+// command, e.g. "carrier note ..." or an alias like "c note ...".
 func isNoteInvocation(line string) bool {
+	words := carrierCommandWords(line)
+	return len(words) > 0 && (words[0] == "note" || words[0] == "nt")
+}
+
+// carrierCommandWords returns the words after the program name of a single
+// command line, skipping flags, e.g. ["note", "fixed"] for "c -q note fixed".
+// It returns nil for lines with unquoted control operators or substitutions,
+// which are never treated as one carrier command.
+func carrierCommandWords(line string) []string {
 	var quote rune
 	escaped := false
 	for _, ch := range line {
@@ -266,20 +275,31 @@ func isNoteInvocation(line string) bool {
 		case ch == '\'' || ch == '"':
 			quote = ch
 		case strings.ContainsRune(";&|`$()<>\n", ch):
-			return false
+			return nil
 		}
 	}
 	fields := strings.Fields(line)
-	for i := 1; i < len(fields); i++ {
-		if strings.HasPrefix(fields[i], "-") {
-			continue
-		}
-		return fields[i] == "note" || fields[i] == "nt"
+	if len(fields) == 0 {
+		return nil
 	}
-	return false
+	var words []string
+	for _, field := range fields[1:] {
+		if !strings.HasPrefix(field, "-") {
+			words = append(words, field)
+		}
+	}
+	return words
 }
 
+// currentSessionID is the session of the recorded shell this runs in, or 0.
+// The shell's state file is checked first, since switching sessions updates
+// it before the shell's next prompt updates CARRIER_SESSION_ID.
 func currentSessionID() int64 {
+	if statePath := os.Getenv("CARRIER_SHELL_STATE"); statePath != "" {
+		if state := (&carriershell.StateFile{Path: statePath}).Read(); state.SessionID != 0 {
+			return state.SessionID
+		}
+	}
 	id, err := strconv.ParseInt(os.Getenv("CARRIER_SESSION_ID"), 10, 64)
 	if err != nil {
 		return 0

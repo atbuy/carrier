@@ -22,7 +22,8 @@ func TestWriteHookDirZsh(t *testing.T) {
 	for _, want := range []string{
 		"add-zsh-hook preexec", "internal begin", "internal end", "/tmp/state.json",
 		"CARRIER_HOOK_ACTIVE", "unsetopt warn_create_global", "zle -N zle-line-init _carrier_zle_init",
-		"my-label", "%B%F{#FF00AA}carrier #3%f%b", " %F{#FF00AA}my-label%f", `\033[38;2;255;0;170;1mcarrier #3`, `\033[38;2;255;0;170mmy-label`, `\033]0;`,
+		"_carrier_session_id=3", "_carrier_session_label='my-label'", "_carrier_session_file='/tmp/state.json.session'",
+		"%B%F{#FF00AA}carrier #${_carrier_session_id}%f%b", " %F{#FF00AA}${_carrier_session_label//", `\033[38;2;255;0;170;1mcarrier #3`, `\033[38;2;255;0;170mmy-label`, `\033]0;`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("zsh hook missing %q\n%s", want, text)
@@ -44,7 +45,8 @@ func TestWriteHookDirFish(t *testing.T) {
 	text := string(contents)
 	for _, want := range []string{
 		"fish_preexec", "fish_postexec", "internal begin", "internal end",
-		"CARRIER_HOOK_ACTIVE", "work", "set_color --bold 00FF66", "set_color 00FF66", `\033[38;2;0;255;102;1mcarrier #7`, `\033[38;2;0;255;102mwork`, `\033]0;`,
+		"CARRIER_HOOK_ACTIVE", "set -g _carrier_session_id 7", "set -g _carrier_session_label 'work'", "set -g _carrier_session_file '/tmp/state.json.session'",
+		"set_color --bold 00FF66", "set_color 00FF66", `echo -n "carrier #$_carrier_session_id"`, `\033[38;2;0;255;102;1mcarrier #7`, `\033[38;2;0;255;102mwork`, `\033]0;`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("fish hook missing %q\n%s", want, text)
@@ -79,7 +81,8 @@ func TestWriteHookDirBash(t *testing.T) {
 	for _, want := range []string{
 		"PROMPT_COMMAND", "_carrier_original_prompt_command", "trap _carrier_begin DEBUG",
 		"internal begin", "internal end", "CARRIER_HOOK_ACTIVE", "_carrier_at_prompt", `PS0="${PS0:-}"'$(_carrier_ps0)'`,
-		"build", `\033[38;2;255;0;170;1m`, `\033[38;2;255;0;170mbuild`, `\033]0;`,
+		"_carrier_session_id=5", "_carrier_session_label='build'", "_carrier_session_file='/tmp/state.json.session'",
+		`\033[38;2;255;0;170;1m\]carrier #${_carrier_session_id}`, `\033[38;2;255;0;170m\]${_carrier_session_label}`, `\033[38;2;255;0;170mbuild`, `\033]0;`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("bash hook missing %q\n%s", want, text)

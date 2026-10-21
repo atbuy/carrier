@@ -676,7 +676,7 @@ func (s *Store) GetSessionsByIDs(ids []int64) (map[int64]Session, error) {
 }
 
 func (s *Store) ReopenSession(id int64) error {
-	_, err := s.db.Exec(`UPDATE shell_sessions SET ended_at=NULL WHERE id=?`, id)
+	_, err := s.db.Exec(`UPDATE shell_sessions SET ended_at=NULL WHERE id=? AND ended_at IS NOT NULL`, id)
 	return err
 }
 

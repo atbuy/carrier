@@ -28,14 +28,6 @@ func WriteHookDir(carrierPath, statePath, shellProgram string, sessionID int64, 
 	}
 }
 
-// termTitle returns the terminal window/tab title string for a session.
-func termTitle(sessionID int64, label string) string {
-	if label != "" {
-		return fmt.Sprintf("carrier #%d · %s", sessionID, label)
-	}
-	return fmt.Sprintf("carrier #%d", sessionID)
-}
-
 // startupBanner returns the banner command, or nothing when banner is false.
 func startupBanner(banner bool, sessionID int64, label, labelColor string) string {
 	if !banner {
@@ -113,12 +105,7 @@ func fishColor(color string) string {
 }
 
 func zshHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
-	title := termTitle(sessionID, label)
-	// The indicator is embedded so no runtime env var lookup is needed.
-	rprompt := fmt.Sprintf("%%B%%F{%s}%s%%f%%b", zshColor(labelColor), shellSessionText(sessionID))
-	if label != "" {
-		rprompt += fmt.Sprintf(" %%F{%s}%s%%f", zshColor(labelColor), label)
-	}
+	color := zshColor(labelColor)
 	return fmt.Sprintf(`
 [[ -f "$HOME/.zshrc" ]] && source "$HOME/.zshrc"
 unsetopt warn_create_global 2>/dev/null
@@ -127,7 +114,34 @@ _carrier_zle_init() {
   unsetopt warn_create_global 2>/dev/null
 }
 zle -N zle-line-init _carrier_zle_init
-_carrier_rprompt=%s
+_carrier_session_file=%s
+_carrier_session_id=%d
+_carrier_session_label=%s
+_carrier_rprompt=
+# Reads the current session, which "carrier attach" changes when it switches
+# sessions, and updates the prompt indicator, title, and environment.
+_carrier_session() {
+  local id label
+  { IFS= read -r id; IFS= read -r label } < "$_carrier_session_file" 2>/dev/null
+  if [[ -n "$id" ]]; then
+    _carrier_session_id="$id"
+    _carrier_session_label="$label"
+  fi
+  export CARRIER_SESSION_ID="$_carrier_session_id" CARRIER_SESSION_LABEL="$_carrier_session_label"
+  local indicator="%%B%%F{%s}carrier #${_carrier_session_id}%%f%%b"
+  [[ -n "$_carrier_session_label" ]] && indicator+=" %%F{%s}${_carrier_session_label//\%%/%%%%}%%f"
+  # Replace the indicator added before, or add it once; precmd runs before
+  # every prompt.
+  if [[ -n "$_carrier_rprompt" && "$RPROMPT" == "$_carrier_rprompt"* ]]; then
+    RPROMPT="$indicator${RPROMPT#"$_carrier_rprompt"}"
+  else
+    RPROMPT="$indicator${RPROMPT:+ $RPROMPT}"
+  fi
+  _carrier_rprompt="$indicator"
+  local title="carrier #${_carrier_session_id}"
+  [[ -n "$_carrier_session_label" ]] && title+=" · ${_carrier_session_label}"
+  printf '\033]0;%%s\007' "$title"
+}
 _carrier_preexec() {
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
   export CARRIER_HOOK_ACTIVE=1
@@ -146,24 +160,22 @@ _carrier_precmd() {
     command %q internal end --state %q --exit "$ec" >/dev/null 2>&1
     unset CARRIER_HOOK_ACTIVE
   fi
-  printf '\033]0;%s\007'
-  # Add the indicator once; precmd runs before every prompt.
-  [[ "$RPROMPT" == "$_carrier_rprompt"* ]] || RPROMPT="$_carrier_rprompt${RPROMPT:+ $RPROMPT}"
+  _carrier_session
 }
 add-zsh-hook preexec _carrier_preexec
 add-zsh-hook precmd _carrier_precmd
 %s
-printf '\033]0;%s\007'
-`, shellQuote(rprompt), carrierPath, statePath, carrierPath, statePath, title, startupBanner(banner, sessionID, label, labelColor), title)
+_carrier_session
+`, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label), color, color,
+		carrierPath, statePath, carrierPath, statePath, startupBanner(banner, sessionID, label, labelColor))
 }
 
 func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
-	title := termTitle(sessionID, label)
-	// Static indicator embedded at hook-write time; no env var lookups at runtime.
-	indicator := fmt.Sprintf(`\[%s\]%s\[\033[0m\] `, shellANSIColor(labelColor, true), shellSessionText(sessionID))
-	if label != "" {
-		indicator += fmt.Sprintf(`\[%s\]%s\[\033[0m\] `, shellANSIColor(labelColor, false), label)
-	}
+	// The indicator refers to the session variables instead of holding their
+	// values, so PS1 expands them as plain text at each prompt: a label with
+	// "$" or "\" in it is shown as is, never run or decoded.
+	idIndicator := fmt.Sprintf(`\[%s\]carrier #${_carrier_session_id}\[\033[0m\] `, shellANSIColor(labelColor, true))
+	labelIndicator := fmt.Sprintf(`\[%s\]${_carrier_session_label}\[\033[0m\] `, shellANSIColor(labelColor, false))
 	// Each command line begins exactly one run:
 	//   - PS0 (bash >= 4.4) is expanded once per line, including subshell-only
 	//     lines like "(cd x; make)" that never fire DEBUG in this shell. It
@@ -176,6 +188,25 @@ func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor
 	// The trap is installed last so startup commands are not recorded.
 	return fmt.Sprintf(`
 [[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
+_carrier_session_file=%s
+_carrier_session_id=%d
+_carrier_session_label=%s
+# Reads the current session, which "carrier attach" changes when it switches
+# sessions, and updates the prompt indicator, title, and environment.
+_carrier_session() {
+  local id label
+  { IFS= read -r id; IFS= read -r label; } < "$_carrier_session_file" 2>/dev/null
+  if [[ -n "$id" ]]; then
+    _carrier_session_id="$id"
+    _carrier_session_label="$label"
+  fi
+  export CARRIER_SESSION_ID="$_carrier_session_id" CARRIER_SESSION_LABEL="$_carrier_session_label"
+  _carrier_indicator=%s
+  [[ -n "$_carrier_session_label" ]] && _carrier_indicator+=%s
+  local title="carrier #${_carrier_session_id}"
+  [[ -n "$_carrier_session_label" ]] && title+=" · ${_carrier_session_label}"
+  printf '\033]0;%%s\007' "$title"
+}
 _carrier_base_ps1="${PS1}"
 _carrier_original_prompt_command="${PROMPT_COMMAND:-}"
 _carrier_has_ps0=
@@ -218,11 +249,12 @@ _carrier_begin() {
 _carrier_end() {
   local ec="$?"
   trap - DEBUG
+  _carrier_session
   if [[ -n "$_carrier_original_prompt_command" ]]; then
     eval "$_carrier_original_prompt_command"
-    PS1="%s${PS1}"
+    PS1="${_carrier_indicator}${PS1}"
   else
-    PS1="%s${_carrier_base_ps1}"
+    PS1="${_carrier_indicator}${_carrier_base_ps1}"
   fi
   _carrier_hist
   # Skip empty lines: no trap fired and no history entry was added.
@@ -232,30 +264,40 @@ _carrier_end() {
     unset CARRIER_HOOK_ACTIVE
   fi
   _carrier_last_hist="$_carrier_hnum"
-  printf '\033]0;%s\007'
   _carrier_at_prompt=1
   trap _carrier_begin DEBUG
 }
 %s
-printf '\033]0;%s\007'
+_carrier_session
 _carrier_hist
 _carrier_last_hist="$_carrier_hnum"
 _carrier_at_prompt=1
 PS0="${PS0:-}"'$(_carrier_ps0)'
 PROMPT_COMMAND=_carrier_end
 trap _carrier_begin DEBUG
-`, carrierPath, statePath, indicator, indicator, carrierPath, statePath, title, startupBanner(banner, sessionID, label, labelColor), title)
+`, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label), shellQuote(idIndicator), shellQuote(labelIndicator),
+		carrierPath, statePath, carrierPath, statePath, startupBanner(banner, sessionID, label, labelColor))
 }
 
 func fishHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
-	title := termTitle(sessionID, label)
-	// Build the carrier indicator string for fish_right_prompt.
-	indicator := fmt.Sprintf("carrier #%d", sessionID)
-	labelIndicator := ""
-	if label != "" {
-		labelIndicator = " · " + label
-	}
+	color := fishColor(labelColor)
 	return fmt.Sprintf(`
+set -g _carrier_session_file %s
+set -g _carrier_session_id %d
+set -g _carrier_session_label %s
+# Reads the current session, which "carrier attach" changes when it switches
+# sessions, and updates the title and environment; fish_right_prompt shows it.
+function _carrier_session --on-event fish_prompt
+    if read --local --line id label < $_carrier_session_file 2>/dev/null; and test -n "$id"
+        set -g _carrier_session_id $id
+        set -g _carrier_session_label $label
+    end
+    set -gx CARRIER_SESSION_ID $_carrier_session_id
+    set -gx CARRIER_SESSION_LABEL $_carrier_session_label
+    set -l title "carrier #$_carrier_session_id"
+    test -n "$_carrier_session_label"; and set title "$title · $_carrier_session_label"
+    printf '\033]0;%%s\007' $title
+end
 function _carrier_preexec --on-event fish_preexec
     set -q CARRIER_HOOK_ACTIVE; and return
     set -xg CARRIER_HOOK_ACTIVE 1
@@ -268,7 +310,6 @@ function _carrier_postcmd --on-event fish_postexec
     set -xg CARRIER_HOOK_ACTIVE 1
     command %q internal end --state %q --exit $ec >/dev/null 2>&1
     set -eg CARRIER_HOOK_ACTIVE
-    printf '\033]0;%s\007'
 end
 if functions -q fish_right_prompt
     functions --copy fish_right_prompt _carrier_orig_right_prompt
@@ -277,11 +318,11 @@ else
 end
 function fish_right_prompt
     set_color --bold %s
-    echo -n '%s'
-    if test -n '%s'
+    echo -n "carrier #$_carrier_session_id"
+    if test -n "$_carrier_session_label"
         set_color normal
         set_color %s
-        echo -n '%s'
+        echo -n " · $_carrier_session_label"
     end
     set_color normal
     set -l _orig (_carrier_orig_right_prompt)
@@ -290,6 +331,7 @@ function fish_right_prompt
     end
 end
 %s
-printf '\033]0;%s\007'
-`, carrierPath, statePath, carrierPath, statePath, title, fishColor(labelColor), indicator, labelIndicator, fishColor(labelColor), labelIndicator, startupBanner(banner, sessionID, label, labelColor), title)
+_carrier_session
+`, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label),
+		carrierPath, statePath, carrierPath, statePath, color, color, startupBanner(banner, sessionID, label, labelColor))
 }

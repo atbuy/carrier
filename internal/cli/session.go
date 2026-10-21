@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	carriershell "github.com/atbuy/carrier/internal/shell"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -20,7 +21,8 @@ func (a *app) sessionCmd() *cobra.Command {
 		Aliases: []string{"se"},
 		Short:   "manage shell session labels and history",
 	}
-	cmd.AddCommand(a.sessionLabelCmd(), a.sessionListCmd(), a.sessionKeepCmd(true), a.sessionKeepCmd(false))
+	cmd.AddCommand(a.sessionLabelCmd(), a.sessionListCmd(), a.sessionKeepCmd(true), a.sessionKeepCmd(false),
+		a.sessionPinCmd(), a.sessionUnpinCmd(), a.sessionReloadCmd())
 	return cmd
 }
 
@@ -48,6 +50,10 @@ Labeled automatic sessions never expire.`,
 			label := strings.Join(labelParts, " ")
 			if err := a.st.UpdateSessionLabel(id, label); err != nil {
 				return err
+			}
+			// The prompt of this shell shows the new label from its next prompt.
+			if statePath := recordedShellState(); statePath != "" && id == currentSessionID() {
+				_ = carriershell.WriteSessionInfo(statePath, id, label)
 			}
 			out := cmd.OutOrStdout()
 			if label == "" {

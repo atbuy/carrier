@@ -138,7 +138,7 @@ How it behaves:
 - exiting the recorded shell closes the terminal, as usual
 - if carrier cannot start, it prints why and the terminal continues as a normal shell
 - a terminal opened and closed without running anything leaves no session behind
-- each terminal, and each tmux pane, is its own session
+- each terminal, and each tmux pane, is its own session, unless its directory is [pinned to a session](#one-session-for-every-terminal)
 
 Turn it off for one terminal with `CARRIER_NO_AUTO=1`, for example `CARRIER_NO_AUTO=1 zsh`, or remove the line from your config.
 
@@ -152,19 +152,31 @@ Automatic sessions expire [`shell.auto_session_retention`](../reference/configur
 
 Sessions you start yourself with `carrier shell` never expire. Expired sessions are cleaned up at most once a day when a shell starts; `carrier clean --sessions --dry-run` shows what would go.
 
-## Attaching to an existing session
+### One session for every terminal
 
-`carrier attach` re-opens a session and starts a new PTY shell that records into it:
+When you work on one task across several terminals or tmux windows, pin the repository to the task's session:
 
-```bash title="Attach by ID or label"
+```bash title="Pin the repository"
+cd ~/src/api
+carrier session label "BUG-1234: fix login"
+carrier session pin
+```
+
+This writes a `.carrier-session` file. Every automatic session that starts in `~/src/api` or below it now joins `BUG-1234: fix login` instead of starting its own, so a new tmux window in the repository records into the same session. Moving to another repository for testing keeps you in the session, even when that repository has its own pin; run `carrier session reload` to switch to the session pinned where you are. See [`session pin`](../guide/commands.md#session-pin).
+
+## Switching sessions
+
+Inside a recorded shell, `carrier attach` switches the shell to another session without starting a new one:
+
+```bash title="Switch by ID or label"
 carrier attach 5
 carrier attach backend-debug
 carrier attach BUG-1234   # matches the label "BUG-1234: fix login"
 ```
 
-`carrier attach 1234` also works: when there is no session 1234, carrier matches the number against labels. See [Referring to sessions](../guide/commands.md#referring-to-sessions).
+From the next command on, runs are recorded into that session, and the prompt indicator, terminal title, and `CARRIER_SESSION_ID` follow. The session you leave is ended; an automatic session you leave without running anything is deleted. `carrier attach 1234` also works: when there is no session 1234, carrier matches the number against labels. See [Referring to sessions](../guide/commands.md#referring-to-sessions).
 
-This is useful when you want to continue a labeled debugging session from a different terminal, or after a disconnect. Runs recorded during the attached shell appear under the same session in history.
+Outside a recorded shell, or with `--new-shell`, `attach` starts a new shell that records into the session, which is useful to continue a session from another terminal or after a disconnect.
 
 ## What gets recorded
 

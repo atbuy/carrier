@@ -290,3 +290,85 @@ func isolateZsh(t *testing.T, shellName, dir string) {
 		t.Fatalf("write .zshenv: %v", err)
 	}
 }
+
+// TestHooksFollowSessionSwitch checks that each shell picks up a session
+// switch at the next prompt: "carrier attach" rewrites the session file, and
+// the prompt indicator and CARRIER_SESSION_ID/LABEL follow. Labels are shown
+// as text, never expanded.
+func TestHooksFollowSessionSwitch(t *testing.T) {
+	const label = `fix $(echo nope) \w 50%`
+	for _, tc := range []struct {
+		shell  string
+		script func(hookDir, sessionFile string) []string
+	}{
+		{"zsh", func(hookDir, sessionFile string) []string {
+			return []string{"-i", "-c", `RPROMPT=mine; _carrier_precmd
+printf '9\n%s\n' 'OPS-7: deploy' > ` + sessionFile + `
+_carrier_precmd; _carrier_precmd
+print -r -- "PROMPT[$RPROMPT] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSION_LABEL]"`}
+		}},
+		{"bash", func(hookDir, sessionFile string) []string {
+			return []string{"--rcfile", filepath.Join(hookDir, ".bashrc"), "-i", "-c", `trap - DEBUG
+printf '9\n%s\n' 'OPS-7: deploy' > ` + sessionFile + `
+_carrier_end; trap - DEBUG
+echo "PROMPT[${PS1@P}] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSION_LABEL]"`}
+		}},
+		{"fish", func(hookDir, sessionFile string) []string {
+			return []string{"--no-config", "-c", "source " + filepath.Join(hookDir, "carrier.fish") + `
+printf '9\n%s\n' 'OPS-7: deploy' > ` + sessionFile + `
+_carrier_session
+echo "PROMPT["(fish_right_prompt)"] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSION_LABEL]"`}
+		}},
+	} {
+		t.Run(tc.shell, func(t *testing.T) {
+			if _, err := exec.LookPath(tc.shell); err != nil {
+				t.Skipf("%s not installed", tc.shell)
+			}
+			dir := t.TempDir()
+			statePath := filepath.Join(dir, "state.json")
+			if err := WriteSessionInfo(statePath, 3, label); err != nil {
+				t.Fatal(err)
+			}
+			hookDir, err := WriteHookDir("/bin/true", statePath, tc.shell, 3, label, "", false)
+			if err != nil {
+				t.Fatalf("WriteHookDir: %v", err)
+			}
+			defer func() { _ = os.RemoveAll(hookDir) }()
+			isolateZsh(t, tc.shell, hookDir)
+
+			run := func(sessionFile string) string {
+				t.Helper()
+				cmd := exec.Command(tc.shell, tc.script(hookDir, sessionFile)...)
+				cmd.Env = append(os.Environ(), "ZDOTDIR="+hookDir, "HOME="+dir, "XDG_CONFIG_HOME="+filepath.Join(dir, ".config"))
+				out, err := cmd.Output()
+				if err != nil {
+					t.Fatalf("%s: %v\n%s", tc.shell, err, out)
+				}
+				// What the script prints, after the title escapes.
+				got := string(out)
+				i := strings.LastIndex(got, "PROMPT[")
+				if i < 0 {
+					t.Fatalf("%s printed no prompt:\n%s", tc.shell, got)
+				}
+				return got[i:]
+			}
+
+			// Writing to /dev/null leaves the session file as it was.
+			before := run("/dev/null")
+			if !strings.Contains(before, "ID[3] LABEL["+label+"]") || !strings.Contains(before, label) {
+				t.Fatalf("before the switch, want session 3 with its label shown as text:\n%s", before)
+			}
+
+			after := run(SessionInfoPath(statePath))
+			if !strings.Contains(after, "ID[9] LABEL[OPS-7: deploy]") {
+				t.Fatalf("environment after the switch:\n%s", after)
+			}
+			if !strings.Contains(after, "carrier #9") || !strings.Contains(after, "OPS-7: deploy") || strings.Contains(after, "carrier #3") {
+				t.Fatalf("prompt after the switch:\n%s", after)
+			}
+			if tc.shell == "zsh" && !strings.Contains(after, "PROMPT[%B%F{}carrier #9%f%b %F{}OPS-7: deploy%f mine]") {
+				t.Fatalf("zsh should replace its indicator, not add another:\n%s", after)
+			}
+		})
+	}
+}
