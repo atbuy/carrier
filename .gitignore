@@ -18,6 +18,9 @@ coverage.out
 *.db
 *.db-shm
 *.db-wal
+# Data recorded by old releases, used by the upgrade test
+!/cmd/carrier/testdata/upgrade/**/*.db
+!/cmd/carrier/testdata/upgrade/**/*.log
 
 # Editor and OS files
 .DS_Store

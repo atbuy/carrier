@@ -87,6 +87,13 @@ These are not kept stable and may change in any release, including patch release
 - **The TUI.** Layout and key bindings in `carrier tui`.
 - **Bug fixes.** Behavior that is clearly wrong, such as a command recorded twice, is fixed in patch releases even if something relied on it.
 
+## How this is checked
+
+Two tests run on every change:
+
+- **JSON output.** Every `--json` output is recorded field by field in `internal/cli/testdata/json-schema.golden`. A change that removes or renames a field fails the test. A new field fails it too, until the file is updated with `go test ./internal/cli -run TestJSONOutputSchema -update-json-schema` and the field is listed in the changelog.
+- **Upgrades.** `cmd/carrier/testdata/upgrade` holds data directories recorded by real old releases, currently 0.1.0 and 0.27.0. The test upgrades each one with the current build and checks that runs, labels, sessions, notes, and search are all still there, and that new runs continue the old run IDs.
+
 ## Downgrades
 
 Going back to an older release is not supported once a newer release has upgraded the database. Back up the data directory before trying a pre-release:

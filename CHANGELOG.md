@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.0.1] - 2026-10-21
+
+### Added
+
+- Tests that keep 1.x compatible: every `--json` output is checked field by field, and data recorded by 0.1.0 and 0.27.0 is upgraded and checked on every change. The Compatibility page describes both.
+
 ## [1.0.0] - 2026-10-20
 
 ### Changed
