@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/atbuy/carrier/internal/logs"
 )
 
@@ -100,4 +102,25 @@ func TestOpenWithNilStore(t *testing.T) {
 	if a.st != st {
 		t.Fatal("second open should not replace existing store")
 	}
+}
+
+// TestCommandFlagsDoNotClash merges every command's flags with the global
+// ones, as cobra does when the command runs; a short form used twice, such
+// as -n for both --notify and a command flag, panics there.
+func TestCommandFlagsDoNotClash(t *testing.T) {
+	var walk func(cmd *cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("%s: %v", cmd.CommandPath(), r)
+				}
+			}()
+			_ = cmd.InheritedFlags()
+		}()
+		for _, child := range cmd.Commands() {
+			walk(child)
+		}
+	}
+	walk(newRootCmd(&app{}))
 }

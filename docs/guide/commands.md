@@ -694,6 +694,77 @@ carrier session reload
 
 Like `attach`, it switches in place and is not recorded itself.
 
+### `session show`
+
+Replay a session as a timeline: its commands with status and duration, the error lines of failed commands, the notes taken along the way, and the outcome:
+
+```bash title="Show a session"
+carrier session show BUG-1234
+carrier session show                    # this shell's session, or the one pinned here
+carrier session show --failed           # only failed commands
+carrier session show --output --lines 5 # the last 5 lines of every command
+carrier session show --json
+```
+
+```text
+session 12 · BUG-1234: fix login
+Oct 21 14:02 → 15:22 (1h 20m) · 14 commands, 3 failed · 2 notes · ~/src/api on fix-login
+
+Outcome: pool size was 0 after the config change
+
+14:02  ✓  make test  3.2s
+14:05  ✗  psql -h db  exit 2  0.1s
+          │ error: connection refused
+14:06  ✎  the database was restarting
+       ~/src/infra on main
+14:20  ✓  kubectl get pods -n db  0.8s
+```
+
+The directory and Git branch are shown when they change. Failed commands show their error lines, picked the same way as [similar-failure hints](../reference/configuration.md#similar_failures); `--lines` sets how many (3 by default, `0` for none). Use [`carrier show <run>`](#show) for a command's full output.
+
+| Flag          | Meaning                                                  |
+| ------------- | -------------------------------------------------------- |
+| `--failed`    | Only failed commands; notes are always shown.            |
+| `--output`    | The last lines of every command, not only failed ones.   |
+| `--lines N`   | Output lines per command (default 3).                    |
+| `--json`      | The session, its outcome, and the timeline as JSON.      |
+
+### `session export`
+
+Write a session as Markdown, ready to paste into a pull request, a ticket, or an incident write-up:
+
+```bash title="Export a session"
+carrier session export BUG-1234 > bug-1234.md
+carrier session export -o bug-1234.md --failed
+carrier session export --format json
+```
+
+The export starts with the outcome and a summary, followed by each command and note in order, with the error lines of failed commands in code blocks. It takes the same `--failed`, `--output`, and `--lines` flags as `session show`, plus `--format markdown|json` and `-o/--output-file`.
+
+Output comes from the recorded logs, which are redacted when they are written. Captured environments and log file paths are never included, and paths in your home directory are shown as `~`. Read the export before you share it.
+
+### `session end`
+
+End a session, optionally recording its outcome: what you found or decided.
+
+```bash title="End a session"
+carrier session end --note "pool size was 0 after the config change"
+carrier session end BUG-1234 -m "fixed in #42" --unpin
+```
+
+The outcome is a note that `session show` and `session export` put first; it is also listed by `carrier notes`. Without an argument, `end` ends the session of this shell, or the one pinned here.
+
+Inside a recorded shell, ending its session moves the shell to a new automatic session, so the terminal keeps recording; the `end` command itself is not recorded. Attaching to the session later reopens it, and other terminals still recording into it reopen it with their next command.
+
+If the session is pinned for this directory, new terminals here would still join it; `end` says so, and `--unpin` removes the pin.
+
+| Flag              | Meaning                                         |
+| ----------------- | ----------------------------------------------- |
+| `-m`, `--note`    | Record the session's outcome.                   |
+| `--unpin`         | Remove the `.carrier-session` pin for the session. |
+
+To be asked for an outcome when a labeled session's shell exits, set [`shell.ask_outcome`](../reference/configuration.md#ask_outcome).
+
 ## `clean`
 
 Preview deletion:

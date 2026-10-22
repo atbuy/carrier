@@ -78,6 +78,7 @@ failure = true
 program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
 auto_session_retention = "30d"
+ask_outcome = false
 
 [hints]
 similar_failures = false
@@ -269,6 +270,24 @@ How long automatic sessions (started by the line from `carrier init`) are kept a
 ```toml
 [shell]
 auto_session_retention = "30d"
+```
+
+### `ask_outcome`
+
+Type: boolean  
+Default: `false`
+
+When a shell recording into a labeled session exits and the session has no outcome yet, ask what it found:
+
+```text
+carrier: what did "BUG-1234: fix login" find? (Enter to skip) pool size was 0 after the config change
+```
+
+The answer is saved as the session's outcome, as with `carrier session end --note`. Unlabeled sessions are never asked about, and Enter skips. The question is only asked in a terminal; closing the terminal window skips it. In bash, it is not asked when your config sets its own `EXIT` trap.
+
+```toml
+[shell]
+ask_outcome = true
 ```
 
 ## `[hints]`

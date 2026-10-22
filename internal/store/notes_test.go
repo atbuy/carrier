@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -221,5 +222,48 @@ func TestPruneOrphanedNotes(t *testing.T) {
 	}
 	if _, err := st.GetNote(keptNote); err != nil {
 		t.Fatalf("note on existing run should be kept: %v", err)
+	}
+}
+
+func TestSessionOutcome(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = st.Close() }()
+	id, err := st.CreateSession(CreateSession{Label: "x", StartedAt: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o, err := st.SessionOutcome(id); o != nil || err != nil {
+		t.Fatalf("no outcome yet: %+v, %v", o, err)
+	}
+	for _, n := range []CreateNote{
+		{SessionID: &id, Text: "plain note"},
+		{SessionID: &id, Text: "first guess", Kind: NoteOutcome},
+		{SessionID: &id, Text: "the real cause", Kind: NoteOutcome},
+	} {
+		n.CreatedAt = time.Now()
+		if _, err := st.CreateNote(n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	o, err := st.SessionOutcome(id)
+	if err != nil || o == nil || o.Text != "the real cause" || o.Kind != NoteOutcome {
+		t.Fatalf("latest outcome = %+v, %v", o, err)
+	}
+	notes, _ := st.ListNotes(NoteFilter{SessionIDs: []int64{id}}, 10)
+	if len(notes) != 3 || notes[0].Kind != "" || notes[1].Kind != NoteOutcome {
+		t.Fatalf("notes = %+v", notes)
+	}
+}
+
+func TestErrorLines(t *testing.T) {
+	out := "building\nwarning: deprecated\nerror: cannot connect\nretrying\nfatal: giving up\ndone\n"
+	if got := ErrorLines(out, 2); strings.Join(got, "|") != "error: cannot connect|fatal: giving up" {
+		t.Fatalf("ErrorLines = %q", got)
+	}
+	if got := ErrorLines("all good\n\n", 3); strings.Join(got, "|") != "all good" {
+		t.Fatalf("ErrorLines without errors = %q", got)
 	}
 }

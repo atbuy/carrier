@@ -140,3 +140,23 @@ func TestWriteHookDirWithoutBanner(t *testing.T) {
 		}
 	}
 }
+
+func TestHooksAskOutcomeOnExit(t *testing.T) {
+	for program, want := range map[string]string{
+		"/bin/zsh":  "add-zsh-hook zshexit _carrier_zshexit",
+		"/bin/bash": `[[ -z "$(trap -p EXIT)" ]] && trap _carrier_exit EXIT`,
+		"/bin/fish": "function _carrier_exit --on-event fish_exit",
+	} {
+		dir, err := WriteHookDir("/bin/carrier", "/tmp/state.json", program, 1, "", "", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		entries, _ := os.ReadDir(dir)
+		contents, _ := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+		_ = os.RemoveAll(dir)
+		text := string(contents)
+		if !strings.Contains(text, want) || !strings.Contains(text, "internal outcome") || !strings.Contains(text, "CARRIER_ASK_OUTCOME") {
+			t.Errorf("%s hooks should ask for the outcome on exit when CARRIER_ASK_OUTCOME is set:\n%s", program, text)
+		}
+	}
+}

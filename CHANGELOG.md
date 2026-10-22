@@ -2,6 +2,16 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.2.0] - 2026-10-22
+
+### Added
+
+- `carrier session show` replays a session as a timeline of commands, the error lines of failed commands, notes, and the outcome, with `--failed`, `--output`, `--lines`, and `--json`.
+- `carrier session export` writes a session as Markdown, or JSON, to paste into a pull request, ticket, or incident write-up. Environments and log paths are left out, and home paths are shown as `~`.
+- `carrier session end` ends a session and records its outcome with `--note`. Inside a recorded shell it moves the shell to a new automatic session, and `--unpin` removes the session's pin.
+- `[shell] ask_outcome = true` asks for a labeled session's outcome when its shell exits.
+- Notes have a `kind` field in JSON output; outcomes have kind `outcome` and are marked in `carrier notes` and `carrier history`.
+
 ## [1.1.0] - 2026-10-21
 
 ### Added

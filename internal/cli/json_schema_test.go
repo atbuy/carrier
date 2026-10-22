@@ -51,6 +51,8 @@ func TestJSONOutputSchema(t *testing.T) {
 		{"stats", a.statsCmd, nil, map[string]string{"json": "true"}},
 		{"notes", a.notesCmd, nil, map[string]string{"json": "true"}},
 		{"session list", a.sessionListCmd, nil, map[string]string{"json": "true"}},
+		{"session show", a.sessionShowCmd, []string{"1234"}, map[string]string{"json": "true", "output": "true"}},
+		{"session export --format json", a.sessionExportCmd, []string{"1234"}, map[string]string{"format": "json", "output": "true"}},
 		{"changelog", a.changelogCmd, []string{"0.24.0"}, map[string]string{"json": "true"}},
 	}
 
@@ -254,6 +256,7 @@ func seedJSONSchemaStore(t *testing.T, st *store.Store) jsonSchemaIDs {
 		{RunID: &earlier, SessionID: &sessID, Text: "the database was restarting"},
 		{RunID: &full, SessionID: &sessID, Text: "still down after the restart"},
 		{SessionID: &sessID, Text: "login fails because the database is down"},
+		{SessionID: &sessID, Text: "the pool size was 0", Kind: store.NoteOutcome},
 	} {
 		n.CreatedAt = started.Add(time.Hour)
 		if _, err := st.CreateNote(n); err != nil {

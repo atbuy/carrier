@@ -14,6 +14,7 @@ type CreateNote struct {
 	RunID     *int64
 	Text      string
 	CreatedAt time.Time
+	Kind      string
 }
 
 // NoteFilter restricts ListNotes. Zero-value fields are ignored; when both
@@ -23,7 +24,7 @@ type NoteFilter struct {
 	RunIDs     []int64
 }
 
-const noteSelect = `SELECT id, session_id, run_id, text, created_at FROM notes`
+const noteSelect = `SELECT id, session_id, run_id, text, created_at, kind FROM notes`
 
 func (s *Store) CreateNote(n CreateNote) (int64, error) {
 	if strings.TrimSpace(n.Text) == "" {
@@ -32,8 +33,8 @@ func (s *Store) CreateNote(n CreateNote) (int64, error) {
 	if n.SessionID == nil && n.RunID == nil {
 		return 0, errors.New("note must belong to a session or a run")
 	}
-	res, err := s.db.Exec(`INSERT INTO notes (session_id, run_id, text, created_at) VALUES (?, ?, ?, ?)`,
-		nullableInt64(n.SessionID), nullableInt64(n.RunID), n.Text, fmtTime(n.CreatedAt))
+	res, err := s.db.Exec(`INSERT INTO notes (session_id, run_id, text, created_at, kind) VALUES (?, ?, ?, ?, ?)`,
+		nullableInt64(n.SessionID), nullableInt64(n.RunID), n.Text, fmtTime(n.CreatedAt), n.Kind)
 	if err != nil {
 		return 0, err
 	}
@@ -110,6 +111,16 @@ func (s *Store) ListNotes(f NoteFilter, limit int) ([]Note, error) {
 	return notes, rows.Err()
 }
 
+// SessionOutcome returns the latest outcome note of a session, or nil when it
+// has none.
+func (s *Store) SessionOutcome(sessionID int64) (*Note, error) {
+	n, err := scanNote(s.db.QueryRow(noteSelect+` WHERE session_id=? AND kind=? ORDER BY id DESC LIMIT 1`, sessionID, NoteOutcome))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return n, err
+}
+
 // LatestSessionRun returns the most recent run recorded in a session.
 func (s *Store) LatestSessionRun(sessionID int64) (*Run, error) {
 	rows, err := s.db.Query(runSelect+` WHERE r.session_id=? ORDER BY r.id DESC LIMIT 1`, sessionID)
@@ -162,7 +173,7 @@ func scanNote(row sessionScanner) (*Note, error) {
 	var n Note
 	var sessionID, runID sql.NullInt64
 	var created string
-	if err := row.Scan(&n.ID, &sessionID, &runID, &n.Text, &created); err != nil {
+	if err := row.Scan(&n.ID, &sessionID, &runID, &n.Text, &created, &n.Kind); err != nil {
 		return nil, err
 	}
 	if sessionID.Valid {

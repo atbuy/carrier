@@ -50,10 +50,10 @@ func TestInternalCmdRegistersHiddenSubcommands(t *testing.T) {
 	if !cmd.Hidden {
 		t.Fatal("internal command should be hidden")
 	}
-	if got := len(cmd.Commands()); got != 2 {
-		t.Fatalf("subcommand count = %d, want 2", got)
+	if got := len(cmd.Commands()); got != 3 {
+		t.Fatalf("subcommand count = %d, want 3", got)
 	}
-	if cmd.Commands()[0].Use != "begin" || cmd.Commands()[1].Use != "end" {
+	if cmd.Commands()[0].Use != "begin" || cmd.Commands()[1].Use != "end" || cmd.Commands()[2].Use != "outcome" {
 		t.Fatalf("unexpected subcommands: %#v", cmd.Commands())
 	}
 }

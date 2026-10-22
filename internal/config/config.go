@@ -87,6 +87,9 @@ type ShellConfig struct {
 	// --auto" are kept after they end, e.g. "30d"; "0" keeps them forever.
 	// Labeled, noted, and kept sessions never expire.
 	AutoSessionRetention string `toml:"auto_session_retention"`
+	// AskOutcome asks what a labeled session found when its shell exits, if
+	// it has no outcome yet.
+	AskOutcome bool `toml:"ask_outcome"`
 }
 
 // HintsConfig controls optional hints printed after a run.
@@ -288,6 +291,9 @@ func mergeInclude(base *Config, path string) error {
 	}
 	if meta.IsDefined("shell", "auto_session_retention") {
 		base.Shell.AutoSessionRetention = overlay.Shell.AutoSessionRetention
+	}
+	if meta.IsDefined("shell", "ask_outcome") {
+		base.Shell.AskOutcome = overlay.Shell.AskOutcome
 	}
 	if meta.IsDefined("hints", "similar_failures") {
 		base.Hints.SimilarFailures = overlay.Hints.SimilarFailures
