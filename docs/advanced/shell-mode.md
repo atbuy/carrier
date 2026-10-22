@@ -38,6 +38,8 @@ For zsh, `carrier` uses `preexec` and `precmd` hooks.
 
 After sourcing your `.zshrc`, `carrier` disables zsh's `warn_create_global` option inside the tracked shell. This avoids prompt helper warnings from being printed on every command when prompt functions assign globals.
 
+The session is shown on the right of the zsh prompt, before anything your theme puts there. With [powerlevel10k](https://github.com/romkatv/powerlevel10k), which draws the right prompt itself, carrier adds a `carrier` segment to the front of `POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS` instead; put `carrier` in that list yourself to choose where it goes.
+
 For bash, `carrier` starts bash with a generated `--rcfile` and uses `PS0`, a `DEBUG` trap, and `PROMPT_COMMAND`. Each command line becomes one run, including compound lines like `make && make test`, pipelines, and subshells like `(cd api; make)`. The full line is taken from bash history, so it is recorded as typed. Existing `PROMPT_COMMAND` and `PS0` content is preserved, and `PROMPT_COMMAND` runs before `carrier` finishes the tracked command.
 
 Bash 4.4 or newer is recommended. Older versions (such as the bash 3.2 that ships with macOS) have no `PS0`, so lines made only of a subshell are not recorded there.
