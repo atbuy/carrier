@@ -435,3 +435,30 @@ timeline[].type string
 [].sections[].name string
 [].version string
 
+## status
+(root) object
+failed_count number
+inherited bool
+note_count number
+old_hooks bool
+outcome object
+outcome.created_at string
+outcome.id number
+outcome.kind string
+outcome.session_id number
+outcome.text string
+pin object
+pin.path string
+pin.ref string
+pin.session_id number
+recorded bool
+run_count number
+session object
+session.auto bool
+session.ended_at string
+session.id number
+session.kept bool
+session.label string
+session.started_at string
+terminal string
+

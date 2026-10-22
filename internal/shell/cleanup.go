@@ -22,8 +22,27 @@ const (
 // state files, their session and environment files, and hook directories.
 // Only this user's files, whose carrier process has ended, are removed. It
 // returns the number of files and directories removed.
-func CleanTemp(now time.Time) int {
+func CleanTemp(now time.Time) int { return cleanTemp(now, false) }
+
+// LeftoverTemp counts the files and directories CleanTemp would remove.
+func LeftoverTemp(now time.Time) int { return cleanTemp(now, true) }
+
+func cleanTemp(now time.Time, dryRun bool) int {
 	tmp := os.TempDir()
+	done := map[string]bool{}
+	remove := func(path string, all bool) bool {
+		if done[path] {
+			return false
+		}
+		done[path] = true
+		if dryRun {
+			return true
+		}
+		if all {
+			return os.RemoveAll(path) == nil
+		}
+		return os.Remove(path) == nil
+	}
 	removed := 0
 	states, _ := filepath.Glob(filepath.Join(tmp, "carrier-shell-*.json"))
 	for _, statePath := range states {
@@ -32,7 +51,7 @@ func CleanTemp(now time.Time) int {
 			continue
 		}
 		for _, path := range []string{statePath, SessionInfoPath(statePath), statePath + ".env"} {
-			if ownRegularFile(path) && os.Remove(path) == nil {
+			if ownRegularFile(path) && remove(path, false) {
 				removed++
 			}
 		}
@@ -42,7 +61,7 @@ func CleanTemp(now time.Time) int {
 	for _, path := range extras {
 		base, _, _ := strings.Cut(filepath.Base(path), ".")
 		pid, ok := pidFromName(base)
-		if ok && ownRegularFile(path) && old(path, now, cleanMinAge) && !processAlive(pid) && os.Remove(path) == nil {
+		if ok && ownRegularFile(path) && old(path, now, cleanMinAge) && !processAlive(pid) && remove(path, false) {
 			removed++
 		}
 	}
@@ -61,7 +80,7 @@ func CleanTemp(now time.Time) int {
 		} else if !old(dir, now, cleanLegacyAge) {
 			continue
 		}
-		if os.RemoveAll(dir) == nil {
+		if remove(dir, true) {
 			removed++
 		}
 	}

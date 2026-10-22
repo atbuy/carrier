@@ -197,6 +197,8 @@ That is the line from `carrier init` in your shell config. Skip it for one termi
 
 ## The prompt does not change after switching sessions
 
+Run `carrier status` in the terminal: it shows whether the terminal is recorded, the session it records into, and the session pinned for the directory. `carrier doctor` checks the same and the tmux server.
+
 After `carrier attach` or `carrier session reload` inside a recorded shell, the prompt shows the new session at the next prompt. When a session is relabeled, other terminals recording into it show the new label at their next prompt; press Enter to see it.
 
 - In tmux, a tmux server started from a recorded shell copies that shell's variables into every new pane. Before 1.2.2, those panes did not start their own session; zsh panes even loaded the first shell's hooks, so `session reload` in a pane switched the first terminal instead, and could say `already in session`. Since 1.2.2 each pane starts its own session. A tmux server started before you upgraded still holds the old variables: run `tmux kill-server`, or close all tmux sessions, and start tmux again.

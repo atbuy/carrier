@@ -620,6 +620,9 @@ func TestCleanTemp(t *testing.T) {
 	}
 	kept = append(kept, link)
 
+	if n := LeftoverTemp(now); n != len(gone) {
+		t.Errorf("LeftoverTemp = %d, want %d", n, len(gone))
+	}
 	if n := CleanTemp(now); n != len(gone) {
 		t.Errorf("CleanTemp removed %d, want %d", n, len(gone))
 	}
