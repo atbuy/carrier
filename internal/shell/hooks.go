@@ -11,7 +11,8 @@ import (
 // WriteHookDir writes the shell hooks for shellProgram into a new temporary
 // directory. banner prints the one-line session banner at startup.
 func WriteHookDir(carrierPath, statePath, shellProgram string, sessionID int64, label, labelColor string, banner bool) (string, error) {
-	dir, err := os.MkdirTemp("", "carrier-shell-*")
+	// The process ID in the name lets CleanTemp tell when the shell is gone.
+	dir, err := os.MkdirTemp("", fmt.Sprintf("carrier-shell-%d-*", os.Getpid()))
 	if err != nil {
 		return "", err
 	}

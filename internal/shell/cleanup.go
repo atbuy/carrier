@@ -1,0 +1,80 @@
+package shell
+
+import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	// cleanMinAge leaves recent files alone, in case the process that owns
+	// them is not visible from here (another PID namespace sharing /tmp).
+	cleanMinAge = time.Hour
+	// cleanLegacyAge is how old a hook directory from before carrier 1.2.4,
+	// whose name has no process ID, must be before it is removed.
+	cleanLegacyAge = 7 * 24 * time.Hour
+)
+
+// CleanTemp removes the files recorded shells leave in the temp directory
+// when they are killed instead of exiting, such as by "tmux kill-server":
+// state files, their session and environment files, and hook directories.
+// Only this user's files, whose carrier process has ended, are removed. It
+// returns the number of files and directories removed.
+func CleanTemp(now time.Time) int {
+	tmp := os.TempDir()
+	removed := 0
+	states, _ := filepath.Glob(filepath.Join(tmp, "carrier-shell-*.json"))
+	for _, statePath := range states {
+		pid, ok := pidFromName(strings.TrimSuffix(filepath.Base(statePath), ".json"))
+		if !ok || !ownRegularFile(statePath) || !old(statePath, now, cleanMinAge) || processAlive(pid) {
+			continue
+		}
+		for _, path := range []string{statePath, SessionInfoPath(statePath), statePath + ".env"} {
+			if ownRegularFile(path) && os.Remove(path) == nil {
+				removed++
+			}
+		}
+	}
+	// Session and environment files whose state file is already gone.
+	extras, _ := filepath.Glob(filepath.Join(tmp, "carrier-shell-*.json.*"))
+	for _, path := range extras {
+		base, _, _ := strings.Cut(filepath.Base(path), ".")
+		pid, ok := pidFromName(base)
+		if ok && ownRegularFile(path) && old(path, now, cleanMinAge) && !processAlive(pid) && os.Remove(path) == nil {
+			removed++
+		}
+	}
+	dirs, _ := filepath.Glob(filepath.Join(tmp, "carrier-shell-*"))
+	for _, dir := range dirs {
+		if !ownDir(dir) {
+			continue
+		}
+		name := strings.TrimPrefix(filepath.Base(dir), "carrier-shell-")
+		pidText, _, hasPID := strings.Cut(name, "-")
+		if hasPID {
+			pid, err := strconv.Atoi(pidText)
+			if err != nil || !old(dir, now, cleanMinAge) || processAlive(pid) {
+				continue
+			}
+		} else if !old(dir, now, cleanLegacyAge) {
+			continue
+		}
+		if os.RemoveAll(dir) == nil {
+			removed++
+		}
+	}
+	return removed
+}
+
+// pidFromName reads the process ID from a state file name, "carrier-shell-<pid>".
+func pidFromName(base string) (int, bool) {
+	pid, err := strconv.Atoi(strings.TrimPrefix(base, "carrier-shell-"))
+	return pid, err == nil && pid > 0
+}
+
+func old(path string, now time.Time, age time.Duration) bool {
+	info, err := os.Lstat(path)
+	return err == nil && now.Sub(info.ModTime()) >= age
+}

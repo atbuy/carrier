@@ -39,6 +39,7 @@ joins the pinned session instead.`,
 				a.cfg.Shell.Program = program
 			}
 			a.expireAutoSessionsIfDue(cmd)
+			a.cleanTempIfDue()
 			var sessionID int64
 			quiet := auto
 			if pinned := a.autoPinnedSession(cmd, auto, label); pinned != nil {

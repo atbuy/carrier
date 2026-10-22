@@ -14,6 +14,8 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	_ = os.Setenv("TMPDIR", dir)
+	// The executable is the test binary, so metadata is collected inline.
+	_ = os.Setenv(backfillInlineEnv, "1")
 	code := m.Run()
 	_ = os.RemoveAll(dir)
 	os.Exit(code)

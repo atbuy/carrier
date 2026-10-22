@@ -5,13 +5,26 @@ import (
 
 	"github.com/spf13/cobra"
 
+	carriershell "github.com/atbuy/carrier/internal/shell"
 	"github.com/atbuy/carrier/internal/store"
 )
 
 const (
 	sessionRetentionInterval = 24 * time.Hour
 	sessionRetentionFilename = "session-retention.timestamp"
+	tempCleanupFilename      = "temp-cleanup.timestamp"
 )
+
+// cleanTempIfDue removes, at most once a day, the temp files of recorded
+// shells that were killed instead of exiting.
+func (a *app) cleanTempIfDue() {
+	dataDir := a.cfg.Storage.DataDir
+	if !sidecarDue(dataDir, tempCleanupFilename, sessionRetentionInterval) {
+		return
+	}
+	touchSidecar(dataDir, tempCleanupFilename)
+	carriershell.CleanTemp(time.Now())
+}
 
 // expireAutoSessionsIfDue deletes expired automatic sessions at most once a
 // day, when a shell starts. Errors are ignored: cleanup must never stop a

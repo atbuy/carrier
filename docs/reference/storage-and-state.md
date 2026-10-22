@@ -74,6 +74,8 @@ Each run stores:
 
 Git metadata and environment capture are collected concurrently with the child process, so they do not delay command startup. When the command finishes, `carrier run` writes the git metadata, environment link, status, exit code, and duration back in a single SQLite UPDATE to keep per-command overhead low.
 
+In shell mode, the Git root, branch, and commit are read from the files in `.git` before each command, without starting `git`, so they describe the repository as the command starts. The dirty flag (`git status`) and the environment are added by a background process, so commands never wait for them; `carrier show` may lack them for the first moment of a run.
+
 ## Output logs
 
 `carrier run` writes:
@@ -127,6 +129,8 @@ When `storage.capture_env = true`, `carrier run` and `carrier shell` store the p
 Environment values are **always redacted before being written to disk** using the builtin secret patterns plus any custom patterns from your config. The `redaction.enabled` flag controls stdout/stderr redaction; it does not affect environment storage.
 
 Identical environments are stored only once. Runs share a row in the `environments` table, keyed by SHA-256 hash of the redacted JSON. This keeps the database small even when the same environment is used thousands of times.
+
+Redacting runs every value through the secret-detection rules, which takes time. A recorded shell remembers the last environment it stored, by a hash of the variables, in a file next to its state file, and reuses it while the environment is unchanged; only a changed environment is redacted again.
 
 Inspect a captured environment:
 
@@ -188,3 +192,9 @@ carrier clean --keep-last 500 --yes
 ```
 
 Automatic sessions expire on their own after `shell.auto_session_retention`; see [Keep or expire automatic sessions](../advanced/shell-mode.md#keep-or-expire-automatic-sessions).
+
+## Temporary files
+
+Each recorded shell keeps a few files in the temp directory (`$TMPDIR`, usually `/tmp`) while it runs: its state file `carrier-shell-<pid>.json`, the session file `.json.session` its prompt reads, the environment cache `.json.env`, and a `carrier-shell-<pid>-*` directory with its shell hooks. They are removed when the shell exits.
+
+A shell that is killed instead, for example by `tmux kill-server`, leaves them behind. At most once a day, when a recorded shell starts, carrier removes such files when their carrier process has ended and they are at least an hour old. Only your own files are touched.

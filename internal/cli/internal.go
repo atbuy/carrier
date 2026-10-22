@@ -22,7 +22,7 @@ import (
 
 func (a *app) internalCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "internal", Hidden: true}
-	cmd.AddCommand(a.internalBeginCmd(), a.internalEndCmd(), a.internalOutcomeCmd())
+	cmd.AddCommand(a.internalBeginCmd(), a.internalEndCmd(), a.internalOutcomeCmd(), a.internalBackfillCmd())
 	return cmd
 }
 
@@ -53,25 +53,14 @@ func (a *app) internalBeginCmd() *cobra.Command {
 				_ = a.st.ReopenSession(v)
 			}
 
-			// Start git and env collection concurrently.
-			gitCh := make(chan gitmeta.Meta, 1)
-			envCh := make(chan *int64, 1)
-			go func() { gitCh <- gitmeta.Collect(cwd) }()
-			go func() {
-				var envID *int64
-				if envJSON := captureEnvCLI(a.cfg); envJSON != "" {
-					if eid, err := a.st.InsertOrGetEnvironment(envJSON); err == nil {
-						envID = &eid
-					}
-				}
-				envCh <- envID
-			}()
-
-			// Create run immediately so we can write the state file without
-			// waiting for git/env — the PTY loop starts logging sooner.
+			// Read the branch and commit from .git now, as they are when the
+			// command starts; it starts no process, so the command does not
+			// wait. "git status" and the environment come in the background.
+			head, inRepo := gitmeta.Head(cwd)
 			id, err := a.st.CreateRun(store.CreateRun{
 				Status: store.StatusRunning, Mode: store.ModeShell, Command: command, ArgvJSON: string(argvJSON),
 				CWD: cwd, StartedAt: started, Hostname: host, Shell: os.Getenv("SHELL"),
+				GitRoot: head.Root, GitBranch: head.Branch, GitCommit: head.Commit,
 				NotifyRequested: os.Getenv("CARRIER_NOTIFY") == "1", NotifyAlways: os.Getenv("CARRIER_NOTIFY_ALWAYS") == "1",
 				SessionID: sessionID,
 			})
@@ -88,11 +77,7 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			if err := sf.Write(carriershell.State{CurrentID: id, CurrentLog: path, SessionID: state.SessionID}); err != nil {
 				return err
 			}
-
-			// Drain goroutines and backfill metadata before this subprocess exits.
-			git := <-gitCh
-			envID := <-envCh
-			_ = a.st.BackfillMeta(id, git.Root, git.Branch, git.Commit, git.Dirty, envID)
+			a.startBackfill(statePath, id, cwd, inRepo)
 			return nil
 		},
 	}

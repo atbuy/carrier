@@ -2,6 +2,17 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.2.4] - 2026-10-22
+
+### Changed
+
+- Commands in a recorded shell start about 4 times sooner: carrier's hook before each command took about 110 ms and now takes about 25 ms. The environment is redacted again only when it changes, and `git status` and the environment are collected in the background, so slow `git status` in large repositories no longer delays commands.
+- The Git branch and commit of a shell run are read from `.git` as the command starts.
+
+### Fixed
+
+- Temporary files of recorded shells that were killed instead of exiting, for example by `tmux kill-server`, are removed at most once a day when a shell starts.
+
 ## [1.2.3] - 2026-10-22
 
 ### Fixed
