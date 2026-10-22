@@ -375,3 +375,27 @@ func TestIsSessionCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestSwitchInShellWithOldHooks(t *testing.T) {
+	a, dir := autoSessionApp(t)
+	current := newSession(t, a, "", false)
+	newSession(t, a, "deploy", false)
+	statePath, _ := recordedShell(t, a, dir, current, "c a deploy")
+	// Shells started before 1.1.0 have no session file for the hooks to read.
+	if err := os.Remove(carriershell.SessionInfoPath(statePath)); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, err := runEmpty(t, a.attachCmd(), []string{"deploy"}, nil)
+	if err != nil || !strings.Contains(out, "switched to session") {
+		t.Fatalf("attach: out=%q err=%v", out, err)
+	}
+	if !strings.Contains(errOut, fmt.Sprintf("its prompt still shows session %d", current)) {
+		t.Fatalf("stderr = %q", errOut)
+	}
+
+	// A current shell gets no hint.
+	recordedShell(t, a, dir, current, "c a deploy")
+	if _, errOut, _ := runEmpty(t, a.attachCmd(), []string{"deploy"}, nil); strings.Contains(errOut, "older carrier") {
+		t.Fatalf("unexpected hint: %q", errOut)
+	}
+}

@@ -582,10 +582,14 @@ func (a *app) moveShellToNewSession(cmd *cobra.Command, statePath string) error 
 	if err := sf.Write(carriershell.State{CurrentID: state.CurrentID, CurrentLog: state.CurrentLog, SessionID: id}); err != nil {
 		return err
 	}
+	oldHooks := hooksIgnoreSessionInfo(statePath)
 	if err := carriershell.WriteSessionInfo(statePath, id, ""); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "carrier: this shell now records into session %d\n", id)
+	if oldHooks {
+		printOldHooksHint(cmd, state.SessionID)
+	}
 	return nil
 }
 

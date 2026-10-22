@@ -194,3 +194,10 @@ carrier search "project-name"
 ## Every terminal starts a carrier session
 
 That is the line from `carrier init` in your shell config. Skip it for one terminal with `CARRIER_NO_AUTO=1`, or remove the line to turn it off. If carrier cannot start, the terminal continues as a normal shell and prints the reason.
+
+## The prompt does not change after switching sessions
+
+After `carrier attach` or `carrier session reload` inside a recorded shell, the prompt shows the new session at the next prompt.
+
+- If carrier says `this shell was started by an older carrier`, the shell was opened before you upgraded to 1.1.0 or later. Its commands are recorded into the new session, but its prompt cannot follow; new terminals show the right session.
+- With a prompt theme that rebuilds the right prompt itself, the indicator may not show at all. powerlevel10k is supported with a `carrier` segment; for other themes, use `$CARRIER_SESSION_ID` and `$CARRIER_SESSION_LABEL` in your prompt, which are updated before every prompt.

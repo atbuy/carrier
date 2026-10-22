@@ -118,6 +118,17 @@ _carrier_session_file=%s
 _carrier_session_id=%d
 _carrier_session_label=%s
 _carrier_rprompt=
+# powerlevel10k draws its own right prompt and resets RPROMPT before every
+# prompt, so the session is shown as a p10k segment there instead.
+prompt_carrier() {
+  local text="carrier #${_carrier_session_id}"
+  [[ -n "$_carrier_session_label" ]] && text+=" ${_carrier_session_label//\%%/%%%%}"
+  p10k segment -f %s -t "$text"
+}
+if (( $+functions[p10k] )) && (( ! ${POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS[(Ie)carrier]} )); then
+  POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(carrier $POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS)
+  p10k reload 2>/dev/null
+fi
 # Reads the current session, which "carrier attach" changes when it switches
 # sessions, and updates the prompt indicator, title, and environment.
 _carrier_session() {
@@ -131,8 +142,10 @@ _carrier_session() {
   local indicator="%%B%%F{%s}carrier #${_carrier_session_id}%%f%%b"
   [[ -n "$_carrier_session_label" ]] && indicator+=" %%F{%s}${_carrier_session_label//\%%/%%%%}%%f"
   # Replace the indicator added before, or add it once; precmd runs before
-  # every prompt.
-  if [[ -n "$_carrier_rprompt" && "$RPROMPT" == "$_carrier_rprompt"* ]]; then
+  # every prompt. powerlevel10k shows the prompt_carrier segment instead.
+  if (( $+functions[p10k] )); then
+    :
+  elif [[ -n "$_carrier_rprompt" && "$RPROMPT" == "$_carrier_rprompt"* ]]; then
     RPROMPT="$indicator${RPROMPT#"$_carrier_rprompt"}"
   else
     RPROMPT="$indicator${RPROMPT:+ $RPROMPT}"
@@ -172,8 +185,17 @@ add-zsh-hook precmd _carrier_precmd
 add-zsh-hook zshexit _carrier_zshexit
 %s
 _carrier_session
-`, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label), color, color,
+`, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label), p10kColor(labelColor), color, color,
 		carrierPath, statePath, carrierPath, statePath, carrierPath, statePath, startupBanner(banner, sessionID, label, labelColor))
+}
+
+// p10kColor is the label color for "p10k segment -f", which takes a color
+// name, number, or #RRGGBB; it falls back to blue.
+func p10kColor(color string) string {
+	if color = strings.TrimSpace(color); color == "" {
+		return "blue"
+	}
+	return shellQuote(color)
 }
 
 func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {

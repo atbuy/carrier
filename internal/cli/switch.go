@@ -53,12 +53,29 @@ func (a *app) switchSession(cmd *cobra.Command, statePath string, sess *store.Se
 	if err := sf.Write(carriershell.State{CurrentID: state.CurrentID, CurrentLog: state.CurrentLog, SessionID: sess.ID}); err != nil {
 		return err
 	}
+	oldHooks := hooksIgnoreSessionInfo(statePath)
 	if err := carriershell.WriteSessionInfo(statePath, sess.ID, sess.Label); err != nil {
 		return err
 	}
 	a.leaveSession(state.SessionID)
 	_, _ = fmt.Fprintf(out, "carrier: switched to session %s\n", sessionName(sess))
+	if oldHooks {
+		printOldHooksHint(cmd, state.SessionID)
+	}
 	return nil
+}
+
+// hooksIgnoreSessionInfo reports whether this shell was started by a carrier
+// older than 1.1.0, whose hooks never read the session file: switching
+// sessions works there, but the prompt keeps showing the old session.
+func hooksIgnoreSessionInfo(statePath string) bool {
+	_, err := os.Stat(carriershell.SessionInfoPath(statePath))
+	return errors.Is(err, os.ErrNotExist)
+}
+
+func printOldHooksHint(cmd *cobra.Command, oldID int64) {
+	printHint(cmd, fmt.Sprintf("this shell was started by an older carrier, so its prompt still shows session %d; "+
+		"commands are recorded into the new session, and new terminals show it", oldID))
 }
 
 // leaveSession ends a session a shell stopped recording into. An automatic

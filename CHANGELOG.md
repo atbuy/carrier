@@ -2,6 +2,13 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.2.1] - 2026-10-22
+
+### Fixed
+
+- With powerlevel10k, the session is shown as a `carrier` segment on the right of the prompt, and follows session switches. powerlevel10k rebuilds the right prompt before every prompt, so the indicator was not shown there.
+- Switching sessions in a shell opened before 1.1.0, whose prompt cannot follow, now says so; its commands are recorded into the new session.
+
 ## [1.2.0] - 2026-10-22
 
 ### Added

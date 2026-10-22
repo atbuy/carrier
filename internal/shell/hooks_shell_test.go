@@ -372,3 +372,45 @@ echo "PROMPT["(fish_right_prompt)"] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSI
 		})
 	}
 }
+
+// TestZshHooksUsePowerlevel10kSegment checks that with powerlevel10k, which
+// rebuilds RPROMPT before every prompt, the session is added as a p10k
+// segment instead of to RPROMPT.
+func TestZshHooksUsePowerlevel10kSegment(t *testing.T) {
+	if _, err := exec.LookPath("zsh"); err != nil {
+		t.Skip("zsh not installed")
+	}
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "state.json")
+	if err := WriteSessionInfo(statePath, 3, "BUG-1 50%"); err != nil {
+		t.Fatal(err)
+	}
+	// A stand-in for powerlevel10k: "p10k segment" prints its arguments.
+	userRC := `POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status time)
+p10k() { [[ $1 == segment ]] && print -r -- "SEGMENT[${(j: :)@[2,-1]}]"; [[ $1 == reload ]] && print -r -- RELOADED; }
+`
+	if err := os.WriteFile(filepath.Join(dir, ".zshrc"), []byte(userRC), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	hookDir, err := WriteHookDir("/bin/true", statePath, "zsh", 3, "BUG-1 50%", "#7aadf4", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(hookDir) }()
+	isolateZsh(t, "zsh", hookDir)
+	cmd := exec.Command("zsh", "-i", "-c", `RPROMPT=theirs; _carrier_precmd
+printf '9\nOPS-7\n' > `+SessionInfoPath(statePath)+`
+_carrier_precmd; prompt_carrier
+print -r -- "ELEMENTS[$POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS] RPROMPT[$RPROMPT]"`)
+	cmd.Env = append(os.Environ(), "ZDOTDIR="+hookDir, "HOME="+dir)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("zsh: %v\n%s", err, out)
+	}
+	got := string(out)
+	for _, want := range []string{"RELOADED", "SEGMENT[-f #7aadf4 -t carrier #9 OPS-7]", "ELEMENTS[carrier status time] RPROMPT[theirs]"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
