@@ -152,7 +152,7 @@ How it behaves:
 - exiting the recorded shell closes the terminal, as usual
 - if carrier cannot start, it prints why and the terminal continues as a normal shell
 - a terminal opened and closed without running anything leaves no session behind
-- each terminal, and each tmux pane, is its own session, unless its directory is [pinned to a session](#one-session-for-every-terminal)
+- each terminal, and each tmux pane, is its own session, unless its directory is [pinned to a session](#one-session-for-every-terminal); this includes tmux panes of a tmux server started from a recorded shell, which inherit its variables but run in their own terminal
 
 Turn it off for one terminal with `CARRIER_NO_AUTO=1`, for example `CARRIER_NO_AUTO=1 zsh`, or remove the line from your config.
 

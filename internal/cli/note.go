@@ -296,6 +296,9 @@ func carrierCommandWords(line string) []string {
 // The shell's state file is checked first, since switching sessions updates
 // it before the shell's next prompt updates CARRIER_SESSION_ID.
 func currentSessionID() int64 {
+	if carriershell.OtherTerminal() {
+		return 0
+	}
 	if statePath := os.Getenv("CARRIER_SHELL_STATE"); statePath != "" {
 		if state := (&carriershell.StateFile{Path: statePath}).Read(); state.SessionID != 0 {
 			return state.SessionID

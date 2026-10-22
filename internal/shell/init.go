@@ -12,7 +12,9 @@ var InitShells = []string{"zsh", "bash", "fish"}
 // terminal inside an automatic carrier session. It runs carrier only when the
 // shell is interactive, attached to a terminal, not already inside a carrier
 // session (carrier shell loads the same config again), and CARRIER_NO_AUTO is
-// unset. "carrier shell --auto" exits 0 when the recorded shell ends, so the
+// unset. A terminal that only inherited a recorded shell's variables, such as
+// a tmux pane started from one, has a different terminal than CARRIER_TTY,
+// so it is not inside that session. "carrier shell --auto" exits 0 when the recorded shell ends, so the
 // outer shell exits with it; if carrier cannot start, it exits non-zero and
 // the terminal carries on as a plain shell.
 func InitScript(shellName, carrierPath string) (string, error) {
@@ -20,13 +22,15 @@ func InitScript(shellName, carrierPath string) (string, error) {
 	switch shellName {
 	case "zsh":
 		return fmt.Sprintf(`# carrier: record this terminal in an automatic session.
-if [[ -o interactive && -t 0 && -t 1 && -z "$CARRIER_SESSION_ID" && -z "$CARRIER_NO_AUTO" ]]; then
+if [[ -o interactive && -t 0 && -t 1 && -z "$CARRIER_NO_AUTO" &&
+      ( -z "$CARRIER_SESSION_ID" || ( -n "$CARRIER_TTY" && "$CARRIER_TTY" != "$TTY" ) ) ]]; then
   %s shell --auto --program zsh && exit
 fi
 `, quoted), nil
 	case "bash":
 		return fmt.Sprintf(`# carrier: record this terminal in an automatic session.
-if [[ $- == *i* && -t 0 && -t 1 && -z "$CARRIER_SESSION_ID" && -z "$CARRIER_NO_AUTO" ]]; then
+if [[ $- == *i* && -t 0 && -t 1 && -z "$CARRIER_NO_AUTO" &&
+      ( -z "$CARRIER_SESSION_ID" || ( -n "$CARRIER_TTY" && "$CARRIER_TTY" != "$(tty)" ) ) ]]; then
   %s shell --auto --program bash && exit
 fi
 `, quoted), nil
@@ -34,7 +38,7 @@ fi
 		// In fish, exit while reading config only stops reading it; the shell
 		// keeps running. Leave at the first prompt instead.
 		return fmt.Sprintf(`# carrier: record this terminal in an automatic session.
-if status is-interactive; and isatty stdin; and isatty stdout; and not set -q CARRIER_SESSION_ID; and not set -q CARRIER_NO_AUTO
+if status is-interactive; and isatty stdin; and isatty stdout; and not set -q CARRIER_NO_AUTO; and begin; not set -q CARRIER_SESSION_ID; or begin; set -q CARRIER_TTY; and test "$CARRIER_TTY" != (tty); end; end
     if %s shell --auto --program fish
         set -g fish_greeting
         function __carrier_auto_exit --on-event fish_prompt

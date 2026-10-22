@@ -70,6 +70,7 @@ capture_env = false
 | ----------------------- | -------------------------------------------------------------------------------------------- |
 | `CARRIER_SESSION_ID`    | Integer ID of the current shell session. Used by `carrier session label` to identify the current session. Updated at the next prompt after switching sessions. |
 | `CARRIER_SHELL_STATE`   | Path to temporary shell state JSON.                                                          |
+| `CARRIER_TTY`           | The terminal the recorded shell runs in. A tmux pane or other terminal that inherited the variables of a recorded shell has a different terminal, so carrier knows it is not that shell. |
 | `CARRIER_NOTIFY`        | Passes notification request into shell hook runs.                                            |
 | `CARRIER_NOTIFY_ALWAYS` | Passes always-notify request into shell hook runs.                                           |
 | `CARRIER_NO_REDACT`     | Passes redaction override into shell hook runs.                                              |

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/creack/pty"
+
 	carriershell "github.com/atbuy/carrier/internal/shell"
 	"github.com/atbuy/carrier/internal/store"
 )
@@ -397,5 +399,42 @@ func TestSwitchInShellWithOldHooks(t *testing.T) {
 	recordedShell(t, a, dir, current, "c a deploy")
 	if _, errOut, _ := runEmpty(t, a.attachCmd(), []string{"deploy"}, nil); strings.Contains(errOut, "older carrier") {
 		t.Fatalf("unexpected hint: %q", errOut)
+	}
+}
+
+// TestInheritedSessionInOtherTerminal covers a tmux pane started from a
+// recorded shell: it inherits that shell's variables but runs in another
+// terminal, so it must not switch or report the other shell's session.
+func TestInheritedSessionInOtherTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY test is Unix-only")
+	}
+	a, dir := autoSessionApp(t)
+	outer := newSession(t, a, "", true)
+	newSession(t, a, "BUG-20", false)
+	statePath, _ := recordedShell(t, a, dir, outer, "c session reload")
+	if err := os.WriteFile(filepath.Join(dir, pinFileName), []byte("BUG-20\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	ptmx, paneTTY, err := pty.Open()
+	if err != nil {
+		t.Skipf("no pty: %v", err)
+	}
+	defer func() { _ = ptmx.Close(); _ = paneTTY.Close() }()
+	oldStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	os.Stdin = paneTTY
+	t.Setenv("CARRIER_TTY", "/dev/pts/the-recorded-shell")
+
+	if _, _, err := runEmpty(t, a.sessionReloadCmd(), nil, nil); err == nil || !strings.Contains(err.Error(), "not in a recorded shell") {
+		t.Fatalf("reload in another terminal: %v", err)
+	}
+	if state := (&carriershell.StateFile{Path: statePath}).Read(); state.SessionID != outer {
+		t.Fatalf("the recorded shell's session must not change, state = %+v", state)
+	}
+	if id := currentSessionID(); id != 0 {
+		t.Fatalf("currentSessionID in another terminal = %d, want 0", id)
 	}
 }

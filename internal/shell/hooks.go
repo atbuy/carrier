@@ -107,7 +107,16 @@ func fishColor(color string) string {
 func zshHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
 	color := zshColor(labelColor)
 	return fmt.Sprintf(`
-[[ -f "$HOME/.zshrc" ]] && source "$HOME/.zshrc"
+# zsh found this file through ZDOTDIR; give the shell back the user's own, so
+# shells started from this one (tmux panes, a nested zsh) load the user's
+# config instead of these hooks.
+if [[ -n "${CARRIER_ZDOTDIR-}" ]]; then
+  ZDOTDIR="$CARRIER_ZDOTDIR"
+else
+  unset ZDOTDIR
+fi
+unset CARRIER_ZDOTDIR
+[[ -f "${ZDOTDIR:-$HOME}/.zshrc" ]] && source "${ZDOTDIR:-$HOME}/.zshrc"
 unsetopt warn_create_global 2>/dev/null
 autoload -Uz add-zsh-hook
 _carrier_zle_init() {

@@ -76,6 +76,8 @@ func Run(cfg config.Config, opts Options) (State, error) {
 	cmd.Env = append(
 		env,
 		"ZDOTDIR="+hookDir,
+		// The user's own ZDOTDIR, which the zsh hooks restore.
+		"CARRIER_ZDOTDIR="+userZDOTDIR(),
 		"CARRIER_SHELL_STATE="+statePath,
 		fmt.Sprintf("CARRIER_SESSION_ID=%d", sessionID),
 		"CARRIER_SESSION_LABEL="+label,
@@ -85,7 +87,7 @@ func Run(cfg config.Config, opts Options) (State, error) {
 		// The exit hook asks for the session's outcome only when this is set.
 		boolEnv("CARRIER_ASK_OUTCOME", cfg.Shell.AskOutcome),
 	)
-	ptmx, err := pty.Start(cmd)
+	ptmx, err := startPTY(cmd)
 	if err != nil {
 		return State{}, err
 	}
@@ -137,6 +139,17 @@ func Run(cfg config.Config, opts Options) (State, error) {
 	}
 	waitErr := cmd.Wait()
 	return state.Read(), waitErr
+}
+
+// userZDOTDIR is the user's own ZDOTDIR. A carrier hooks directory there was
+// inherited from a recorded shell started by an older carrier, for example
+// through a tmux server, and is not the user's.
+func userZDOTDIR() string {
+	dir := os.Getenv("ZDOTDIR")
+	if strings.HasPrefix(filepath.Base(dir), "carrier-shell-") && filepath.Dir(dir) == filepath.Clean(os.TempDir()) {
+		return ""
+	}
+	return dir
 }
 
 func shellArgs(program, hookDir string) []string {

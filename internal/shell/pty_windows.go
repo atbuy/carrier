@@ -4,6 +4,7 @@ package shell
 
 import (
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/creack/pty"
@@ -34,3 +35,5 @@ func watchResize(ptmx *os.File) func() {
 	}()
 	return func() { close(stop) }
 }
+
+func startPTY(cmd *exec.Cmd) (*os.File, error) { return pty.Start(cmd) }
