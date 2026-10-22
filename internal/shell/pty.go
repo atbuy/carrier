@@ -82,6 +82,8 @@ func Run(cfg config.Config, opts Options) (State, error) {
 		boolEnv("CARRIER_NOTIFY", opts.Notify),
 		boolEnv("CARRIER_NOTIFY_ALWAYS", opts.NotifyAlways),
 		boolEnv("CARRIER_NO_REDACT", opts.NoRedact),
+		// The exit hook asks for the session's outcome only when this is set.
+		boolEnv("CARRIER_ASK_OUTCOME", cfg.Shell.AskOutcome),
 	)
 	ptmx, err := pty.Start(cmd)
 	if err != nil {

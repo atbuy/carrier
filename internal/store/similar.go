@@ -99,25 +99,12 @@ LIMIT ?`, "output : ("+strings.Join(quoted, " ")+")", StatusFailed, runID, fmtTi
 // when none do). Words containing digits are dropped, so ports, PIDs, line
 // numbers, and hashes do not prevent a match.
 func ErrorSignature(output string) []string {
-	lines := strings.Split(ansi.Strip(output), "\n")
-	var picked []string
-	for i := len(lines) - 1; i >= 0 && len(picked) < signatureMaxLines; i-- {
-		if line := strings.TrimSpace(lines[i]); line != "" && errorLinePattern.MatchString(line) {
-			picked = append(picked, line)
-		}
-	}
-	if len(picked) == 0 {
-		for i := len(lines) - 1; i >= 0; i-- {
-			if line := strings.TrimSpace(lines[i]); line != "" {
-				picked = append(picked, line)
-				break
-			}
-		}
-	}
+	picked := ErrorLines(output, signatureMaxLines)
 	seen := map[string]bool{}
 	var terms []string
-	// picked is newest-first; the last error line is usually the most specific.
-	for _, line := range picked {
+	// The last error line is usually the most specific, so start there.
+	for i := len(picked) - 1; i >= 0; i-- {
+		line := picked[i]
 		for _, field := range strings.Fields(line) {
 			if strings.ContainsAny(field, "0123456789") {
 				continue
@@ -137,6 +124,30 @@ func ErrorSignature(output string) []string {
 	}
 	return terms
 }
+
+// ErrorLines returns up to max lines near the end of output that look like
+// errors, in order, or the last non-empty line when none do.
+func ErrorLines(output string, max int) []string {
+	lines := strings.Split(ansi.Strip(output), "\n")
+	var picked []string
+	for i := len(lines) - 1; i >= 0 && len(picked) < max; i-- {
+		if line := strings.TrimSpace(lines[i]); line != "" && errorLinePattern.MatchString(line) {
+			picked = append([]string{line}, picked...)
+		}
+	}
+	if len(picked) == 0 {
+		for i := len(lines) - 1; i >= 0; i-- {
+			if line := strings.TrimSpace(lines[i]); line != "" {
+				return []string{line}
+			}
+		}
+	}
+	return picked
+}
+
+// RunOutputTail returns the end of a run's error-bearing output; see
+// runOutputTail.
+func RunOutputTail(r *Run) string { return runOutputTail(r) }
 
 // runOutputTail returns the end of a run's error-bearing output: stderr when
 // it has content, otherwise the terminal log (shell runs) or stdout.

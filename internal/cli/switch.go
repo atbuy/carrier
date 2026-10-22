@@ -39,7 +39,7 @@ func recordedShellState() string {
 // an empty automatic session. The prompt follows at the next prompt.
 func (a *app) switchSession(cmd *cobra.Command, statePath string, sess *store.Session) error {
 	// The switching command itself is bookkeeping, not part of either session.
-	a.dropShellRun(isSwitchInvocation)
+	a.dropShellRun(isSessionCommand)
 	sf := &carriershell.StateFile{Path: statePath}
 	state := sf.Read()
 	out := cmd.OutOrStdout()
@@ -81,9 +81,10 @@ func (a *app) deleteIfEmptyAuto(id int64) {
 	}
 }
 
-// isSwitchInvocation reports whether a shell command line is a single
-// "carrier attach" or "carrier session reload".
-func isSwitchInvocation(line string) bool {
+// isSessionCommand reports whether a shell command line is a single command
+// that moves the shell between sessions: "carrier attach", "carrier session
+// reload", or "carrier session end". Such commands are not recorded.
+func isSessionCommand(line string) bool {
 	words := carrierCommandWords(line)
 	switch {
 	case len(words) == 0:
@@ -91,7 +92,7 @@ func isSwitchInvocation(line string) bool {
 	case words[0] == "attach" || words[0] == "a":
 		return true
 	default:
-		return len(words) > 1 && (words[0] == "session" || words[0] == "se") && words[1] == "reload"
+		return len(words) > 1 && (words[0] == "session" || words[0] == "se") && (words[1] == "reload" || words[1] == "end")
 	}
 }
 

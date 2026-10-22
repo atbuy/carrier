@@ -57,7 +57,17 @@ type app struct {
 }
 
 func Execute() int {
-	a := &app{}
+	root := newRootCmd(&app{})
+	root.SetArgs(rewriteRunRefArgs(root, os.Args[1:]))
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, newTheme(os.Stderr).Danger.Render("carrier:"), err)
+		return 1
+	}
+	return 0
+}
+
+// newRootCmd builds the carrier command tree.
+func newRootCmd(a *app) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "carrier",
 		Short:         "Local developer command logger",
@@ -92,12 +102,7 @@ func Execute() int {
 
 	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.setupCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.changelogCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
 	installHelp(root)
-	root.SetArgs(rewriteRunRefArgs(root, os.Args[1:]))
-	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, newTheme(os.Stderr).Danger.Render("carrier:"), err)
-		return 1
-	}
-	return 0
+	return root
 }
 
 // ensureConfig loads config once, caches it, and applies theme settings.

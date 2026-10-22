@@ -121,6 +121,18 @@ carrier note suspect stale DNS cache, flushing next
 
 The `carrier note` command itself is not recorded as a run. List the session's notes with `carrier notes`.
 
+### Review a session
+
+When you are done, record what you found and read the session back:
+
+```bash title="End and review a session"
+carrier session end --note "pool size was 0 after the config change"
+carrier session show BUG-1234
+carrier session export BUG-1234 > bug-1234.md
+```
+
+`session show` replays the session as a timeline of commands, failed commands' error lines, and notes, with the outcome at the top. `session export` writes the same as Markdown to paste into a pull request or ticket. Inside a recorded shell, `session end` moves the shell to a new automatic session. Set [`shell.ask_outcome`](../reference/configuration.md#ask_outcome) to be asked for the outcome when a labeled session's shell exits. See [`session show`](../guide/commands.md#session-show).
+
 ## Record every terminal
 
 Add one line to your shell config, after `PATH` is set, to start every interactive terminal in an automatic session:

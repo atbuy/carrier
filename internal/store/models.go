@@ -60,7 +60,13 @@ type Note struct {
 	RunID     *int64
 	Text      string
 	CreatedAt time.Time
+	// Kind is NoteOutcome for a session's outcome, otherwise empty.
+	Kind string
 }
+
+// NoteOutcome marks the note that records what a session found, written by
+// "carrier session end --note".
+const NoteOutcome = "outcome"
 
 type CreateSession struct {
 	Label     string

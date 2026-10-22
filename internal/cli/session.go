@@ -22,7 +22,8 @@ func (a *app) sessionCmd() *cobra.Command {
 		Short:   "manage shell session labels and history",
 	}
 	cmd.AddCommand(a.sessionLabelCmd(), a.sessionListCmd(), a.sessionKeepCmd(true), a.sessionKeepCmd(false),
-		a.sessionPinCmd(), a.sessionUnpinCmd(), a.sessionReloadCmd())
+		a.sessionPinCmd(), a.sessionUnpinCmd(), a.sessionReloadCmd(),
+		a.sessionShowCmd(), a.sessionExportCmd(), a.sessionEndCmd())
 	return cmd
 }
 
@@ -139,11 +140,13 @@ type sessionView struct {
 func writeSessionsJSON(cmd *cobra.Command, sessions []store.Session) error {
 	views := make([]sessionView, 0, len(sessions))
 	for _, s := range sessions {
-		views = append(views, sessionView{
-			ID: s.ID, Label: s.Label, StartedAt: s.StartedAt, EndedAt: s.EndedAt, Auto: s.Auto, Kept: s.Kept,
-		})
+		views = append(views, sessionViewFromStore(s))
 	}
 	return writeJSON(cmd, views)
+}
+
+func sessionViewFromStore(s store.Session) sessionView {
+	return sessionView{ID: s.ID, Label: s.Label, StartedAt: s.StartedAt, EndedAt: s.EndedAt, Auto: s.Auto, Kept: s.Kept}
 }
 
 // sessionKeepCmd builds "session keep" (keep=true) or "session unkeep".

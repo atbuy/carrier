@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/gitmeta"
@@ -19,7 +22,7 @@ import (
 
 func (a *app) internalCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "internal", Hidden: true}
-	cmd.AddCommand(a.internalBeginCmd(), a.internalEndCmd())
+	cmd.AddCommand(a.internalBeginCmd(), a.internalEndCmd(), a.internalOutcomeCmd())
 	return cmd
 }
 
@@ -180,4 +183,50 @@ func outputIgnored(cmd string, ignore []string) bool {
 		}
 	}
 	return false
+}
+
+// internalOutcomeCmd runs from the shell's exit hook when shell.ask_outcome is
+// on. The shell still owns the terminal then, so the question can be asked
+// and answered there.
+func (a *app) internalOutcomeCmd() *cobra.Command {
+	var statePath string
+	cmd := &cobra.Command{
+		Use:    "outcome",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !term.IsTerminal(int(os.Stdin.Fd())) {
+				return nil
+			}
+			state := (&carriershell.StateFile{Path: statePath}).Read()
+			return a.askOutcome(state.SessionID, os.Stdin, os.Stderr)
+		},
+	}
+	cmd.Flags().StringVar(&statePath, "state", "", "state file")
+	return cmd
+}
+
+// askOutcome asks what a labeled session found, when it has no outcome yet,
+// and records the answer. An empty answer skips it.
+func (a *app) askOutcome(sessionID int64, in io.Reader, out io.Writer) error {
+	if sessionID == 0 {
+		return nil
+	}
+	sess, err := a.st.GetSession(sessionID)
+	if err != nil || sess.Label == "" {
+		return nil
+	}
+	if outcome, err := a.st.SessionOutcome(sessionID); err != nil || outcome != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(out, "carrier: what did %q find? (Enter to skip) ", sess.Label)
+	line, _ := bufio.NewReader(in).ReadString('\n')
+	text := strings.TrimSpace(line)
+	if text == "" {
+		return nil
+	}
+	if _, err := a.st.CreateNote(store.CreateNote{SessionID: &sessionID, Text: text, Kind: store.NoteOutcome, CreatedAt: time.Now()}); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(out, "carrier: outcome saved; see it with \"carrier session show %d\"\n", sessionID)
+	return nil
 }

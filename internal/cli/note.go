@@ -22,10 +22,11 @@ type noteView struct {
 	RunID     *int64    `json:"run_id,omitempty"`
 	Text      string    `json:"text"`
 	CreatedAt time.Time `json:"created_at"`
+	Kind      string    `json:"kind,omitempty"`
 }
 
 func noteViewFromStore(n store.Note) noteView {
-	return noteView{ID: n.ID, SessionID: n.SessionID, RunID: n.RunID, Text: n.Text, CreatedAt: n.CreatedAt}
+	return noteView{ID: n.ID, SessionID: n.SessionID, RunID: n.RunID, Text: n.Text, CreatedAt: n.CreatedAt, Kind: n.Kind}
 }
 
 func (a *app) noteCmd() *cobra.Command {
@@ -159,7 +160,7 @@ session are shown unless --session or --run is given.
 					t.ID.Render(fmt.Sprintf("%6d", n.ID)),
 					t.Muted.Render(padRight(formatRelativeTime(n.CreatedAt), 9)),
 					t.Accent.Render(padRight(noteTarget(n.SessionID, n.RunID), 22)),
-					n.Text,
+					noteText(n),
 				)
 			}
 			return nil
@@ -329,7 +330,23 @@ func printNoteLine(out io.Writer, t theme, n store.Note, rail string) {
 		out, "%s %s  %s %s\n",
 		strings.Repeat(" ", 6),
 		railStr,
-		t.Label.Render("note:"),
+		t.Label.Render(noteHeading(n)+":"),
 		n.Text,
 	)
+}
+
+// noteHeading is "outcome" for a session's outcome and "note" otherwise.
+func noteHeading(n store.Note) string {
+	if n.Kind == store.NoteOutcome {
+		return "outcome"
+	}
+	return "note"
+}
+
+// noteText is a note's text, marked when it is a session's outcome.
+func noteText(n store.Note) string {
+	if n.Kind == store.NoteOutcome {
+		return "outcome: " + n.Text
+	}
+	return n.Text
 }

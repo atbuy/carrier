@@ -146,6 +146,9 @@ carrier shell                      # start a recorded shell session
 carrier shell 'my-session'         # start a named session
 carrier attach my-session          # switch to an existing session
 carrier session pin my-session     # new terminals in this directory join it
+carrier session show my-session    # replay a session as a timeline
+carrier session export my-session  # the same as Markdown, for a PR or ticket
+carrier session end -m "fixed it"  # end a session and record its outcome
 carrier session list               # list sessions
 carrier session label 5 my-label   # label a session
 carrier session keep               # keep the current automatic session

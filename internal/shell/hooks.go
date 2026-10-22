@@ -162,12 +162,18 @@ _carrier_precmd() {
   fi
   _carrier_session
 }
+_carrier_zshexit() {
+  [[ "$CARRIER_ASK_OUTCOME" == 1 ]] || return
+  export CARRIER_HOOK_ACTIVE=1
+  command %q internal outcome --state %q
+}
 add-zsh-hook preexec _carrier_preexec
 add-zsh-hook precmd _carrier_precmd
+add-zsh-hook zshexit _carrier_zshexit
 %s
 _carrier_session
 `, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label), color, color,
-		carrierPath, statePath, carrierPath, statePath, startupBanner(banner, sessionID, label, labelColor))
+		carrierPath, statePath, carrierPath, statePath, carrierPath, statePath, startupBanner(banner, sessionID, label, labelColor))
 }
 
 func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
@@ -267,6 +273,14 @@ _carrier_end() {
   _carrier_at_prompt=1
   trap _carrier_begin DEBUG
 }
+_carrier_exit() {
+  [[ "$CARRIER_ASK_OUTCOME" == 1 ]] || return
+  trap - DEBUG
+  export CARRIER_HOOK_ACTIVE=1
+  command %q internal outcome --state %q
+}
+# Leave an EXIT trap from the user's config alone.
+[[ -z "$(trap -p EXIT)" ]] && trap _carrier_exit EXIT
 %s
 _carrier_session
 _carrier_hist
@@ -276,7 +290,7 @@ PS0="${PS0:-}"'$(_carrier_ps0)'
 PROMPT_COMMAND=_carrier_end
 trap _carrier_begin DEBUG
 `, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label), shellQuote(idIndicator), shellQuote(labelIndicator),
-		carrierPath, statePath, carrierPath, statePath, startupBanner(banner, sessionID, label, labelColor))
+		carrierPath, statePath, carrierPath, statePath, carrierPath, statePath, startupBanner(banner, sessionID, label, labelColor))
 }
 
 func fishHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
@@ -311,6 +325,11 @@ function _carrier_postcmd --on-event fish_postexec
     command %q internal end --state %q --exit $ec >/dev/null 2>&1
     set -eg CARRIER_HOOK_ACTIVE
 end
+function _carrier_exit --on-event fish_exit
+    test "$CARRIER_ASK_OUTCOME" = 1; or return
+    set -xg CARRIER_HOOK_ACTIVE 1
+    command %q internal outcome --state %q
+end
 if functions -q fish_right_prompt
     functions --copy fish_right_prompt _carrier_orig_right_prompt
 else
@@ -333,5 +352,5 @@ end
 %s
 _carrier_session
 `, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label),
-		carrierPath, statePath, carrierPath, statePath, color, color, startupBanner(banner, sessionID, label, labelColor))
+		carrierPath, statePath, carrierPath, statePath, carrierPath, statePath, color, color, startupBanner(banner, sessionID, label, labelColor))
 }

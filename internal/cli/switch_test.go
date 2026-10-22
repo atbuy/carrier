@@ -357,7 +357,7 @@ func TestSessionLabelUpdatesPrompt(t *testing.T) {
 	}
 }
 
-func TestIsSwitchInvocation(t *testing.T) {
+func TestIsSessionCommand(t *testing.T) {
 	for line, want := range map[string]bool{
 		"carrier attach 5":             true,
 		"c a BUG-1234":                 true,
@@ -365,12 +365,13 @@ func TestIsSwitchInvocation(t *testing.T) {
 		"carrier session reload":       true,
 		"c se reload":                  true,
 		"carrier session list":         false,
+		"c session end -m done":        true,
 		"make && c a 5":                false,
 		"carrier note attach the logs": false,
 		"":                             false,
 	} {
-		if got := isSwitchInvocation(line); got != want {
-			t.Errorf("isSwitchInvocation(%q) = %v, want %v", line, got, want)
+		if got := isSessionCommand(line); got != want {
+			t.Errorf("isSessionCommand(%q) = %v, want %v", line, got, want)
 		}
 	}
 }
