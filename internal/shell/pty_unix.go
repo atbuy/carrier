@@ -47,3 +47,14 @@ func startPTY(cmd *exec.Cmd) (*os.File, error) {
 	}
 	return ptmx, nil
 }
+
+// ownRegularFile reports whether path is a regular file, not a symlink, owned
+// by this user.
+func ownRegularFile(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	return ok && int(st.Uid) == os.Getuid()
+}

@@ -644,6 +644,8 @@ A first word that is a number is read as a session ID, so `carrier session label
 
 Labeling an automatic session also keeps it from expiring.
 
+Every terminal recording into the session shows the new label, for example all the tmux windows joined to a pinned session: the terminal you label it in right away, the others at their next prompt.
+
 ### `session keep`
 
 Keep an automatic session so it never expires, or let it expire again:

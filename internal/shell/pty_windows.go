@@ -37,3 +37,9 @@ func watchResize(ptmx *os.File) func() {
 }
 
 func startPTY(cmd *exec.Cmd) (*os.File, error) { return pty.Start(cmd) }
+
+// ownRegularFile reports whether path is a regular file, not a symlink.
+func ownRegularFile(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode().IsRegular()
+}

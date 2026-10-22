@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -59,11 +60,38 @@ func (s *StateFile) Write(state State) error {
 // so the prompt, title, and CARRIER_SESSION_ID follow without a new shell.
 func SessionInfoPath(statePath string) string { return statePath + ".session" }
 
-// WriteSessionInfo writes the session ID and label for the hooks: one per
-// line, read with shell builtins so prompts stay fast.
+// StartSessionInfo writes a new shell's session file: the session ID and label
+// for the hooks, one per line, read with shell builtins so prompts stay fast,
+// then the data directory, since session IDs only mean something within one
+// database.
+func StartSessionInfo(statePath, dataDir string, sessionID int64, label string) error {
+	return writeSessionInfo(statePath, sessionID, label, filepath.Clean(dataDir))
+}
+
+// WriteSessionInfo updates the session ID and label in a shell's session file,
+// keeping its data directory.
 func WriteSessionInfo(statePath string, sessionID int64, label string) error {
+	return writeSessionInfo(statePath, sessionID, label, sessionInfoDataDir(statePath))
+}
+
+func writeSessionInfo(statePath string, sessionID int64, label, dataDir string) error {
 	label = strings.Join(strings.Fields(label), " ")
-	return os.WriteFile(SessionInfoPath(statePath), []byte(fmt.Sprintf("%d\n%s\n", sessionID, label)), 0o600)
+	text := fmt.Sprintf("%d\n%s\n", sessionID, label)
+	if dataDir != "" {
+		text += dataDir + "\n"
+	}
+	return os.WriteFile(SessionInfoPath(statePath), []byte(text), 0o600)
+}
+
+func sessionInfoDataDir(statePath string) string {
+	b, err := os.ReadFile(SessionInfoPath(statePath))
+	if err != nil {
+		return ""
+	}
+	if lines := strings.Split(string(b), "\n"); len(lines) > 2 {
+		return lines[2]
+	}
+	return ""
 }
 
 // OtherTerminal reports whether this process runs in a terminal other than
@@ -89,4 +117,24 @@ func OtherTerminal() bool {
 		}
 	}
 	return sawTerminal
+}
+
+// RelabelShells rewrites the session file of each of this user's recorded
+// shells that records into sessionID of the database in dataDir, so a label
+// change shows in all their prompts from their next prompt, such as several
+// tmux windows joined to one pinned session.
+func RelabelShells(dataDir string, sessionID int64, label string) {
+	states, _ := filepath.Glob(filepath.Join(os.TempDir(), "carrier-shell-*.json"))
+	for _, statePath := range states {
+		// The temp directory is shared; only touch this user's own files.
+		if !ownRegularFile(statePath) || !ownRegularFile(SessionInfoPath(statePath)) {
+			continue
+		}
+		if sessionInfoDataDir(statePath) != filepath.Clean(dataDir) {
+			continue
+		}
+		if (&StateFile{Path: statePath}).Read().SessionID == sessionID {
+			_ = WriteSessionInfo(statePath, sessionID, label)
+		}
+	}
 }
