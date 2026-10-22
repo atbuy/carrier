@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.2.3] - 2026-10-22
+
+### Fixed
+
+- Relabeling a session with `carrier session label` or `carrier label` updates the prompt of every terminal recording into it, such as all tmux windows joined to a pinned session, from their next prompt. Only the terminal the label was set in showed it.
+
 ## [1.2.2] - 2026-10-22
 
 ### Fixed

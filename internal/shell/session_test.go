@@ -502,3 +502,58 @@ func TestOtherTerminal(t *testing.T) {
 		t.Fatal("with no terminal at all, keep trusting the variables")
 	}
 }
+
+func TestRelabelShells(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix-only")
+	}
+	dir := t.TempDir()
+	t.Setenv("TMPDIR", dir)
+	shell := func(name string, sessionID int64) string {
+		statePath := filepath.Join(dir, "carrier-shell-"+name+".json")
+		if err := (&StateFile{Path: statePath}).Write(State{SessionID: sessionID}); err != nil {
+			t.Fatal(err)
+		}
+		if err := StartSessionInfo(statePath, "/data", sessionID, "old"); err != nil {
+			t.Fatal(err)
+		}
+		return statePath
+	}
+	window1, window2, other := shell("1", 5), shell("2", 5), shell("3", 6)
+	// Session 5 of another database.
+	otherDB := filepath.Join(dir, "carrier-shell-5.json")
+	if err := (&StateFile{Path: otherDB}).Write(State{SessionID: 5}); err != nil {
+		t.Fatal(err)
+	}
+	if err := StartSessionInfo(otherDB, "/elsewhere", 5, "old"); err != nil {
+		t.Fatal(err)
+	}
+
+	// A session file that is a symlink is never written through.
+	victim := filepath.Join(dir, "victim")
+	if err := os.WriteFile(victim, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(dir, "carrier-shell-4.json")
+	if err := (&StateFile{Path: linked}).Write(State{SessionID: 5}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(victim, SessionInfoPath(linked)); err != nil {
+		t.Fatal(err)
+	}
+
+	RelabelShells("/data", 5, "BUG-20: renamed")
+	for path, want := range map[string]string{
+		window1: "5\nBUG-20: renamed\n/data\n",
+		window2: "5\nBUG-20: renamed\n/data\n",
+		other:   "6\nold\n/data\n",
+		otherDB: "5\nold\n/elsewhere\n",
+	} {
+		if b, _ := os.ReadFile(SessionInfoPath(path)); string(b) != want {
+			t.Errorf("%s = %q, want %q", filepath.Base(path), b, want)
+		}
+	}
+	if b, _ := os.ReadFile(victim); string(b) != "keep" {
+		t.Errorf("symlinked session file was written through: %q", b)
+	}
+}

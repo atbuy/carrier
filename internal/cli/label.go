@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	carriershell "github.com/atbuy/carrier/internal/shell"
 )
 
 func (a *app) labelCmd() *cobra.Command {
@@ -29,7 +31,9 @@ func (a *app) labelCmd() *cobra.Command {
 			}
 			// Propagate label to the session this run belongs to, if any.
 			if run.SessionID != nil {
-				_ = a.st.UpdateSessionLabel(*run.SessionID, label)
+				if err := a.st.UpdateSessionLabel(*run.SessionID, label); err == nil {
+					carriershell.RelabelShells(a.cfg.Storage.DataDir, *run.SessionID, label)
+				}
 			}
 			out := cmd.OutOrStdout()
 			if label == "" {

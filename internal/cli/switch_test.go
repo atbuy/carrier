@@ -438,3 +438,26 @@ func TestInheritedSessionInOtherTerminal(t *testing.T) {
 		t.Fatalf("currentSessionID in another terminal = %d, want 0", id)
 	}
 }
+
+// TestSessionLabelUpdatesOtherShells covers several tmux windows joined to
+// one pinned session: relabeling it from one updates the prompt of the rest.
+func TestSessionLabelUpdatesOtherShells(t *testing.T) {
+	a, dir := autoSessionApp(t)
+	id := newSession(t, a, "BUG-20", false)
+	other := filepath.Join(os.TempDir(), "carrier-shell-test-other.json")
+	if err := (&carriershell.StateFile{Path: other}).Write(carriershell.State{SessionID: id}); err != nil {
+		t.Fatal(err)
+	}
+	if err := carriershell.StartSessionInfo(other, a.cfg.Storage.DataDir, id, "BUG-20"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(other); _ = os.Remove(carriershell.SessionInfoPath(other)) })
+	recordedShell(t, a, dir, id, "c session label BUG-20: renamed")
+
+	if _, _, err := runEmpty(t, a.sessionLabelCmd(), []string{"BUG-20:", "renamed"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(carriershell.SessionInfoPath(other)); string(b) != fmt.Sprintf("%d\nBUG-20: renamed\n%s\n", id, filepath.Clean(a.cfg.Storage.DataDir)) {
+		t.Fatalf("the other shell's session file = %q", b)
+	}
+}

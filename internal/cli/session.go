@@ -52,10 +52,12 @@ Labeled automatic sessions never expire.`,
 			if err := a.st.UpdateSessionLabel(id, label); err != nil {
 				return err
 			}
-			// The prompt of this shell shows the new label from its next prompt.
+			// Every shell recording into the session, this one included, shows
+			// the new label from its next prompt.
 			if statePath := recordedShellState(); statePath != "" && id == currentSessionID() {
 				_ = carriershell.WriteSessionInfo(statePath, id, label)
 			}
+			carriershell.RelabelShells(a.cfg.Storage.DataDir, id, label)
 			out := cmd.OutOrStdout()
 			if label == "" {
 				_, _ = fmt.Fprintf(out, "carrier: session %d label cleared\n", id)
