@@ -198,6 +198,27 @@ func (s *Store) BackfillMeta(id int64, root, branch, commit string, dirty *bool,
 	return err
 }
 
+// BackfillGit adds metadata collected after a shell run started: whether the
+// work tree was dirty, its environment, and any Git fields left empty when it
+// started. Fields already set are kept, as they describe the start.
+func (s *Store) BackfillGit(id int64, root, branch, commit string, dirty *bool, envID *int64) error {
+	_, err := s.db.Exec(`UPDATE runs SET
+	git_root=COALESCE(NULLIF(git_root, ''), ?),
+	git_branch=COALESCE(NULLIF(git_branch, ''), ?),
+	git_commit=COALESCE(NULLIF(git_commit, ''), ?),
+	git_dirty=COALESCE(?, git_dirty),
+	env_id=COALESCE(?, env_id)
+WHERE id=?`, root, branch, commit, nullableBool(dirty), nullableInt64(envID), id)
+	return err
+}
+
+// EnvironmentExists reports whether an environment row is still there; clean
+// deletes environments no run uses.
+func (s *Store) EnvironmentExists(id int64) bool {
+	var one int
+	return s.db.QueryRow(`SELECT 1 FROM environments WHERE id=?`, id).Scan(&one) == nil
+}
+
 func (s *Store) GetRun(id int64) (*Run, error) {
 	rows, err := s.db.Query(`SELECT `+runCols+` `+runFrom+` WHERE r.id=?`, id)
 	if err != nil {

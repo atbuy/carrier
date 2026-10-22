@@ -58,3 +58,21 @@ func ownRegularFile(path string) bool {
 	st, ok := info.Sys().(*syscall.Stat_t)
 	return ok && int(st.Uid) == os.Getuid()
 }
+
+// ownDir reports whether path is a directory, not a symlink, owned by this
+// user.
+func ownDir(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	return ok && int(st.Uid) == os.Getuid()
+}
+
+// processAlive reports whether a process with this ID exists. A process that
+// exists but belongs to another user counts as alive.
+func processAlive(pid int) bool {
+	err := syscall.Kill(pid, 0)
+	return err == nil || err == syscall.EPERM
+}

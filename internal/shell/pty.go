@@ -64,6 +64,7 @@ func Run(cfg config.Config, opts Options) (State, error) {
 	defer func() { _ = os.RemoveAll(hookDir) }()
 	defer func() { _ = os.Remove(statePath) }()
 	defer func() { _ = os.Remove(SessionInfoPath(statePath)) }()
+	defer func() { _ = os.Remove(statePath + ".env") }()
 
 	cmd := exec.Command(program, shellArgs(program, hookDir)...)
 	env := os.Environ()

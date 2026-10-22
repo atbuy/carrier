@@ -52,3 +52,14 @@ func git(cwd string, args ...string) (string, bool) {
 	}
 	return strings.TrimSpace(string(out)), true
 }
+
+// Dirty reports whether the work tree at cwd has uncommitted changes, or nil
+// when git cannot tell.
+func Dirty(cwd string) *bool {
+	status, ok := git(cwd, "status", "--porcelain")
+	if !ok {
+		return nil
+	}
+	dirty := strings.TrimSpace(status) != ""
+	return &dirty
+}

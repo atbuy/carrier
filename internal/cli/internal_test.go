@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,10 +51,14 @@ func TestInternalCmdRegistersHiddenSubcommands(t *testing.T) {
 	if !cmd.Hidden {
 		t.Fatal("internal command should be hidden")
 	}
-	if got := len(cmd.Commands()); got != 3 {
-		t.Fatalf("subcommand count = %d, want 3", got)
+	if got := len(cmd.Commands()); got != 4 {
+		t.Fatalf("subcommand count = %d, want 4", got)
 	}
-	if cmd.Commands()[0].Use != "begin" || cmd.Commands()[1].Use != "end" || cmd.Commands()[2].Use != "outcome" {
+	var names []string
+	for _, c := range cmd.Commands() {
+		names = append(names, c.Use)
+	}
+	if strings.Join(names, " ") != "backfill begin end outcome" {
 		t.Fatalf("unexpected subcommands: %#v", cmd.Commands())
 	}
 }

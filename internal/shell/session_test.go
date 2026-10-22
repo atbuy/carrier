@@ -1,8 +1,10 @@
 package shell
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -555,5 +557,80 @@ func TestRelabelShells(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(victim); string(b) != "keep" {
 		t.Errorf("symlinked session file was written through: %q", b)
+	}
+}
+
+func TestCleanTemp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix-only")
+	}
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	now := time.Now()
+	ago := func(path string, d time.Duration) {
+		t.Helper()
+		if err := os.Chtimes(path, now.Add(-d), now.Add(-d)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The ID of a process that has exited.
+	done := exec.Command("true")
+	if err := done.Run(); err != nil {
+		t.Skip("cannot run true")
+	}
+	dead, alive := done.Process.Pid, os.Getpid()
+	file := func(name string, age time.Duration) string {
+		t.Helper()
+		path := filepath.Join(tmp, name)
+		if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		ago(path, age)
+		return path
+	}
+	dir := func(name string, age time.Duration) string {
+		t.Helper()
+		path := filepath.Join(tmp, name)
+		if err := os.MkdirAll(filepath.Join(path, "sub"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		ago(path, age)
+		return path
+	}
+	name := func(pid int, suffix string) string { return fmt.Sprintf("carrier-shell-%d%s", pid, suffix) }
+
+	gone := []string{
+		file(name(dead, ".json"), 2*time.Hour),
+		file(name(dead, ".json.session"), 2*time.Hour),
+		file(name(dead, ".json.env"), 2*time.Hour),
+		dir(name(dead, "-123"), 2*time.Hour),
+		dir("carrier-shell-987654321", 8*24*time.Hour), // from before 1.2.4
+	}
+	kept := []string{
+		file(name(dead+1000000, ".json"), time.Minute), // recent
+		file(name(alive, ".json"), 2*time.Hour),
+		file(name(alive, ".json.session"), 2*time.Hour),
+		dir(name(alive, "-456"), 2*time.Hour),
+		dir("carrier-shell-123456789", 2*24*time.Hour),
+		file("unrelated.json", 30*24*time.Hour),
+	}
+	link := filepath.Join(tmp, name(dead+2000000, ".json"))
+	if err := os.Symlink(filepath.Join(tmp, "unrelated.json"), link); err != nil {
+		t.Fatal(err)
+	}
+	kept = append(kept, link)
+
+	if n := CleanTemp(now); n != len(gone) {
+		t.Errorf("CleanTemp removed %d, want %d", n, len(gone))
+	}
+	for _, path := range gone {
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Errorf("%s should be removed", filepath.Base(path))
+		}
+	}
+	for _, path := range kept {
+		if _, err := os.Lstat(path); err != nil {
+			t.Errorf("%s should be kept: %v", filepath.Base(path), err)
+		}
 	}
 }

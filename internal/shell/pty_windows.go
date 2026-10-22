@@ -43,3 +43,12 @@ func ownRegularFile(path string) bool {
 	info, err := os.Lstat(path)
 	return err == nil && info.Mode().IsRegular()
 }
+
+func ownDir(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.IsDir()
+}
+
+// processAlive always reports true on Windows, where recorded shells leave no
+// files to clean up.
+func processAlive(pid int) bool { return true }
