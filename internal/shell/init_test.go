@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -87,8 +88,18 @@ func startShellWithInit(t *testing.T, shellName, fakeExit string, extraEnv []str
 	}
 	cmd.Env = append(cmd.Env, "HOME="+dir, "TERM=dumb", "HISTFILE="+filepath.Join(dir, ".hist"),
 		"XDG_CONFIG_HOME="+filepath.Join(dir, ".config"), "XDG_DATA_HOME="+filepath.Join(dir, ".local", "share"))
-	cmd.Env = append(cmd.Env, extraEnv...)
-	ptmx, err := pty.Start(cmd)
+	// "@self" in extraEnv stands for the shell's own terminal.
+	ptmx, tty, err := pty.Open()
+	if err != nil {
+		t.Fatalf("open pty: %v", err)
+	}
+	for _, kv := range extraEnv {
+		cmd.Env = append(cmd.Env, strings.ReplaceAll(kv, "@self", tty.Name()))
+	}
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, tty, tty
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true}
+	err = cmd.Start()
+	_ = tty.Close()
 	if err != nil {
 		t.Fatalf("start bash: %v", err)
 	}
@@ -201,6 +212,25 @@ func TestInitSnippetInZshAndFish(t *testing.T) {
 			calls, _, _ = startShellWithInit(t, sh, "0", []string{"CARRIER_NO_AUTO=1"}, []string{"exit"})
 			if calls != "" {
 				t.Fatalf("%s with CARRIER_NO_AUTO must not run carrier, calls=%q", sh, calls)
+			}
+		})
+	}
+}
+
+// TestInitSnippetStartsInOtherTerminals checks the case of a tmux pane started
+// from a recorded shell: it inherits CARRIER_SESSION_ID, but runs in another
+// terminal than CARRIER_TTY, so it gets its own session. The recorded shell
+// itself, whose terminal is CARRIER_TTY, does not start another.
+func TestInitSnippetStartsInOtherTerminals(t *testing.T) {
+	for _, sh := range InitShells {
+		t.Run(sh, func(t *testing.T) {
+			calls, _, _ := startShellWithInit(t, sh, "1", []string{"CARRIER_SESSION_ID=7", "CARRIER_TTY=/dev/pts/carrier-test-elsewhere"}, []string{"exit"})
+			if strings.TrimSpace(calls) != "shell --auto --program "+sh {
+				t.Fatalf("a terminal that only inherited a session should start one, calls=%q", calls)
+			}
+			calls, _, _ = startShellWithInit(t, sh, "0", []string{"CARRIER_SESSION_ID=7", "CARRIER_TTY=@self"}, []string{"exit"})
+			if calls != "" {
+				t.Fatalf("the recorded shell must not start another session, calls=%q", calls)
 			}
 		})
 	}

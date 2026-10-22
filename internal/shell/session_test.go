@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/creack/pty"
+	"golang.org/x/term"
+
 	"github.com/atbuy/carrier/internal/config"
 )
 
@@ -413,5 +416,89 @@ sleep 0.3
 	}
 	if b, _ := os.ReadFile(logPath); strings.Contains(string(b), "seen before") || strings.Contains(string(b), "PROMPT") {
 		t.Fatalf("hint and prompt must not be saved in the run log: %q", b)
+	}
+}
+
+func TestRunTellsTheShellItsTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY shell test is Unix-only")
+	}
+	dir := t.TempDir()
+	out := filepath.Join(dir, "tty.txt")
+	program := filepath.Join(dir, "fake-shell")
+	script := "#!/bin/sh\nprintf '%s|%s|%s' \"$CARRIER_TTY\" \"$(tty)\" \"$CARRIER_ZDOTDIR\" > " + out + "\n"
+	if err := os.WriteFile(program, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ZDOTDIR", filepath.Join(dir, "my-zsh-config"))
+	cfg := config.Default()
+	cfg.Storage.DataDir = filepath.Join(dir, "data")
+	cfg.Shell.Program = program
+	if _, err := Run(cfg, Options{}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	b, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.Split(string(b), "|")
+	if len(parts) != 3 || parts[0] == "" || parts[0] != parts[1] {
+		t.Fatalf("CARRIER_TTY should be the shell's terminal, got %q", b)
+	}
+	if parts[2] != filepath.Join(dir, "my-zsh-config") {
+		t.Fatalf("CARRIER_ZDOTDIR = %q, want the user's ZDOTDIR", parts[2])
+	}
+}
+
+func TestUserZDOTDIRIgnoresInheritedHookDir(t *testing.T) {
+	t.Setenv("ZDOTDIR", filepath.Join(os.TempDir(), "carrier-shell-123456"))
+	if got := userZDOTDIR(); got != "" {
+		t.Fatalf("a carrier hook dir is not the user's ZDOTDIR, got %q", got)
+	}
+	t.Setenv("ZDOTDIR", "/home/dev/.config/zsh")
+	if got := userZDOTDIR(); got != "/home/dev/.config/zsh" {
+		t.Fatalf("userZDOTDIR = %q", got)
+	}
+}
+
+func TestOtherTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY test is Unix-only")
+	}
+	ptmx1, tty1, err := pty.Open()
+	if err != nil {
+		t.Skipf("no pty: %v", err)
+	}
+	defer func() { _ = ptmx1.Close(); _ = tty1.Close() }()
+	ptmx2, tty2, err := pty.Open()
+	if err != nil {
+		t.Skipf("no pty: %v", err)
+	}
+	defer func() { _ = ptmx2.Close(); _ = tty2.Close() }()
+
+	oldStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	os.Stdin = tty1
+
+	t.Setenv("CARRIER_TTY", "")
+	if OtherTerminal() {
+		t.Fatal("without CARRIER_TTY nothing is known, so not another terminal")
+	}
+	t.Setenv("CARRIER_TTY", tty1.Name())
+	if OtherTerminal() {
+		t.Fatal("stdin is the recorded terminal")
+	}
+	t.Setenv("CARRIER_TTY", tty2.Name())
+	if !OtherTerminal() {
+		t.Fatal("stdin is a different terminal than the recorded one")
+	}
+	devNull, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = devNull.Close() }()
+	os.Stdin = devNull
+	if OtherTerminal() && !term.IsTerminal(int(os.Stdout.Fd())) && !term.IsTerminal(int(os.Stderr.Fd())) {
+		t.Fatal("with no terminal at all, keep trusting the variables")
 	}
 }

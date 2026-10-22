@@ -2,6 +2,13 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.2.2] - 2026-10-22
+
+### Fixed
+
+- tmux panes started from a recorded shell get their own session. They inherited the first shell's variables, so they did not start a session, and `carrier session reload`, `attach`, `note`, or `session end` in a pane acted on the first terminal's session instead. Restart a tmux server started before upgrading (`tmux kill-server`) for this to apply.
+- In zsh, shells started from a recorded shell, such as tmux panes or a nested `zsh`, load your own config again instead of carrier's hooks for the first shell, and the hooks load `.zshrc` from your `ZDOTDIR` when you set one.
+
 ## [1.2.1] - 2026-10-22
 
 ### Fixed

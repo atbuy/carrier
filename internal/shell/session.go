@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/term"
 )
 
 type State struct {
@@ -62,4 +64,29 @@ func SessionInfoPath(statePath string) string { return statePath + ".session" }
 func WriteSessionInfo(statePath string, sessionID int64, label string) error {
 	label = strings.Join(strings.Fields(label), " ")
 	return os.WriteFile(SessionInfoPath(statePath), []byte(fmt.Sprintf("%d\n%s\n", sessionID, label)), 0o600)
+}
+
+// OtherTerminal reports whether this process runs in a terminal other than
+// the recorded shell named by CARRIER_TTY: for example a tmux pane, which
+// copies the carrier variables of the shell tmux was started from although
+// nothing records it. It is false when CARRIER_TTY is unset (shells started
+// by carrier before 1.2.2) or when none of stdin, stdout, and stderr is a
+// terminal, so redirected commands keep working.
+func OtherTerminal() bool {
+	path := os.Getenv("CARRIER_TTY")
+	if path == "" {
+		return false
+	}
+	recorded, statErr := os.Stat(path)
+	sawTerminal := false
+	for _, f := range []*os.File{os.Stdin, os.Stdout, os.Stderr} {
+		if !term.IsTerminal(int(f.Fd())) {
+			continue
+		}
+		sawTerminal = true
+		if info, err := f.Stat(); err == nil && statErr == nil && os.SameFile(info, recorded) {
+			return false
+		}
+	}
+	return sawTerminal
 }

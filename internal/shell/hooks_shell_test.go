@@ -414,3 +414,40 @@ print -r -- "ELEMENTS[$POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS] RPROMPT[$RPROMPT]"`)
 		}
 	}
 }
+
+// TestZshHooksRestoreUserZDOTDIR checks that a recorded zsh gives ZDOTDIR back
+// to the user, so shells started from it, such as tmux panes, load the user's
+// config rather than carrier's hooks.
+func TestZshHooksRestoreUserZDOTDIR(t *testing.T) {
+	if _, err := exec.LookPath("zsh"); err != nil {
+		t.Skip("zsh not installed")
+	}
+	dir := t.TempDir()
+	mine := filepath.Join(dir, "zdotdir")
+	if err := os.MkdirAll(mine, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mine, ".zshrc"), []byte("MY_CONFIG=loaded\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	hookDir, err := WriteHookDir("/bin/true", filepath.Join(dir, "state.json"), "zsh", 1, "", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(hookDir) }()
+	isolateZsh(t, "zsh", hookDir)
+	for _, tc := range []struct{ userZDOTDIR, want string }{
+		{mine, "ZDOTDIR[" + mine + "] CONFIG[loaded]"},
+		{"", "ZDOTDIR[unset] CONFIG[]"},
+	} {
+		cmd := exec.Command("zsh", "-i", "-c", `print -r -- "ZDOTDIR[${ZDOTDIR-unset}] CONFIG[$MY_CONFIG]${CARRIER_ZDOTDIR+ leaked}"`)
+		cmd.Env = append(os.Environ(), "ZDOTDIR="+hookDir, "HOME="+dir, "CARRIER_ZDOTDIR="+tc.userZDOTDIR)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("zsh: %v\n%s", err, out)
+		}
+		if !strings.Contains(string(out), tc.want) || strings.Contains(string(out), "leaked") {
+			t.Errorf("user ZDOTDIR %q: got %q, want %q", tc.userZDOTDIR, out, tc.want)
+		}
+	}
+}

@@ -4,6 +4,7 @@ package shell
 
 import (
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
@@ -25,4 +26,24 @@ func watchResize(ptmx *os.File) func() {
 		signal.Stop(sigwinch)
 		close(sigwinch)
 	}
+}
+
+// startPTY starts cmd on a new pseudo-terminal, like pty.Start, and tells the
+// shell which terminal it is recording as CARRIER_TTY. Variables a shell
+// exports are copied into tmux panes started from it, which run in other
+// terminals; CARRIER_TTY lets carrier tell those apart from the recorded shell.
+func startPTY(cmd *exec.Cmd) (*os.File, error) {
+	ptmx, tty, err := pty.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tty.Close() }()
+	cmd.Env = append(cmd.Env, "CARRIER_TTY="+tty.Name())
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, tty, tty
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true}
+	if err := cmd.Start(); err != nil {
+		_ = ptmx.Close()
+		return nil, err
+	}
+	return ptmx, nil
 }

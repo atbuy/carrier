@@ -22,10 +22,11 @@ import (
 const pinFileName = ".carrier-session"
 
 // recordedShellState returns the state file of the recorded shell this runs
-// in, or "" outside one.
+// in, or "" outside one. A terminal that only inherited the variables of a
+// recorded shell, such as a tmux pane, is outside.
 func recordedShellState() string {
 	statePath := os.Getenv("CARRIER_SHELL_STATE")
-	if statePath == "" {
+	if statePath == "" || carriershell.OtherTerminal() {
 		return ""
 	}
 	if _, err := os.Stat(statePath); err != nil {
