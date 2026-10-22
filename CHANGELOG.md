@@ -2,6 +2,13 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.3.0] - 2026-10-23
+
+### Added
+
+- `carrier status` shows whether this terminal is recorded and into which session, with a summary of the session and its outcome, and the session pinned for the directory. It points out a tmux pane that only inherited another terminal's session, a pin that names another session or a missing one, a shell too old for its prompt to follow switches, and a tmux server holding variables from an older carrier. `--json` gives the same.
+- `carrier doctor` checks this terminal (`this shell`), the pin for this directory, the tmux server's environment inside tmux, and counts leftover temp files.
+
 ## [1.2.4] - 2026-10-22
 
 ### Changed

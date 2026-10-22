@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -52,8 +53,67 @@ func (a *app) runDoctor(w io.Writer) error {
 	check(w, t, "notify", notify.Available(), "optional desktop notifications", nil)
 	check(w, t, "shell", shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), nil)
 	check(w, t, "auto session", true, autoSessionStatus(a.cfg.Shell.Program, a.cfg.Shell.AutoSessionRetention), nil)
+	s := a.terminalStatus()
+	check(w, t, "this shell", s.shellHealthy(), thisShellDetail(s), nil)
+	if s.Pin.Path != "" {
+		detail := collapseHome(s.Pin.Path) + ": "
+		if s.Pin.Err != nil {
+			detail += s.Pin.Err.Error()
+		} else {
+			detail += "session " + sessionName(s.Pin.Session)
+		}
+		check(w, t, "pin", s.Pin.Err == nil, detail, nil)
+	}
+	if _, detail, applies := tmuxEnvironment(); applies {
+		check(w, t, "tmux", s.TmuxStale == "", detail, nil)
+	}
+	leftover := carriershell.LeftoverTemp(time.Now())
+	check(w, t, "temp files", true, fmt.Sprintf("%d left by shells that were killed; removed daily when a shell starts", leftover), nil)
 	check(w, t, "terminal", term.IsTerminal(int(os.Stdout.Fd())), "stdout is a TTY", nil)
 	return nil
+}
+
+func thisShellDetail(s terminalStatus) string {
+	switch {
+	case s.Inherited:
+		return fmt.Sprintf("not recorded: it inherited session %d's variables from another terminal (tmux?); open a new terminal", s.InheritedID)
+	case s.Recorded && s.Session == nil:
+		return `recorded into a session that was deleted; "carrier attach <session>" switches it`
+	case s.OldHooks:
+		return fmt.Sprintf("recording session %d, but started by a carrier older than 1.1.0: its prompt cannot follow switches; open a new terminal", s.Session.ID)
+	case s.Recorded:
+		return "recording session " + sessionName(s.Session)
+	default:
+		return "not a recorded shell"
+	}
+}
+
+// tmuxEnvironment checks, inside tmux, that the tmux server does not hold the
+// variables of a recorded shell started by a carrier older than 1.2.2. New
+// panes would inherit them: they would not get their own session, and zsh
+// would look for its config in that shell's hook directory, which is removed
+// when that shell exits. applies is false outside tmux.
+func tmuxEnvironment() (ok bool, detail string, applies bool) {
+	if os.Getenv("TMUX") == "" || !commandAvailable("tmux") {
+		return true, "", false
+	}
+	out, err := exec.Command("tmux", "show-environment", "-g").Output()
+	if err != nil {
+		return true, "", false
+	}
+	env := map[string]string{}
+	for _, line := range strings.Split(string(out), "\n") {
+		if k, v, found := strings.Cut(line, "="); found {
+			env[k] = v
+		}
+	}
+	_, hasSession := env["CARRIER_SESSION_ID"]
+	_, hasTTY := env["CARRIER_TTY"]
+	staleZDOTDIR := strings.HasPrefix(filepath.Base(env["ZDOTDIR"]), "carrier-shell-")
+	if (hasSession && !hasTTY) || staleZDOTDIR {
+		return false, `the tmux server holds the variables of a shell started by a carrier older than 1.2.2, so new panes are not recorded properly; run "tmux kill-server" and start tmux again`, true
+	}
+	return true, "new panes get their own session", true
 }
 
 func check(w io.Writer, t theme, name string, ok bool, detail string, err error) {

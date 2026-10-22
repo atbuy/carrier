@@ -579,6 +579,24 @@ carrier init fish | source
 
 Without an argument, `init` uses the shell from `$SHELL`. See [Record every terminal](../advanced/shell-mode.md#record-every-terminal) for how it works and how to turn it off.
 
+## `status`
+
+Show whether this terminal is recorded, and into which session:
+
+```bash title="Status"
+carrier status
+carrier status --json
+```
+
+```text
+Recording  session 12 · BUG-1234: fix login
+           active, started 2h ago · 14 commands, 3 failed · 2 notes
+Pin here   ~/src/api/.carrier-session → session 12 · BUG-1234: fix login
+Terminal   /dev/pts/3
+```
+
+It also says when this terminal is not recorded, including a tmux pane that only inherited another terminal's carrier variables; when a pin here names another session than the one this shell records into, so `carrier session reload` would switch; when the pin names a session that does not exist; when the shell was started by a carrier too old for its prompt to follow switches; and when the tmux server holds variables from an older carrier. The outcome is shown once the session has one.
+
 ## `attach`
 
 Attach to an existing shell session by session ID or label:
@@ -810,6 +828,15 @@ carrier doctor
 ```
 
 Shows version, config path, storage paths, migration version, data size, redaction status, stale running runs, shell support, notification tool availability, and terminal status.
+
+It also checks the terminal it runs in:
+
+| Check        | Warns when                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `this shell` | this terminal only inherited another terminal's carrier variables, its session was deleted, or it was started by a carrier older than 1.1.0 |
+| `pin`        | the `.carrier-session` for this directory names a session that does not exist                                |
+| `tmux`       | inside tmux, the tmux server holds variables from a shell started by a carrier older than 1.2.2; run `tmux kill-server` |
+| `temp files` | never; it counts the files left by killed shells, which are removed once a day                               |
 
 ## `config`
 

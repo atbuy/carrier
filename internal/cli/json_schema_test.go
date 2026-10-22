@@ -37,27 +37,55 @@ func TestJSONOutputSchema(t *testing.T) {
 		cmd   func() *cobra.Command
 		args  []string
 		flags map[string]string
+		setup func()
 	}{
-		{"last", a.lastCmd, nil, map[string]string{"json": "true"}},
-		{"last N", a.lastCmd, []string{"3"}, map[string]string{"json": "true"}},
-		{"show", a.showCmd, []string{full}, map[string]string{"json": "true"}},
-		{"export --format json", a.exportCmd, []string{full}, map[string]string{"format": "json"}},
-		{"history", a.historyCmd, nil, map[string]string{"json": "true"}},
-		{"history --sessions-only", a.historyCmd, nil, map[string]string{"json": "true", "sessions-only": "true"}},
-		{"failed", a.failedCmd, nil, map[string]string{"json": "true"}},
-		{"running", a.runningCmd, nil, map[string]string{"json": "true"}},
-		{"search", a.searchCmd, []string{"refused"}, map[string]string{"json": "true"}},
-		{"similar", a.similarCmd, []string{full}, map[string]string{"json": "true"}},
-		{"stats", a.statsCmd, nil, map[string]string{"json": "true"}},
-		{"notes", a.notesCmd, nil, map[string]string{"json": "true"}},
-		{"session list", a.sessionListCmd, nil, map[string]string{"json": "true"}},
-		{"session show", a.sessionShowCmd, []string{"1234"}, map[string]string{"json": "true", "output": "true"}},
-		{"session export --format json", a.sessionExportCmd, []string{"1234"}, map[string]string{"format": "json", "output": "true"}},
-		{"changelog", a.changelogCmd, []string{"0.24.0"}, map[string]string{"json": "true"}},
+		{"last", a.lastCmd, nil, map[string]string{"json": "true"}, nil},
+		{"last N", a.lastCmd, []string{"3"}, map[string]string{"json": "true"}, nil},
+		{"show", a.showCmd, []string{full}, map[string]string{"json": "true"}, nil},
+		{"export --format json", a.exportCmd, []string{full}, map[string]string{"format": "json"}, nil},
+		{"history", a.historyCmd, nil, map[string]string{"json": "true"}, nil},
+		{"history --sessions-only", a.historyCmd, nil, map[string]string{"json": "true", "sessions-only": "true"}, nil},
+		{"failed", a.failedCmd, nil, map[string]string{"json": "true"}, nil},
+		{"running", a.runningCmd, nil, map[string]string{"json": "true"}, nil},
+		{"search", a.searchCmd, []string{"refused"}, map[string]string{"json": "true"}, nil},
+		{"similar", a.similarCmd, []string{full}, map[string]string{"json": "true"}, nil},
+		{"stats", a.statsCmd, nil, map[string]string{"json": "true"}, nil},
+		{"notes", a.notesCmd, nil, map[string]string{"json": "true"}, nil},
+		{"session list", a.sessionListCmd, nil, map[string]string{"json": "true"}, nil},
+		{"session show", a.sessionShowCmd, []string{"1234"}, map[string]string{"json": "true", "output": "true"}, nil},
+		{"session export --format json", a.sessionExportCmd, []string{"1234"}, map[string]string{"format": "json", "output": "true"}, nil},
+		{"changelog", a.changelogCmd, []string{"0.24.0"}, map[string]string{"json": "true"}, nil},
 	}
+
+	// The status setup changes directory, so find the golden file first.
+	golden, err := filepath.Abs(filepath.Join("testdata", "json-schema.golden"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// status runs last: it needs a recorded shell, which adds a run.
+	cases = append(cases, struct {
+		name  string
+		cmd   func() *cobra.Command
+		args  []string
+		flags map[string]string
+		setup func()
+	}{"status", a.statusCmd, nil, map[string]string{"json": "true"}, func() {
+		dir := t.TempDir()
+		t.Chdir(dir)
+		t.Setenv("TMUX", "")
+		if err := os.WriteFile(pinFileName, []byte("BUG-1234\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		recordedShell(t, a, dir, 1, "make test")
+		// Not a terminal in tests, so this does not make it another terminal.
+		t.Setenv("CARRIER_TTY", "/dev/pts/7")
+	}})
 
 	var got strings.Builder
 	for _, tc := range cases {
+		if tc.setup != nil {
+			tc.setup()
+		}
 		out, _, err := runEmpty(t, tc.cmd(), tc.args, tc.flags)
 		if err != nil {
 			t.Fatalf("%s --json: %v", tc.name, err)
@@ -76,9 +104,8 @@ func TestJSONOutputSchema(t *testing.T) {
 		got.WriteString("\n")
 	}
 
-	golden := filepath.Join("testdata", "json-schema.golden")
 	if *updateJSONSchema {
-		if err := os.MkdirAll("testdata", 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(golden, []byte(got.String()), 0o644); err != nil {
