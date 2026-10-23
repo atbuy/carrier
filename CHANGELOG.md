@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
 
+## [1.3.1] - 2026-10-23
+
+### Fixed
+
+- Patched vulnerabilities in the `golang.org/x/text` package. Specifically [CVE-2026-56851](https://app.opencve.io/cve/CVE-2026-56851).
+
 ## [1.3.0] - 2026-10-23
 
 ### Added
