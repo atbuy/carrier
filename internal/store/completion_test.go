@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+func TestFileURI(t *testing.T) {
+	if got, want := fileURI("/home/a b/carrier.db", "mode=ro"), "file:///home/a%20b/carrier.db?mode=ro"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	// filepath.ToSlash only converts backslashes on Windows, so a drive path
+	// with forward slashes stands in for one here.
+	if got, want := fileURI("C:/Users/dev/carrier.db", "mode=ro"), "file:///C:/Users/dev/carrier.db?mode=ro"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestOpenReadOnlyNeedsAnExistingStore(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "carrier")
 	if _, err := OpenReadOnly(dir); err == nil {

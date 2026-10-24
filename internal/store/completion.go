@@ -19,17 +19,22 @@ func OpenReadOnly(dataDir string) (*Store, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, err
 	}
-	dsn := (&url.URL{
-		Scheme:   "file",
-		Path:     path,
-		RawQuery: "mode=ro&_pragma=busy_timeout(200)",
-	}).String()
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open("sqlite", fileURI(path, "mode=ro&_pragma=busy_timeout(200)"))
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	return &Store{db: db}, nil
+}
+
+// fileURI is an SQLite file: URI for path with query. SQLite wants forward
+// slashes and a "/" before a Windows drive letter: file:///C:/Users/...
+func fileURI(path, query string) string {
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return (&url.URL{Scheme: "file", Path: p, RawQuery: query}).String()
 }
 
 // RunChoice is a run offered by shell completion.
