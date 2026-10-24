@@ -99,7 +99,7 @@ func TestStatusGlyph(t *testing.T) {
 
 func TestCollapseHome(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	cases := []struct {
 		in   string
@@ -107,7 +107,7 @@ func TestCollapseHome(t *testing.T) {
 	}{
 		{"", ""},
 		{home, "~"},
-		{filepath.Join(home, "projects", "carrier"), "~/projects/carrier"},
+		{filepath.Join(home, "projects", "carrier"), filepath.FromSlash("~/projects/carrier")},
 		{"/var/log/syslog", "/var/log/syslog"},
 		{home + "extra", home + "extra"}, // prefix without separator must not collapse
 	}

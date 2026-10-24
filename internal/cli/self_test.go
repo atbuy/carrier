@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -207,6 +208,9 @@ func TestCheckInstallMethodReadOnlyDir(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores directory permissions")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not use Unix directory permissions")
+	}
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "carrier")
 	if err := os.WriteFile(binary, []byte("binary"), 0o755); err != nil {
@@ -361,9 +365,9 @@ func TestSelfUpdateRejectsInvalidVersion(t *testing.T) {
 func TestPrintUpdated(t *testing.T) {
 	t.Setenv("CARRIER_COLOR", "never")
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	path := filepath.Join(home, ".local", "bin", "carrier")
-	want := []string{"updated carrier 1.4.0 → 1.5.0", "~/.local/bin/carrier"}
+	want := []string{"updated carrier 1.4.0 → 1.5.0", filepath.FromSlash("~/.local/bin/carrier")}
 
 	// Not a terminal: no logo.
 	var out bytes.Buffer

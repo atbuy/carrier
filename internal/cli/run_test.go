@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -168,12 +169,7 @@ func TestRerunCmdWithEditFlag(t *testing.T) {
 
 	originalID := createFinishedRun(t, st, store.StatusSuccess, "true", `["true"]`, t.TempDir())
 
-	scriptDir := t.TempDir()
-	script := filepath.Join(scriptDir, "editor.sh")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '[\"echo\",\"edited\"]' > \"$1\"\n"), 0o755); err != nil {
-		t.Fatalf("write editor script: %v", err)
-	}
-	t.Setenv("EDITOR", script)
+	t.Setenv("EDITOR", fakeEditor(t, `["echo","edited"]`))
 
 	cfg := config.Default()
 	cfg.Storage.DataDir = dir
@@ -254,12 +250,7 @@ func TestEditArgvUnchanged(t *testing.T) {
 }
 
 func TestEditArgvEmptyArray(t *testing.T) {
-	scriptDir := t.TempDir()
-	script := filepath.Join(scriptDir, "editor.sh")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '[]' > \"$1\"\n"), 0o755); err != nil {
-		t.Fatalf("write script: %v", err)
-	}
-	t.Setenv("EDITOR", script)
+	t.Setenv("EDITOR", fakeEditor(t, `[]`))
 
 	_, err := editArgv([]string{"go", "test"})
 	if err == nil {
@@ -271,12 +262,7 @@ func TestEditArgvEmptyArray(t *testing.T) {
 }
 
 func TestEditArgvValidEdit(t *testing.T) {
-	scriptDir := t.TempDir()
-	script := filepath.Join(scriptDir, "editor.sh")
-	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '[\"echo\",\"hi\"]' > \"$1\"\n"), 0o755); err != nil {
-		t.Fatalf("write script: %v", err)
-	}
-	t.Setenv("EDITOR", script)
+	t.Setenv("EDITOR", fakeEditor(t, `["echo","hi"]`))
 
 	got, err := editArgv([]string{"go", "test"})
 	if err != nil {
@@ -285,4 +271,19 @@ func TestEditArgvValidEdit(t *testing.T) {
 	if len(got) != 2 || got[0] != "echo" || got[1] != "hi" {
 		t.Fatalf("editArgv = %v", got)
 	}
+}
+
+// fakeEditor writes an editor that replaces the file it is given with
+// content: a shell script, or a .cmd file on Windows.
+func fakeEditor(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path, script := filepath.Join(dir, "editor.sh"), "#!/bin/sh\nprintf '%s' 'CONTENT' > \"$1\"\n"
+	if runtime.GOOS == "windows" {
+		path, script = filepath.Join(dir, "editor.cmd"), "@echo off\r\n>\"%~1\" echo CONTENT\r\n"
+	}
+	if err := os.WriteFile(path, []byte(strings.ReplaceAll(script, "CONTENT", content)), 0o755); err != nil {
+		t.Fatalf("write editor: %v", err)
+	}
+	return path
 }

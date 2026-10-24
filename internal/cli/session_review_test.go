@@ -207,7 +207,7 @@ func TestSessionExportToFileAndJSON(t *testing.T) {
 func TestSessionExportShortensHome(t *testing.T) {
 	a, dir := autoSessionApp(t)
 	home := filepath.Join(dir, "home")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	id := newSession(t, a, "", false)
 	at := time.Now()
 	rid, err := a.st.CreateRun(store.CreateRun{
@@ -224,7 +224,7 @@ func TestSessionExportShortensHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out, home) || !strings.Contains(out, "`~/api`") || !strings.Contains(out, "`` cat `notes` ``") {
+	if strings.Contains(out, home) || !strings.Contains(out, "`"+filepath.FromSlash("~/api")+"`") || !strings.Contains(out, "`` cat `notes` ``") {
 		t.Fatalf("export:\n%s", out)
 	}
 }

@@ -82,7 +82,7 @@ func TestWarmBuiltinCacheIdempotent(t *testing.T) {
 
 func TestOpenWithNilStore(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 
 	a := &app{}

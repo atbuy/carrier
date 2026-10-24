@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -188,7 +189,9 @@ func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 	dataDir := filepath.Join(env.home, ".local", "share", "carrier")
 	for _, want := range []string{
 		"[storage]",
-		`data_dir = "` + dataDir + `"`,
+		// config show prints TOML, which escapes the backslashes of a
+		// Windows path the way Go quoting does.
+		"data_dir = " + strconv.Quote(dataDir),
 		"max_output_mb = 20",
 	} {
 		if !strings.Contains(show.stdout, want) {
@@ -313,7 +316,12 @@ type carrierTestEnv struct {
 
 func newCarrierTestEnv(t *testing.T) carrierTestEnv {
 	t.Helper()
-	root := t.TempDir()
+	// Resolve symlinks (macOS /var is /private/var) so paths match the
+	// working directory carrier records.
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	env := carrierTestEnv{
 		home:      filepath.Join(root, "home"),
 		xdgConfig: filepath.Join(root, "config"),
@@ -337,6 +345,8 @@ func runCarrier(t *testing.T, env carrierTestEnv, args ...string) carrierResult 
 		"CARRIER_TEST_CLI=1",
 		"CARRIER_COLOR=never",
 		"HOME="+env.home,
+		// os.UserHomeDir reads USERPROFILE on Windows.
+		"USERPROFILE="+env.home,
 		"XDG_CONFIG_HOME="+env.xdgConfig,
 	)
 

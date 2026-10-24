@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func newSetupFixture(t *testing.T) *setupFixture {
 	t.Helper()
 	t.Setenv("CARRIER_COLOR", "never")
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("ZDOTDIR", "")
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	return &setupFixture{t: t, home: home, configPath: filepath.Join(home, ".config", "carrier", "config.toml"), commands: map[string]string{}}
@@ -110,7 +111,7 @@ func TestSetupFreshHome(t *testing.T) {
 	if err != nil || len(env.changed) != 0 || f.read(".bashrc") != before {
 		t.Fatalf("second run should change nothing: %v %v\n%s", err, env.changed, f.out.String())
 	}
-	for _, want := range []string{"✓ already on in ~/.bashrc", "✓ already on", "✓ already set in ~/.bashrc", "Nothing was changed"} {
+	for _, want := range []string{"✓ already on in " + filepath.FromSlash("~/.bashrc"), "✓ already on", "✓ already set in " + filepath.FromSlash("~/.bashrc"), "Nothing was changed"} {
 		if !strings.Contains(f.out.String(), want) {
 			t.Errorf("second run output missing %q:\n%s", want, f.out.String())
 		}
@@ -146,7 +147,7 @@ cmd = 'go test.*'
 	if got := f.read(".config/carrier/conf.d/hints.toml"); got != "[hints]\nsimilar_failures = true # later\n" {
 		t.Fatalf("include should be edited where the key is set:\n%s", got)
 	}
-	if !strings.Contains(f.out.String(), "hints.similar_failures is set in ~/.config/carrier/conf.d/hints.toml") {
+	if !strings.Contains(f.out.String(), "hints.similar_failures is set in "+filepath.FromSlash("~/.config/carrier/conf.d/hints.toml")) {
 		t.Fatalf("output should explain editing the include:\n%s", f.out.String())
 	}
 	if f.notified != 0 {
@@ -161,7 +162,8 @@ cmd = 'go test.*'
 	if len(backups) != 3 {
 		t.Fatalf("expected 3 backups (config twice, include once), got %v", backups)
 	}
-	if info, _ := os.Stat(filepath.Join(f.home, ".config", "carrier", "config.toml")); info.Mode().Perm() != 0o640 {
+	// Windows has no Unix permission bits to keep.
+	if info, _ := os.Stat(filepath.Join(f.home, ".config", "carrier", "config.toml")); runtime.GOOS != "windows" && info.Mode().Perm() != 0o640 {
 		t.Fatalf("file mode should be kept, got %v", info.Mode().Perm())
 	}
 }
@@ -216,8 +218,8 @@ func TestSetupAliasConflicts(t *testing.T) {
 	cases := []struct {
 		name, rc, command, want string
 	}{
-		{"other alias", "alias c='code'\n", "", `"c" is already defined in ~/.bashrc: alias c='code'`},
-		{"function", "c() { cd \"$1\"; }\n", "", `"c" is already defined in ~/.bashrc: c() { cd "$1"; }`},
+		{"other alias", "alias c='code'\n", "", `"c" is already defined in ` + filepath.FromSlash("~/.bashrc") + `: alias c='code'`},
+		{"function", "c() { cd \"$1\"; }\n", "", `"c" is already defined in ` + filepath.FromSlash("~/.bashrc") + `: c() { cd "$1"; }`},
 		{"command", "", "/usr/bin/c", `"c" is already a command: /usr/bin/c`},
 	}
 	for _, tc := range cases {
@@ -318,10 +320,15 @@ func TestWriteFileSafely(t *testing.T) {
 	if b, _ := os.ReadFile(real); string(b) != "v2\n" {
 		t.Fatalf("the link target should be updated, got %q", b)
 	}
-	if fi, _ := os.Stat(real); fi.Mode().Perm() != 0o600 {
+	// Windows has no Unix permission bits to keep.
+	if fi, _ := os.Stat(real); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode should be kept, got %v", fi.Mode().Perm())
 	}
-	if b, _ := os.ReadFile(backup); string(b) != "v1\n" || filepath.Dir(backup) != filepath.Dir(real) {
+	// The backup sits next to the link's target, which a symlinked temp
+	// directory (macOS /var is /private/var) can name differently.
+	backupDir, _ := filepath.EvalSymlinks(filepath.Dir(backup))
+	realDir, _ := filepath.EvalSymlinks(filepath.Dir(real))
+	if b, _ := os.ReadFile(backup); string(b) != "v1\n" || backupDir != realDir {
 		t.Fatalf("backup %s = %q", backup, b)
 	}
 	// A second write in the same second keeps the first backup.

@@ -571,14 +571,14 @@ func TestReadTailLimitsAndHandlesMissingFiles(t *testing.T) {
 
 func TestCollapseHomeAndShortEdgeCases(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	cases := []struct {
 		in   string
 		want string
 	}{
 		{"", ""},
 		{home, "~"},
-		{filepath.Join(home, "project"), "~/project"},
+		{filepath.Join(home, "project"), filepath.FromSlash("~/project")},
 		{home + "suffix", home + "suffix"},
 		{"/var/tmp", "/var/tmp"},
 	}

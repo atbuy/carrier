@@ -59,7 +59,14 @@ func TestTailFileMissing(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTailFileFollow(t *testing.T) {
-	dir := t.TempDir()
+	// TailFile keeps following, with the file open, after the test ends.
+	// Windows cannot delete an open file, so t.TempDir's cleanup would fail:
+	// remove the directory best-effort instead.
+	dir, err := os.MkdirTemp("", "carrier-tail-follow-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	path := filepath.Join(dir, "follow.log")
 	initial := "line1\n"
 	if err := os.WriteFile(path, []byte(initial), 0o644); err != nil {

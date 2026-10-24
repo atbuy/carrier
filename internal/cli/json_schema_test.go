@@ -117,10 +117,12 @@ func TestJSONOutputSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v (run go test ./internal/cli -run TestJSONOutputSchema -update-json-schema)", golden, err)
 	}
-	if got.String() == string(want) {
+	// Git can check the golden file out with CRLF line endings on Windows.
+	wantText := strings.ReplaceAll(string(want), "\r\n", "\n")
+	if got.String() == wantText {
 		return
 	}
-	removed, added := diffLines(string(want), got.String())
+	removed, added := diffLines(wantText, got.String())
 	var msg strings.Builder
 	msg.WriteString("--json output changed.\n")
 	if len(removed) > 0 {

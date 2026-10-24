@@ -235,7 +235,7 @@ func TestCompleteOffersNoFiles(t *testing.T) {
 // directory and offers nothing, without an error, when there is no store.
 func TestCompletionWithoutStore(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	values, _, directive := complete(t, &app{}, "show", "")
 	if len(values) != 0 || directive != noFiles {

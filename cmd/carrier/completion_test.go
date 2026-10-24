@@ -48,7 +48,7 @@ func TestCompletionInBash(t *testing.T) {
 	}
 	env := completionShellEnv(t)
 	script := `
-source <(carrier init bash)
+eval "$(carrier init bash)"
 comp() {
   COMP_LINE=$1 COMP_POINT=${#1} COMP_TYPE=9
   read -ra COMP_WORDS <<< "$COMP_LINE"
