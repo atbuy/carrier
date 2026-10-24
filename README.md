@@ -179,7 +179,7 @@ carrier config path
 carrier config show
 carrier config check
 carrier config init
-carrier self version
+carrier version
 carrier self update
 carrier self changelog
 carrier clean --older-than 30d --dry-run

@@ -238,10 +238,16 @@ func TestCarrierCLIIntegrationSelf(t *testing.T) {
 		t.Fatalf("self news --all should list every version:\n%s", news.stdout)
 	}
 
-	// carrier version and carrier changelog moved under carrier self, and are
-	// deprecated rather than removed, so they keep working with a warning.
+	// carrier version stays a top-level command, without a warning.
+	topVersion := runCarrier(t, env, "version")
+	topVersion.requireExit(t, 0)
+	if !strings.HasPrefix(topVersion.stdout, "carrier ") || strings.Contains(topVersion.stderr, "deprecated") {
+		t.Fatalf("version stdout = %q, stderr = %q, want the version and no warning", topVersion.stdout, topVersion.stderr)
+	}
+
+	// carrier changelog moved under carrier self, and is deprecated rather than
+	// removed, so it keeps working with a warning.
 	for _, moved := range []struct{ name, replacement string }{
-		{"version", "carrier self version"},
 		{"changelog", "carrier self changelog"},
 		{"news", "carrier self changelog"},
 	} {
@@ -261,7 +267,10 @@ func TestCarrierCLIIntegrationSelf(t *testing.T) {
 	if !strings.Contains(rootHelp.stdout, "self        update carrier") {
 		t.Fatalf("root help should list self:\n%s", rootHelp.stdout)
 	}
-	for _, hidden := range []string{"version     show", "changelog   show"} {
+	if !strings.Contains(rootHelp.stdout, "version     show carrier version") {
+		t.Fatalf("root help should list version:\n%s", rootHelp.stdout)
+	}
+	for _, hidden := range []string{"changelog   show"} {
 		if strings.Contains(rootHelp.stdout, hidden) {
 			t.Fatalf("root help should not list %q:\n%s", hidden, rootHelp.stdout)
 		}

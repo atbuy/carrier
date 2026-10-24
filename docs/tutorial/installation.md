@@ -32,7 +32,7 @@ This page covers supported install paths.
     powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -System"
     ```
 
-The installer detects your OS and CPU architecture, installs into your user bin directory, and prints `carrier self version` when done. Use `--system` on Linux/macOS or `-System` on Windows for a system-wide install.
+The installer detects your OS and CPU architecture, installs into your user bin directory, and prints `carrier version` when done. Use `--system` on Linux/macOS or `-System` on Windows for a system-wide install.
 
 !!! tip "Default install locations"
 
@@ -57,7 +57,7 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 Verify:
 
 ```bash title="Verify install"
-carrier self version
+carrier version
 carrier doctor
 ```
 
@@ -67,7 +67,7 @@ carrier doctor
 git clone https://github.com/atbuy/carrier.git
 cd carrier
 make build
-./bin/carrier self version
+./bin/carrier version
 ```
 
 Install from checkout:
