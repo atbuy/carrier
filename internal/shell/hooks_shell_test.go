@@ -345,19 +345,25 @@ func TestHooksFollowSessionSwitch(t *testing.T) {
 	}{
 		{"zsh", func(hookDir, sessionFile string) []string {
 			return []string{"-i", "-c", `RPROMPT=mine; _carrier_precmd
-printf '9\n%s\n' 'OPS-7: deploy' > ` + sessionFile + `
+printf '9\n%s\n' 'OPS-7: deploy' > ` + shellQuote(sessionFile) + `
 _carrier_precmd; _carrier_precmd
 print -r -- "PROMPT[$RPROMPT] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSION_LABEL]"`}
 		}},
 		{"bash", func(hookDir, sessionFile string) []string {
 			return []string{"--rcfile", filepath.Join(hookDir, ".bashrc"), "-i", "-c", `trap - DEBUG
-printf '9\n%s\n' 'OPS-7: deploy' > ` + sessionFile + `
+printf '9\n%s\n' 'OPS-7: deploy' > ` + shellQuote(sessionFile) + `
 _carrier_end; trap - DEBUG
-echo "PROMPT[${PS1@P}] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSION_LABEL]"`}
+# ${PS1@P} needs bash 4.4; older bash expands the variables in PS1 by eval.
+if (( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )); then
+  prompt=${PS1@P}
+else
+  eval "prompt=\"$PS1\""
+fi
+echo "PROMPT[$prompt] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSION_LABEL]"`}
 		}},
 		{"fish", func(hookDir, sessionFile string) []string {
 			return []string{"--no-config", "-c", "source " + filepath.Join(hookDir, "carrier.fish") + `
-printf '9\n%s\n' 'OPS-7: deploy' > ` + sessionFile + `
+printf '9\n%s\n' 'OPS-7: deploy' > ` + shellQuote(sessionFile) + `
 _carrier_session
 echo "PROMPT["(fish_right_prompt)"] ID[$CARRIER_SESSION_ID] LABEL[$CARRIER_SESSION_LABEL]"`}
 		}},

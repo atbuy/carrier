@@ -227,7 +227,11 @@ func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor
 	//     holding the last command: closing the terminal runs the EXIT trap
 	//     and would record that command again. With PS0, a run only begins
 	//     after a line was read, which PS0 marks by setting _carrier_read
-	//     through an assignment that expands to nothing.
+	//     through an assignment that expands to nothing. Bash before 4.4
+	//     has no PS0, but its $BASH_COMMAND then holds the last command of
+	//     _carrier_end, which is never a command line.
+	// Without PS0, a line only ends a run when the DEBUG trap began one:
+	// history alone also moves for lines like "(cd x; make)".
 	// The trap is installed last so startup commands are not recorded.
 	return fmt.Sprintf(`
 [[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
@@ -275,6 +279,7 @@ _carrier_ps0() {
 _carrier_begin() {
   [[ -n "$_carrier_at_prompt" ]] || return
   [[ -n "$_carrier_has_ps0" && -z "${_carrier_read+set}" ]] && return
+  [[ "$BASH_COMMAND" == "trap _carrier_begin DEBUG" ]] && return
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
   [[ -n "${COMP_LINE:-}" ]] && return
   [[ "$BASH_COMMAND" == _carrier_* ]] && return
@@ -302,7 +307,7 @@ _carrier_end() {
   fi
   _carrier_hist
   # Skip empty lines: no trap fired and no history entry was added.
-  if [[ -z "$_carrier_at_prompt" || "$_carrier_hnum" != "$_carrier_last_hist" ]]; then
+  if [[ -z "$_carrier_at_prompt" || ( -n "$_carrier_has_ps0" && "$_carrier_hnum" != "$_carrier_last_hist" ) ]]; then
     export CARRIER_HOOK_ACTIVE=1
     command %q internal end --state %q --exit "$ec" >/dev/null 2>&1
     unset CARRIER_HOOK_ACTIVE
