@@ -36,12 +36,15 @@ fi
 `, quoted), nil
 	case "fish":
 		// In fish, exit while reading config only stops reading it; the shell
-		// keeps running. Leave at the first prompt instead.
+		// keeps running. Leave at the first prompt instead. From fish 4, exit
+		// in an event handler only ends the handler, so also queue the exit
+		// input function, which older fish may not have.
 		return fmt.Sprintf(`# carrier: record this terminal in an automatic session.
 if status is-interactive; and isatty stdin; and isatty stdout; and not set -q CARRIER_NO_AUTO; and begin; not set -q CARRIER_SESSION_ID; or begin; set -q CARRIER_TTY; and test "$CARRIER_TTY" != (tty); end; end
     if %s shell --auto --program fish
         set -g fish_greeting
         function __carrier_auto_exit --on-event fish_prompt
+            commandline -f exit 2>/dev/null
             exit
         end
     end
