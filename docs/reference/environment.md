@@ -82,3 +82,11 @@ carrier session label backend-debug
 ```
 
 The remaining variables are implementation details. Do not set them manually unless you are debugging shell mode internals.
+
+## Internal variables
+
+| Variable                   | Purpose                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| `CARRIER_UPDATE_BASE_URL`  | Base URL `carrier self update` resolves releases against, instead of `https://github.com`. Used by carrier's own tests so they never reach the network. |
+
+Like the shell-mode internals, this is not part of the stable surface and may change in any release. See [Compatibility](compatibility.md#what-may-change-in-any-release).

@@ -1,6 +1,18 @@
 # Changelog
 
-All notable changes to carrier are listed here, newest first. Run `carrier changelog` to read this from the command line.
+All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
+
+## [1.4.0] - 2026-10-24
+
+### Added
+
+- `carrier self update` replaces the installed binary with the latest carrier release, so updating no longer means finding the install command again. `--check` reports what is available without installing it, `--version` installs one release, including an older one, and `--force` reinstalls the version already installed. The archive is checked against the release's `checksums.txt` before anything is replaced, the old binary stays in place if any step fails, and shells that are already recording keep working and use the new binary from their next command. A successful update prints what changed since the version you had.
+- `carrier self update` is the only command that reaches the network, and only when you run it. carrier does not check for new versions on its own, so `carrier self update --check` is how you ask.
+- `carrier self update` leaves alone a binary that did not come from a release archive, and names the command to use instead: `go install` for one in `GOBIN` or `GOPATH/bin`, `make install` for a build from source, and the `--system` installer line for a directory this user cannot write.
+
+### Deprecated
+
+- `carrier version` is now `carrier self version`, and `carrier changelog` is now `carrier self changelog` (`carrier self news` stays an alias). The old names still work and print a warning to stderr, and are removed in the next major release.
 
 ## [1.3.1] - 2026-10-23
 

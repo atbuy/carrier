@@ -166,7 +166,7 @@ carrier config init --force
 ## How do I check my install?
 
 ```bash
-carrier version
+carrier self version
 carrier doctor
 ```
 

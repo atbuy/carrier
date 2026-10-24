@@ -24,11 +24,12 @@ func (a *app) changelogCmd() *cobra.Command {
 		Long: `Show what changed in a carrier version. Without arguments, it shows the
 installed version.
 
-  carrier changelog               # the installed version
-  carrier changelog 0.24.0        # one version
-  carrier changelog --since 0.20.0  # everything newer than 0.20.0
-  carrier changelog --all         # every version
-  carrier changelog --markdown 0.24.0  # Markdown, e.g. for release notes`,
+  carrier self changelog               # the installed version
+  carrier self news                    # same thing
+  carrier self changelog 0.24.0        # one version
+  carrier self changelog --since 0.20.0  # everything newer than 0.20.0
+  carrier self changelog --all         # every version
+  carrier self changelog --markdown 0.24.0  # Markdown, e.g. for release notes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			releases, err := changelog.Parse(carrier.Changelog)
@@ -61,7 +62,7 @@ installed version.
 			case len(args) == 1:
 				r, ok := changelog.Find(releases, args[0])
 				if !ok {
-					return fmt.Errorf("no changelog entry for version %s; see carrier changelog --all", strings.TrimPrefix(args[0], "v"))
+					return fmt.Errorf("no changelog entry for version %s; see carrier self changelog --all", strings.TrimPrefix(args[0], "v"))
 				}
 				shown = []changelog.Release{r}
 			default:
@@ -108,7 +109,7 @@ installed version.
 				printRelease(out, t, r)
 			}
 			if len(args) == 0 && !all && since == "" {
-				printHint(cmd, `older versions: carrier changelog --all, or --since <version>`)
+				printHint(cmd, `older versions: carrier self changelog --all, or --since <version>`)
 			}
 			return nil
 		},

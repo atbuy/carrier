@@ -44,6 +44,21 @@ func touchSidecar(dataDir, name string) {
 	_ = os.WriteFile(filepath.Join(dataDir, name), []byte(time.Now().UTC().Format(time.RFC3339)), 0o600)
 }
 
+// skipsStore reports whether a command runs without opening the database.
+func skipsStore(path string) bool {
+	switch path {
+	case "carrier init":
+		// init runs on every terminal start.
+		return true
+	case "carrier version", "carrier changelog":
+		// The deprecated aliases of carrier self commands.
+		return true
+	}
+	// carrier self needs no database, and "self update" has to work even when
+	// the database is broken.
+	return strings.HasPrefix(path, "carrier self")
+}
+
 type app struct {
 	cfg          config.Config
 	cfgLoaded    bool
@@ -79,8 +94,7 @@ func newRootCmd(a *app) *cobra.Command {
 			if _, err := a.ensureConfig(); err != nil {
 				return err
 			}
-			if cmd.CommandPath() == "carrier version" || cmd.CommandPath() == "carrier init" || cmd.CommandPath() == "carrier changelog" {
-				// init runs on every terminal start; it needs no database.
+			if skipsStore(cmd.CommandPath()) {
 				return nil
 			}
 			if strings.HasPrefix(cmd.CommandPath(), "carrier config") || cmd.CommandPath() == "carrier setup" {
@@ -100,7 +114,7 @@ func newRootCmd(a *app) *cobra.Command {
 	root.PersistentFlags().BoolVarP(&a.quiet, "quiet", "q", false, "suppress carrier status output")
 	root.PersistentFlags().BoolVar(&a.noRedact, "no-redact", false, "disable persisted log redaction for this run")
 
-	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.setupCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd(), a.changelogCmd(), a.statusCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
+	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.setupCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.selfCmd(), deprecatedSelfAlias(a.versionCmd()), deprecatedSelfAlias(a.changelogCmd()), a.statusCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
 	installHelp(root)
 	return root
 }

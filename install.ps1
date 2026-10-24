@@ -114,4 +114,13 @@ if ($CurrentPath -notlike "*$InstallDir*") {
 }
 
 Write-Host ""
-& (Join-Path $InstallDir "carrier.exe") version
+# "carrier version" moved under "carrier self" in 1.4.0. This script is always
+# fetched from main, so -Version may have installed an older release. Nothing
+# follows, so relaxing the error preference here only affects this fallback:
+# PowerShell 7.4 and later would otherwise throw on the first exit code.
+$ErrorActionPreference = 'Continue'
+$CarrierExe = Join-Path $InstallDir "carrier.exe"
+& $CarrierExe self version 2>$null
+if ($LASTEXITCODE -ne 0) {
+    & $CarrierExe version
+}

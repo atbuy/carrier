@@ -4,7 +4,7 @@ package carrier
 
 import _ "embed"
 
-// Changelog is CHANGELOG.md, shown by "carrier changelog".
+// Changelog is CHANGELOG.md, shown by "carrier self changelog".
 //
 //go:embed CHANGELOG.md
 var Changelog string

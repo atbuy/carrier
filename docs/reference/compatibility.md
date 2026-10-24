@@ -10,7 +10,7 @@ This is how we intend to work, not a guarantee. If a 1.x release ever has to bre
 | Minor            | `1.2.1 → 1.3.0` | new commands, flags, settings, and JSON fields      |
 | Major            | `1.3.0 → 2.0.0` | changes that can break scripts, config, or habits   |
 
-Changes are listed in the changelog. Run `carrier changelog --since <version>` before upgrading, or see the [release notes](https://github.com/atbuy/carrier/releases). Breaking changes are marked **Breaking:**.
+Changes are listed in the changelog. Run `carrier self changelog --since <version>` before upgrading, or see the [release notes](https://github.com/atbuy/carrier/releases). Breaking changes are marked **Breaking:**.
 
 ## What we try to keep stable
 

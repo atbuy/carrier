@@ -154,7 +154,11 @@ fi
 
 echo ""
 if command -v carrier >/dev/null 2>&1; then
-  carrier version
+  CARRIER_BIN="carrier"
 else
-  "${INSTALL_DIR}/carrier" version
+  CARRIER_BIN="${INSTALL_DIR}/carrier"
 fi
+
+# "carrier version" moved under "carrier self" in 1.4.0. This script is always
+# fetched from main, so --version may have installed an older release.
+"${CARRIER_BIN}" self version 2>/dev/null || "${CARRIER_BIN}" version

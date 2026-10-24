@@ -28,6 +28,22 @@ Specific Windows release:
 powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -Version v1.0.0"
 ```
 
+## Updating
+
+A carrier installed from a release archive updates itself:
+
+```bash title="Update to the latest release"
+carrier self update
+```
+
+```bash title="See what is available first"
+carrier self update --check
+```
+
+It resolves the latest tag, downloads the archive for this OS and architecture, checks it against the release's `checksums.txt`, and replaces the running binary. The old binary stays in place if any step fails, and shells that are already recording keep working.
+
+Installs that came from somewhere else are left alone, and the command says what to run instead: `go install github.com/atbuy/carrier/cmd/carrier@latest` for a Go install, `make install` for a build from source, and the `--system` installer line for a directory this user cannot write. See [`carrier self update`](../guide/commands.md#self-update).
+
 ## Artifact names
 
 Linux:

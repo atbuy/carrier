@@ -165,7 +165,8 @@ func TestBashHooksRecordOneRunPerCommandLine(t *testing.T) {
 		"begin echo a | tr a b", "end 0",
 	}
 	want = append(want, subshell...)
-	want = append(want,
+	want = append(
+		want,
 		"begin greet bob", "end 0",
 		"begin false", "end 1",
 		// The shell exits before its prompt hook runs; carrier shell finishes

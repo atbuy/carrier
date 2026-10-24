@@ -871,23 +871,60 @@ carrier completion fish > ~/.config/fish/completions/carrier.fish
 carrier completion powershell | Out-String | Invoke-Expression
 ```
 
-## `version`
+## `self`
+
+Commands about the carrier install itself: update it, show its version, and read what changed.
+
+!!! note "Moved in 1.4.0"
+
+    `carrier version` and `carrier changelog` moved here. The old names still work and print a deprecation warning to stderr; they are removed in the next major release. See [Compatibility](../reference/compatibility.md#deprecation).
+
+### `self update`
+
+Replace this binary with a carrier release from [GitHub Releases](https://github.com/atbuy/carrier/releases).
+
+```bash title="Update"
+carrier self update                  # update to the latest release
+carrier self update --check          # report what is available, install nothing
+carrier self update --version 1.2.0  # install one release, including an older one
+carrier self update --force          # reinstall the version already installed
+```
+
+The download is checked against the release's `checksums.txt` before anything is replaced, and the old binary stays in place if any step fails. Shells that are already recording keep working and use the new binary from their next command.
+
+This is the only command that reaches the network, and it only does so when you run it. carrier never checks for a new version on its own, so `--check` is how you ask.
+
+A binary that did not come from a release archive is left alone, with the command to use instead:
+
+```text
+~/go/bin/carrier was installed with go install; update it with:
+  go install github.com/atbuy/carrier/cmd/carrier@latest
+```
+
+The same applies to a build from source, which needs `--force` to be replaced with a release, and to an install somewhere this user cannot write, such as `/usr/local/bin` from `install.sh --system`.
+
+Going back to an older release is allowed with `--version`, but see [Downgrades](../reference/compatibility.md#downgrades) first: once a newer release has upgraded the database, an older binary may not read it.
+
+### `self version`
 
 ```bash title="Version"
-carrier version
+carrier self version
 ```
 
-## `changelog`
+### `self changelog`
 
-Show what changed in each version. The changelog is built into the binary, so it works offline and matches the installed version.
+Show what changed in each version. The changelog is built into the binary, so it works offline and matches the installed version. `carrier self news` is an alias.
 
 ```bash title="Changelog"
-carrier changelog                    # the installed version
-carrier changelog 0.24.0             # one version
-carrier changelog --since 0.20.0     # everything newer than 0.20.0, e.g. after upgrading
-carrier changelog --all              # every version
-carrier changelog 0.24.0 --json
-carrier changelog 0.24.0 --markdown
+carrier self changelog                    # the installed version
+carrier self news                         # same thing
+carrier self changelog 0.24.0             # one version
+carrier self changelog --since 0.20.0     # everything newer than 0.20.0, e.g. after upgrading
+carrier self changelog --all              # every version
+carrier self changelog 0.24.0 --json
+carrier self changelog 0.24.0 --markdown
 ```
+
+A successful `carrier self update` prints this for you, from the version you had to the one it installed.
 
 The same entries are in [CHANGELOG.md](https://github.com/atbuy/carrier/blob/main/CHANGELOG.md).

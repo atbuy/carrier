@@ -6,7 +6,7 @@
 
 `carrier` is a local developer command logger. It records command executions, working directory, timing, exit code, output logs, Git metadata, and optional desktop notifications.
 
-Documentation: [https://atbuy.github.io/carrier/](https://atbuy.github.io/carrier/) · Changes: [CHANGELOG.md](CHANGELOG.md) or `carrier changelog`
+Documentation: [https://atbuy.github.io/carrier/](https://atbuy.github.io/carrier/) · Changes: [CHANGELOG.md](CHANGELOG.md) or `carrier self changelog`
 
 ## Quick start
 
@@ -177,7 +177,9 @@ carrier config path
 carrier config show
 carrier config check
 carrier config init
-carrier version
+carrier self version
+carrier self update
+carrier self changelog
 carrier clean --older-than 30d --dry-run
 carrier clean --older-than 30d -d
 carrier clean --older-than 30d --yes

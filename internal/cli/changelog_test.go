@@ -19,7 +19,7 @@ func TestChangelogCmd(t *testing.T) {
 	if err != nil || !strings.HasPrefix(out, "carrier 0.24.0 2026-10-20\n  Added\n    • carrier note <text>") {
 		t.Fatalf("installed version: %v\n%s", err, out)
 	}
-	if !strings.Contains(errOut, "carrier changelog --all") {
+	if !strings.Contains(errOut, "carrier self changelog --all") {
 		t.Fatalf("should point at older versions, got %q", errOut)
 	}
 

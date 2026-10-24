@@ -21,6 +21,7 @@ func (a *app) versionCmd() *cobra.Command {
 			_, _ = fmt.Fprintf(out, "%s %s\n", t.Accent.Bold(true).Render("carrier"), t.ID.Render(v.Version))
 			_, _ = fmt.Fprintf(out, "%s  %s\n", t.Bold.Render("commit:"), t.Muted.Render(v.Commit))
 			_, _ = fmt.Fprintf(out, "%s    %s\n", t.Bold.Render("date:"), t.Muted.Render(v.Date))
+			printHint(cmd, "update with: carrier self update")
 			return nil
 		},
 	}

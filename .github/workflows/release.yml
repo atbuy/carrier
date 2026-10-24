@@ -75,7 +75,7 @@ jobs:
 
       # Every release needs a CHANGELOG.md entry; it becomes the release notes.
       - name: Check changelog entry
-        run: go run ./cmd/carrier changelog --markdown "${RELEASE_TAG}" > release-notes.md
+        run: go run ./cmd/carrier self changelog --markdown "${RELEASE_TAG}" > release-notes.md
 
       - name: Upload release notes
         uses: actions/upload-artifact@v4
@@ -130,7 +130,7 @@ jobs:
 
       - name: Smoke test
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
-        run: dist/carrier-linux-amd64 version
+        run: dist/carrier-linux-amd64 self version
 
       - name: Package
         run: |

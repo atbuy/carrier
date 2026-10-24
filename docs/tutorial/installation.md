@@ -32,7 +32,7 @@ This page covers supported install paths.
     powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/atbuy/carrier/main/install.ps1))) -System"
     ```
 
-The installer detects your OS and CPU architecture, installs into your user bin directory, and prints `carrier version` when done. Use `--system` on Linux/macOS or `-System` on Windows for a system-wide install.
+The installer detects your OS and CPU architecture, installs into your user bin directory, and prints `carrier self version` when done. Use `--system` on Linux/macOS or `-System` on Windows for a system-wide install.
 
 !!! tip "Default install locations"
 
@@ -57,7 +57,7 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 Verify:
 
 ```bash title="Verify install"
-carrier version
+carrier self version
 carrier doctor
 ```
 
@@ -67,7 +67,7 @@ carrier doctor
 git clone https://github.com/atbuy/carrier.git
 cd carrier
 make build
-./bin/carrier version
+./bin/carrier self version
 ```
 
 Install from checkout:
@@ -75,6 +75,20 @@ Install from checkout:
 ```bash
 make install
 ```
+
+## Update carrier
+
+An install from the installer script or a release archive updates itself:
+
+```bash title="Update"
+carrier self update
+```
+
+```bash title="Check without installing"
+carrier self update --check
+```
+
+carrier never checks for a new version on its own, so this is how you find out there is one. A Go install updates with `go install github.com/atbuy/carrier/cmd/carrier@latest`, and a source checkout with `git pull && make install`; `carrier self update` detects both and tells you. See [`carrier self update`](../guide/commands.md#self-update).
 
 ## Recommended shell alias
 

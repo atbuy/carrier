@@ -60,7 +60,7 @@ Specific versions and Go installs are covered in [Installation](installation.md)
 Verify:
 
 ```bash title="Verify install"
-carrier version
+carrier self version
 carrier doctor
 ```
 

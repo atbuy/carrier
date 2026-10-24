@@ -13,7 +13,7 @@ import (
 
 func TestExecuteVersionReturnsZero(t *testing.T) {
 	oldArgs := os.Args
-	os.Args = []string{"carrier", "version"}
+	os.Args = []string{"carrier", "self", "version"}
 	t.Cleanup(func() { os.Args = oldArgs })
 
 	if code := Execute(); code != 0 {

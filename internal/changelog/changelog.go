@@ -111,6 +111,21 @@ func IsRelease(version string) bool {
 	return err == nil
 }
 
+// Compare orders two version numbers ("1.2.3" or "v1.2.3"), returning -1 when
+// a is older than b, 0 when they are the same release, and 1 when a is newer.
+// Pre-release and build suffixes are ignored, as they are by Since.
+func Compare(a, b string) (int, error) {
+	av, err := parseSemver(a)
+	if err != nil {
+		return 0, err
+	}
+	bv, err := parseSemver(b)
+	if err != nil {
+		return 0, err
+	}
+	return compareSemver(av, bv), nil
+}
+
 func parseSemver(s string) ([3]int, error) {
 	var v [3]int
 	core := strings.TrimPrefix(strings.TrimSpace(s), "v")

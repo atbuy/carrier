@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/atbuy/carrier/internal/cli"
+	"github.com/atbuy/carrier/internal/selfupdate"
 )
 
 func TestCarrierCLIIntegrationRunLastAndShowJSON(t *testing.T) {
@@ -199,6 +200,86 @@ func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 	check.requireExit(t, 0)
 	if !strings.Contains(check.stdout, "Config:") || !strings.Contains(check.stdout, configPath) || !strings.Contains(check.stdout, "ok\n") {
 		t.Fatalf("config check output = %q", check.stdout)
+	}
+}
+
+func TestCarrierCLIIntegrationSelf(t *testing.T) {
+	env := newCarrierTestEnv(t)
+
+	help := runCarrier(t, env, "self", "--help")
+	help.requireExit(t, 0)
+	for _, want := range []string{
+		"COMMANDS",
+		"update      update carrier to the latest release",
+		"version     show carrier version",
+		"changelog   show what changed in each version",
+	} {
+		if !strings.Contains(help.stdout, want) {
+			t.Fatalf("self help output missing %q:\n%s", want, help.stdout)
+		}
+	}
+
+	version := runCarrier(t, env, "self", "version")
+	version.requireExit(t, 0)
+	if !strings.HasPrefix(version.stdout, "carrier ") {
+		t.Fatalf("self version output = %q", version.stdout)
+	}
+
+	// The release workflow builds its notes with this command.
+	notes := runCarrier(t, env, "self", "changelog", "--markdown", "1.3.1")
+	notes.requireExit(t, 0)
+	if !strings.HasPrefix(notes.stdout, "### ") {
+		t.Fatalf("self changelog --markdown output = %q", notes.stdout)
+	}
+
+	news := runCarrier(t, env, "self", "news", "--all")
+	news.requireExit(t, 0)
+	if !strings.Contains(news.stdout, "carrier 1.0.0") {
+		t.Fatalf("self news --all should list every version:\n%s", news.stdout)
+	}
+
+	// carrier version and carrier changelog moved under carrier self, and are
+	// deprecated rather than removed, so they keep working with a warning.
+	for _, moved := range []struct{ name, replacement string }{
+		{"version", "carrier self version"},
+		{"changelog", "carrier self changelog"},
+		{"news", "carrier self changelog"},
+	} {
+		res := runCarrier(t, env, moved.name)
+		res.requireExit(t, 0)
+		if !strings.Contains(res.stderr, "is deprecated; use \""+moved.replacement+"\"") {
+			t.Fatalf("carrier %s stderr = %q, want a deprecation warning", moved.name, res.stderr)
+		}
+		if !strings.Contains(res.stdout, "carrier ") {
+			t.Fatalf("carrier %s stdout = %q, want it to still work", moved.name, res.stdout)
+		}
+	}
+
+	// The deprecated names stay out of the help output.
+	rootHelp := runCarrier(t, env, "--help")
+	rootHelp.requireExit(t, 0)
+	if !strings.Contains(rootHelp.stdout, "self        update carrier") {
+		t.Fatalf("root help should list self:\n%s", rootHelp.stdout)
+	}
+	for _, hidden := range []string{"version     show", "changelog   show"} {
+		if strings.Contains(rootHelp.stdout, hidden) {
+			t.Fatalf("root help should not list %q:\n%s", hidden, rootHelp.stdout)
+		}
+	}
+}
+
+func TestCarrierCLIIntegrationSelfUpdateReportsUnreachableHost(t *testing.T) {
+	// Port 1 refuses connections, so this covers the error path without
+	// reaching the network.
+	t.Setenv(selfupdate.BaseURLEnv, "http://127.0.0.1:1")
+	env := newCarrierTestEnv(t)
+
+	res := runCarrier(t, env, "self", "update", "--check")
+	if res.exitCode != 1 {
+		t.Fatalf("self update --check exit code = %d, want 1\nstdout:\n%s", res.exitCode, res.stdout)
+	}
+	if !strings.Contains(res.stderr, "cannot reach") {
+		t.Fatalf("self update --check stderr = %q, want a connection failure", res.stderr)
 	}
 }
 
