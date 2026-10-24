@@ -24,7 +24,7 @@ func TestPathUsesXDGConfigHome(t *testing.T) {
 func TestPathUsesHomeWhenXDGConfigHomeUnset(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", "")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	got, err := Path()
 	if err != nil {
@@ -39,7 +39,7 @@ func TestPathUsesHomeWhenXDGConfigHomeUnset(t *testing.T) {
 
 func TestExpandHomePath(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	if got, want := Expand("~/data"), filepath.Join(home, "data"); got != want {
 		t.Fatalf("Expand = %q, want %q", got, want)
@@ -54,7 +54,7 @@ func TestExpandHomePath(t *testing.T) {
 
 func TestLoadDefaultsWhenConfigMissing(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 
 	cfg, err := Load()
@@ -79,7 +79,7 @@ func TestLoadDefaultsWhenConfigMissing(t *testing.T) {
 func TestLoadConfigFile(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 
 	configDir := filepath.Join(xdg, "carrier")
@@ -133,7 +133,7 @@ ignore_commands = ["vim"]
 func TestLoadInvalidTomlReturnsError(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 
 	configDir := filepath.Join(xdg, "carrier")
@@ -306,7 +306,7 @@ func TestStaleRunThresholdCustom(t *testing.T) {
 func TestLoadMissingFileReturnsDefaults(t *testing.T) {
 	// Point XDG_CONFIG_HOME at a temp dir that has no config.toml inside it.
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
 
 	cfg, err := Load()
@@ -325,7 +325,7 @@ func TestLoadMissingFileReturnsDefaults(t *testing.T) {
 func TestLoadValidTomlFile(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, "xdg")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 
 	configDir := filepath.Join(xdg, "carrier")
@@ -374,7 +374,7 @@ failure = false
 func TestLoadThemeEmptyFieldsFallBackToDefaults(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 
 	configDir := filepath.Join(xdg, "carrier")
@@ -579,7 +579,7 @@ func TestCompileAutoLabelsInvalidRegex(t *testing.T) {
 func TestLoadAutoLabelFromTOML(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 
 	configDir := filepath.Join(xdg, "carrier")
@@ -616,7 +616,7 @@ cmd = 'go test.*'
 func TestLoadAutoLabelInvalidRegexReturnsError(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 
 	configDir := filepath.Join(xdg, "carrier")
@@ -685,7 +685,7 @@ func setupConfig(t *testing.T, content string) string {
 	t.Helper()
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 	configDir := filepath.Join(xdg, "carrier")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -910,7 +910,7 @@ cmd = '[invalid'
 func TestIncludesTildeExpansion(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 
 	configDir := filepath.Join(xdg, "carrier")

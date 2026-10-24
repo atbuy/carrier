@@ -290,16 +290,16 @@ func TestInitCmd(t *testing.T) {
 
 func TestAutoSessionStatus(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("ZDOTDIR", "")
-	if got := autoSessionStatus("/bin/bash", "30d"); got != `off; add eval "$(carrier init bash)" to ~/.bashrc` {
+	if got := autoSessionStatus("/bin/bash", "30d"); got != `off; add eval "$(carrier init bash)" to `+filepath.FromSlash("~/.bashrc") {
 		t.Fatalf("off status = %q", got)
 	}
 	if got := autoSessionStatus("/bin/sh", "30d"); got != "off; see carrier init" {
 		t.Fatalf("unsupported shell status = %q", got)
 	}
 	_ = os.WriteFile(filepath.Join(home, ".zshrc"), []byte("eval \"$(carrier init zsh)\"\n"), 0o600)
-	if got := autoSessionStatus("/bin/bash", "30d"); got != "on in ~/.zshrc (kept 30d)" {
+	if got := autoSessionStatus("/bin/bash", "30d"); got != "on in "+filepath.FromSlash("~/.zshrc")+" (kept 30d)" {
 		t.Fatalf("on status = %q", got)
 	}
 }

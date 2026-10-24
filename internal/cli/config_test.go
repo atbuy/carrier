@@ -31,7 +31,7 @@ func TestDefaultConfigTOML(t *testing.T) {
 // config file loads and validates with zero issues after the [ui] changes.
 func TestConfigInitOutputPassesCheck(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 
 	initCmd := configInitCmd()
@@ -96,7 +96,7 @@ func TestConfigInitCommandRefusesOverwriteUnlessForced(t *testing.T) {
 
 func TestConfigCheckCommandReportsOK(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 
 	cmd := configCheckCmd()
@@ -140,7 +140,7 @@ func TestIssueStyleDistinct(t *testing.T) {
 func TestConfigCheckCommandReportsErrors(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, ".config")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 	configDir := filepath.Join(xdg, "carrier")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
