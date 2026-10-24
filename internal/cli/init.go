@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +34,9 @@ carrier session, and never when CARRIER_NO_AUTO is set:
 
   CARRIER_NO_AUTO=1 zsh    # one terminal without carrier
 
+It also sets up tab completion for carrier and the "c" alias, so there is no
+separate completion script to install.
+
 If carrier cannot start, the terminal continues as a normal shell. Exiting the
 recorded shell closes the terminal. Automatic sessions expire after
 shell.auto_session_retention (default 30d) unless they have a label, notes,
@@ -59,8 +63,31 @@ or are kept with "carrier session keep".`,
 				}
 				return err
 			}
-			_, err = fmt.Fprint(cmd.OutOrStdout(), script)
+			completion, err := completionScript(cmd.Root(), name)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprint(cmd.OutOrStdout(), script+completion)
 			return err
 		},
 	}
+}
+
+// completionScript is the tab completion part of "carrier init": cobra's
+// script for the shell, wrapped by carriershell.CompletionScript.
+func completionScript(root *cobra.Command, shellName string) (string, error) {
+	var buf bytes.Buffer
+	var err error
+	switch shellName {
+	case "zsh":
+		err = root.GenZshCompletion(&buf)
+	case "bash":
+		err = root.GenBashCompletionV2(&buf, true)
+	case "fish":
+		err = root.GenFishCompletion(&buf, true)
+	}
+	if err != nil {
+		return "", err
+	}
+	return carriershell.CompletionScript(shellName, buf.String())
 }

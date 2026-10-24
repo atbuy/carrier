@@ -21,7 +21,7 @@ carrier run go test ./...
 carrier last
 ```
 
-`carrier setup` walks through the main settings one step at a time: recording every terminal, similar-failure hints, notifications, and the short `c` alias. It shows each change before making it, edits existing config files in place, and backs them up first. `carrier setup --dry-run` only shows what it would change.
+`carrier setup` walks through the main settings one step at a time: recording every terminal, similar-failure hints, notifications, and the short `c` alias. Recording every terminal also sets up tab completion for `carrier` and `c`, so `c show <Tab>` lists recent runs and `c a <Tab>` your sessions. It shows each change before making it, edits existing config files in place, and backs them up first. `carrier setup --dry-run` only shows what it would change.
 
 To set the alias by hand instead:
 

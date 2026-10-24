@@ -162,7 +162,8 @@ func (e *setupEnv) stepAutoSessions() error {
 		e.done("already on in " + collapseHome(rc))
 	} else {
 		e.printf("Start every new terminal in an automatic session, so commands and output\n")
-		e.printf("are recorded without running \"carrier shell\" first.\n")
+		e.printf("are recorded without running \"carrier shell\" first. This also sets up tab\n")
+		e.printf("completion for carrier and the \"c\" alias.\n")
 		if e.ask("Record every terminal?", true) {
 			added := appendBlock(content, "Added by carrier setup: record every terminal in a carrier session.", carriershell.InitLine(e.shell))
 			applied, err := e.proposeEdit(rc, content, added, nil)

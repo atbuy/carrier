@@ -2,6 +2,20 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.6.0] - 2026-10-24
+
+### Added
+
+- Tab completion for runs and sessions: `c show <Tab>`, `c a <Tab>`, and every other command that takes a run or session list recent ones, newest first, with their status, age, command, or label beside each ID. Typing letters completes labels instead, quoted for the shell. `tail` offers only running runs, `attach` leaves out the session you are in, and `session keep` and `unkeep` offer only sessions they would change.
+- Tab completes flag values: `--status`, `--stream`, `--format`, and `setup --shell` from the values they accept; `history --branch`, `--label`, `--cwd`, and `--command` from your recorded runs; `--since` and `--older-than` with common durations; and versions for `self changelog` and `self update --version`.
+- Tab after `carrier run` and `carrier watch` completes the command being run as if it were typed on its own, so `c run git ch<Tab>` completes like `git ch<Tab>`.
+- `carrier init` sets up tab completion in zsh, bash, and fish, for `carrier` and the `c` alias, so there is no separate script to install. In bash it works without the bash-completion package.
+
+### Changed
+
+- Tab no longer offers file names where carrier takes no file, such as after `carrier show` or `carrier status`.
+- `carrier completion bash` and `carrier completion fish` print the same script `carrier init` sets up.
+
 ## [1.5.2] - 2026-10-24
 
 ### Fixed
