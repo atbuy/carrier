@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/muesli/termenv"
+
 	"github.com/atbuy/carrier/internal/config"
 )
 
@@ -179,5 +181,17 @@ func TestResolveColorModePrecedenceAndAliases(t *testing.T) {
 	activeUI.Color = "bogus"
 	if got := resolveColorMode(); got != config.ColorAuto {
 		t.Fatalf("fallback resolveColorMode = %q, want auto", got)
+	}
+}
+
+func TestColorProfile(t *testing.T) {
+	var buf bytes.Buffer
+	t.Setenv("CARRIER_COLOR", "always")
+	if p := colorProfile(&buf); p != termenv.TrueColor {
+		t.Errorf("CARRIER_COLOR=always: got profile %v, want TrueColor", p)
+	}
+	t.Setenv("CARRIER_COLOR", "never")
+	if p := colorProfile(&buf); p != termenv.Ascii {
+		t.Errorf("CARRIER_COLOR=never: got profile %v, want Ascii", p)
 	}
 }

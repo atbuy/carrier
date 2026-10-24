@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 
 	"github.com/atbuy/carrier/internal/selfupdate"
@@ -354,5 +355,41 @@ func TestSelfUpdateRejectsInvalidVersion(t *testing.T) {
 	_, _, err = runEmpty(t, cmd, nil, map[string]string{"version": "nightly"})
 	if err == nil || !strings.Contains(err.Error(), "invalid version") {
 		t.Fatalf("error = %v, want an invalid version complaint", err)
+	}
+}
+
+func TestPrintUpdated(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".local", "bin", "carrier")
+	want := []string{"updated carrier 1.4.0 → 1.5.0", "~/.local/bin/carrier"}
+
+	// Not a terminal: no logo.
+	var out bytes.Buffer
+	printUpdated(&out, newTheme(&out), nil, path, "1.4.0", "v1.5.0")
+	if got := out.String(); got != strings.Join(want, "\n")+"\n" {
+		t.Fatalf("got %q, want %q", got, strings.Join(want, "\n")+"\n")
+	}
+
+	// In a terminal: the same lines, next to the middle of the logo.
+	out.Reset()
+	art := renderLogo(termenv.TrueColor)
+	printUpdated(&out, newTheme(&out), art, path, "1.4.0", "v1.5.0")
+	lines := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
+	if len(lines) != len(art) {
+		t.Fatalf("got %d lines, want the logo's %d", len(lines), len(art))
+	}
+	for i, line := range lines {
+		text := ""
+		if i == 5 || i == 6 {
+			text = want[i-5]
+		}
+		if text != "" && !strings.HasSuffix(line, "   "+text) {
+			t.Errorf("line %d = %q, want it to end with %q", i, line, text)
+		}
+		if text == "" && strings.Contains(line, "carrier") {
+			t.Errorf("line %d = %q, want only the logo", i, line)
+		}
 	}
 }

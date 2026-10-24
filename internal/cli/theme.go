@@ -68,6 +68,13 @@ func newTheme(w io.Writer) theme {
 	}
 }
 
+// colorProfile is the color profile newTheme uses for w.
+func colorProfile(w io.Writer) termenv.Profile {
+	r := lipgloss.NewRenderer(w)
+	applyColorProfile(r, w)
+	return r.ColorProfile()
+}
+
 // applyColorProfile forces the renderer's color profile based on the resolved
 // color mode. In auto mode it leaves lipgloss's per-writer TTY detection in
 // place.

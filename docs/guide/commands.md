@@ -902,6 +902,17 @@ carrier self update --force          # reinstall the version already installed
 
 The download is checked against the release's `checksums.txt` before anything is replaced, and the old binary stays in place if any step fails. Shells that are already recording keep working and use the new binary from their next command.
 
+When it finishes, it prints the versions it went between and where it installed, next to carrier's logo in a terminal (see [`version`](#version) for when the logo is shown), followed by what changed since the version you had:
+
+```text
+updated carrier 1.4.0 → 1.5.0
+~/.local/bin/carrier
+
+carrier 1.5.0 2026-10-24
+  Added
+    • ...
+```
+
 This is the only command that reaches the network, and it only does so when you run it. carrier never checks for a new version on its own, so `--check` is how you ask.
 
 A binary that did not come from a release archive is left alone, with the command to use instead:

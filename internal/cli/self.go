@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 
 	"github.com/atbuy/carrier/internal/changelog"
@@ -125,15 +128,22 @@ func (a *app) runSelfUpdate(cmd *cobra.Command, check, force bool, pinned string
 	if err := updater.Install(ctx, wanted, target.Path); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(
-		out, "%s %s %s %s\n",
-		t.Success.Render("updated"),
-		t.Muted.Render(collapseHome(target.Path)+":"),
-		t.Muted.Render(plainVersion(current)+" →"),
-		t.ID.Render(plainVersion(wanted)),
-	)
+	printUpdated(out, t, logo(out), target.Path, current, wanted)
 	printChangesSince(cmd, target.Path, current)
 	return nil
+}
+
+// printUpdated reports a finished update, next to the logo in a terminal.
+// The path gets a line of its own so a long one does not wrap the layout.
+func printUpdated(out io.Writer, t theme, logo []string, path, from, to string) {
+	besideLogo(out, logo, 5,
+		fmt.Sprintf("%s carrier %s %s",
+			t.Success.Render("updated"),
+			t.Muted.Render(plainVersion(from)+" →"),
+			t.ID.Render(plainVersion(to)),
+		),
+		t.Muted.Render(collapseHome(path)),
+	)
 }
 
 // printUpdateCheck reports what --check found. latest is empty when the user
@@ -208,6 +218,12 @@ func printChangesSince(cmd *cobra.Command, exe, from string) {
 	var changes bytes.Buffer
 	run := exec.Command(exe, "self", "changelog", "--since", plainVersion(from))
 	run.Stdout = &changes
+	// The output is captured, so the new binary cannot see the terminal. Keep
+	// its colors when this terminal has 24-bit color, which is what
+	// CARRIER_COLOR=always produces.
+	if colorProfile(cmd.OutOrStdout()) == termenv.TrueColor {
+		run.Env = append(os.Environ(), "CARRIER_COLOR=always")
+	}
 	if err := run.Run(); err != nil || changes.Len() == 0 {
 		return
 	}
