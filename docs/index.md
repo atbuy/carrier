@@ -1,3 +1,7 @@
+<div style="width: 100%; display: flex; justify-content: center;">
+    <img src="assets/logo_full.svg" alt="carrier logo" width="460" />
+</div>
+
 # carrier
 
 `carrier` is a local command logger for developers. It records what you ran, where you ran it, when it started and finished, how long it took, whether it failed, captured output, and useful Git context.

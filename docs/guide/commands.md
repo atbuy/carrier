@@ -911,6 +911,8 @@ Going back to an older release is allowed with `--version`, but see [Downgrades]
 carrier self version
 ```
 
+Prints the version, commit, and build date. In a terminal with 256 or more colors, they are shown next to carrier's logo. The logo is left out when the output is not a terminal, such as in a pipe or a script, and when colors are off (`NO_COLOR`, `CARRIER_COLOR=never`, or `ui.color = "never"`). `carrier setup` starts with the logo too.
+
 ### `self changelog`
 
 Show what changed in each version. The changelog is built into the binary, so it works offline and matches the installed version. `carrier self news` is an alias.

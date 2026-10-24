@@ -1,8 +1,10 @@
-# carrier
-
 [![CI](https://github.com/atbuy/carrier/actions/workflows/ci.yml/badge.svg)](https://github.com/atbuy/carrier/actions/workflows/ci.yml)
 [![Docs](https://github.com/atbuy/carrier/actions/workflows/docs.yml/badge.svg)](https://github.com/atbuy/carrier/actions/workflows/docs.yml)
 [![codecov](https://codecov.io/gh/atbuy/carrier/graph/badge.svg)](https://codecov.io/gh/atbuy/carrier)
+
+<img src="docs/assets/logo_full.svg" alt="carrier logo" width="420" />
+
+# carrier
 
 `carrier` is a local developer command logger. It records command executions, working directory, timing, exit code, output logs, Git metadata, and optional desktop notifications.
 

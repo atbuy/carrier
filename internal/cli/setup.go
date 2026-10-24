@@ -109,15 +109,16 @@ func (e *setupEnv) run() error {
 	}
 	e.cfg = cfg
 
-	e.printf("%s\n", e.t.Bold.Render("carrier setup"))
+	header := []string{e.t.Bold.Render("carrier setup")}
 	if _, err := os.Stat(e.configPath); err == nil {
-		e.printf("%s\n", e.t.Muted.Render("config: "+collapseHome(e.configPath)))
+		header = append(header, e.t.Muted.Render("config: "+collapseHome(e.configPath)))
 	} else {
-		e.printf("%s\n", e.t.Muted.Render("config: "+collapseHome(e.configPath)+" (created if a step changes a setting)"))
+		header = append(header, e.t.Muted.Render("config: "+collapseHome(e.configPath)+" (created if a step changes a setting)"))
 	}
 	if e.dryRun {
-		e.printf("%s\n", e.t.Warning.Render("dry run: nothing will be written"))
+		header = append(header, e.t.Warning.Render("dry run: nothing will be written"))
 	}
+	besideLogo(e.out, logo(e.out), 5, header...)
 
 	steps := []struct {
 		title string
