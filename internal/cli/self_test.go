@@ -59,12 +59,13 @@ func TestSelfVersionCmd(t *testing.T) {
 
 // TestDeprecatedTopLevelCommands covers the deprecation path in
 // docs/reference/compatibility.md: the old names keep working for the rest of
-// 1.x, hidden from help and warning on stderr.
+// 1.x, hidden from help and warning on stderr. carrier version is not
+// deprecated: it is a top-level command as well as carrier self version.
 func TestDeprecatedTopLevelCommands(t *testing.T) {
 	t.Setenv("CARRIER_COLOR", "never")
 	root := newRootCmd(&app{})
 
-	for _, name := range []string{"version", "v", "changelog", "news"} {
+	for _, name := range []string{"changelog", "news"} {
 		cmd, _, err := root.Find([]string{name})
 		if err != nil || cmd == root {
 			t.Fatalf("carrier %s no longer resolves (%v); it is deprecated, not removed", name, err)
@@ -78,28 +79,55 @@ func TestDeprecatedTopLevelCommands(t *testing.T) {
 	}
 
 	// The warning names the replacement, and the command still does its job.
-	version, _, err := root.Find([]string{"version"})
+	changelog, _, err := root.Find([]string{"changelog"})
 	if err != nil {
-		t.Fatalf("find carrier version: %v", err)
+		t.Fatalf("find carrier changelog: %v", err)
 	}
-	out, errOut, err := runEmpty(t, version, nil, nil)
+	out, errOut, err := runEmpty(t, changelog, []string{"1.0.0"}, nil)
 	if err != nil {
-		t.Fatalf("carrier version: %v", err)
+		t.Fatalf("carrier changelog: %v", err)
 	}
-	if !strings.Contains(errOut, `"carrier version" is deprecated; use "carrier self version"`) {
-		t.Fatalf("carrier version stderr = %q, want a deprecation warning", errOut)
+	if !strings.Contains(errOut, `"carrier changelog" is deprecated; use "carrier self changelog"`) {
+		t.Fatalf("carrier changelog stderr = %q, want a deprecation warning", errOut)
 	}
-	if !strings.HasPrefix(out, "carrier ") {
-		t.Fatalf("carrier version stdout = %q, want it to still print the version", out)
+	if !strings.Contains(out, "carrier 1.0.0") {
+		t.Fatalf("carrier changelog stdout = %q, want it to still show the changelog", out)
 	}
 
 	// With colors on, the warning is orange.
 	t.Setenv("CARRIER_COLOR", "always")
-	if _, errOut, err = runEmpty(t, version, nil, nil); err != nil {
-		t.Fatalf("carrier version: %v", err)
+	if _, errOut, err = runEmpty(t, changelog, []string{"1.0.0"}, nil); err != nil {
+		t.Fatalf("carrier changelog: %v", err)
 	}
 	if orange := "38;2;229;149;58"; !strings.Contains(errOut, orange) {
-		t.Fatalf("carrier version stderr = %q, want the warning in orange (%s)", errOut, orange)
+		t.Fatalf("carrier changelog stderr = %q, want the warning in orange (%s)", errOut, orange)
+	}
+}
+
+// TestVersionIsTopLevel checks that carrier version is a documented command of
+// its own, not a deprecated alias of carrier self version.
+func TestVersionIsTopLevel(t *testing.T) {
+	t.Setenv("CARRIER_COLOR", "never")
+	root := newRootCmd(&app{})
+	for _, name := range []string{"version", "v"} {
+		cmd, _, err := root.Find([]string{name})
+		if err != nil || cmd.CommandPath() != "carrier version" {
+			t.Fatalf("carrier %s = %v (%v), want carrier version", name, cmd.CommandPath(), err)
+		}
+		if cmd.Hidden {
+			t.Fatalf("carrier %s should be listed in help", name)
+		}
+	}
+	version, _, _ := root.Find([]string{"version"})
+	out, errOut, err := runEmpty(t, version, nil, nil)
+	if err != nil {
+		t.Fatalf("carrier version: %v", err)
+	}
+	if !strings.HasPrefix(out, "carrier ") {
+		t.Fatalf("carrier version stdout = %q, want the version", out)
+	}
+	if strings.Contains(errOut, "deprecated") {
+		t.Fatalf("carrier version stderr = %q, want no deprecation warning", errOut)
 	}
 }
 

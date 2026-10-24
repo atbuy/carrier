@@ -871,13 +871,23 @@ carrier completion fish > ~/.config/fish/completions/carrier.fish
 carrier completion powershell | Out-String | Invoke-Expression
 ```
 
+## `version`
+
+```bash title="Version"
+carrier version
+carrier v                 # same thing
+carrier self version      # same thing
+```
+
+Prints the version, commit, and build date. In a terminal with 256 or more colors, they are shown next to carrier's logo. The logo is left out when the output is not a terminal, such as in a pipe or a script, and when colors are off (`NO_COLOR`, `CARRIER_COLOR=never`, or `ui.color = "never"`). `carrier setup` starts with the logo too.
+
 ## `self`
 
 Commands about the carrier install itself: update it, show its version, and read what changed.
 
 !!! note "Moved in 1.4.0"
 
-    `carrier version` and `carrier changelog` moved here. The old names still work and print a deprecation warning to stderr; they are removed in the next major release. See [Compatibility](../reference/compatibility.md#deprecation).
+    `carrier changelog` moved here. The old name still works and prints a deprecation warning to stderr; it is removed in the next major release. See [Compatibility](../reference/compatibility.md#deprecation). `carrier version` was deprecated in 1.4.0 too, but is a top-level command again from 1.5.0.
 
 ### `self update`
 
@@ -907,11 +917,7 @@ Going back to an older release is allowed with `--version`, but see [Downgrades]
 
 ### `self version`
 
-```bash title="Version"
-carrier self version
-```
-
-Prints the version, commit, and build date. In a terminal with 256 or more colors, they are shown next to carrier's logo. The logo is left out when the output is not a terminal, such as in a pipe or a script, and when colors are off (`NO_COLOR`, `CARRIER_COLOR=never`, or `ui.color = "never"`). `carrier setup` starts with the logo too.
+The same as [`carrier version`](#version).
 
 ### `self changelog`
 
