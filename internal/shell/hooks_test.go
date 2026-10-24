@@ -80,7 +80,7 @@ func TestWriteHookDirBash(t *testing.T) {
 	text := string(contents)
 	for _, want := range []string{
 		"PROMPT_COMMAND", "_carrier_original_prompt_command", "trap _carrier_begin DEBUG",
-		"internal begin", "internal end", "CARRIER_HOOK_ACTIVE", "_carrier_at_prompt", `PS0="${PS0:-}"'$(_carrier_ps0)'`,
+		"internal begin", "internal end", "CARRIER_HOOK_ACTIVE", "_carrier_at_prompt", `PS0="${PS0:-}"'${_carrier_read=}$(_carrier_ps0)'`,
 		"_carrier_session_id=5", "_carrier_session_label='build'", "_carrier_session_file='/tmp/state.json.session'",
 		`\033[38;2;255;0;170;1m\]carrier #${_carrier_session_id}`, `\033[38;2;255;0;170m\]${_carrier_session_label}`, `\033[38;2;255;0;170mbuild`, `\033]0;`,
 	} {
