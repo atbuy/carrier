@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.5.2] - 2026-10-24
+
+### Fixed
+
+- Commands no longer wait up to 5 seconds in terminals that do not answer a background color query, such as some tmux setups, Emacs shells, and serial consoles. carrier asked the terminal for its background color every time it started, which it never used; colors and the logo are unchanged.
+
 ## [1.5.1] - 2026-10-24
 
 ### Changed
