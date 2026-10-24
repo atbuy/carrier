@@ -16,6 +16,10 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 - Tab no longer offers file names where carrier takes no file, such as after `carrier show` or `carrier status`.
 - `carrier completion bash` and `carrier completion fish` print the same script `carrier init` sets up.
 
+### Fixed
+
+- Closing a recorded bash terminal no longer records its last command again as a new run that stays `running`. Bash runs carrier's exit handler when the terminal closes, and carrier took that for a new command line.
+
 ## [1.5.2] - 2026-10-24
 
 ### Fixed

@@ -223,6 +223,11 @@ func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor
 	//     the first DEBUG trap after a prompt begins it. DEBUG fires before
 	//     every simple command, so it is gated by _carrier_at_prompt to keep
 	//     "a && b" and "a | b" as one run.
+	//     DEBUG also fires before trap actions, with $BASH_COMMAND still
+	//     holding the last command: closing the terminal runs the EXIT trap
+	//     and would record that command again. With PS0, a run only begins
+	//     after a line was read, which PS0 marks by setting _carrier_read
+	//     through an assignment that expands to nothing.
 	// The trap is installed last so startup commands are not recorded.
 	return fmt.Sprintf(`
 [[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
@@ -269,6 +274,7 @@ _carrier_ps0() {
 }
 _carrier_begin() {
   [[ -n "$_carrier_at_prompt" ]] || return
+  [[ -n "$_carrier_has_ps0" && -z "${_carrier_read+set}" ]] && return
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
   [[ -n "${COMP_LINE:-}" ]] && return
   [[ "$BASH_COMMAND" == _carrier_* ]] && return
@@ -303,6 +309,7 @@ _carrier_end() {
   fi
   _carrier_last_hist="$_carrier_hnum"
   _carrier_at_prompt=1
+  unset _carrier_read
   trap _carrier_begin DEBUG
 }
 _carrier_exit() {
@@ -318,7 +325,7 @@ _carrier_session
 _carrier_hist
 _carrier_last_hist="$_carrier_hnum"
 _carrier_at_prompt=1
-PS0="${PS0:-}"'$(_carrier_ps0)'
+PS0="${PS0:-}"'${_carrier_read=}$(_carrier_ps0)'
 PROMPT_COMMAND=_carrier_end
 trap _carrier_begin DEBUG
 `, shellQuote(SessionInfoPath(statePath)), sessionID, shellQuote(label), shellQuote(idIndicator), shellQuote(labelIndicator),

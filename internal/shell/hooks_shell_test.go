@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -18,6 +19,10 @@ func runBashHooks(t *testing.T, userRC string, lines []string) []string {
 	t.Helper()
 	return runShellHooks(t, "bash", userRC, lines)
 }
+
+// hangUp, as the last line, sends SIGHUP at the prompt instead of typing a
+// line, as closing a terminal window does.
+const hangUp = "\x00hangup"
 
 // runShellHooks starts an interactive shell (bash, zsh, or fish) with the
 // generated hooks under a PTY, types each line at a prompt, and returns the
@@ -107,6 +112,27 @@ printf '%s %s\n' "$2" "$6" >> "` + logPath + `"
 
 	for i, line := range lines {
 		waitPrompt(i + 1)
+		if line == hangUp {
+			// Prompts can be drawn more than once, so wait until every
+			// earlier line has ended before hanging up.
+			deadline := time.Now().Add(10 * time.Second)
+			for {
+				b, _ := os.ReadFile(logPath)
+				if strings.Count(string(b), "end ") >= i {
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatalf("timed out waiting for %d lines to end; calls:\n%s", i, b)
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			// Let the shell get back to reading the next line.
+			time.Sleep(200 * time.Millisecond)
+			if err := cmd.Process.Signal(syscall.SIGHUP); err != nil {
+				t.Fatalf("hang up: %v", err)
+			}
+			break
+		}
 		if _, err := ptmx.Write([]byte(line + "\n")); err != nil {
 			t.Fatalf("write line %q: %v", line, err)
 		}
@@ -195,6 +221,21 @@ func TestBashHooksHistoryControl(t *testing.T) {
 	}
 	if strings.Join(calls, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("hook calls:\n%s\n\nwant:\n%s", strings.Join(calls, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestHooksHangUp closes the terminal at a prompt. Bash runs its EXIT trap
+// then, and the DEBUG trap fires before it with $BASH_COMMAND still holding
+// the last command, which must not be recorded again as a new run.
+func TestHooksHangUp(t *testing.T) {
+	for _, shellName := range []string{"bash", "zsh", "fish"} {
+		t.Run(shellName, func(t *testing.T) {
+			calls := runShellHooks(t, shellName, "", []string{"echo hello", "true", hangUp})
+			want := []string{"begin echo hello", "end 0", "begin true", "end 0"}
+			if strings.Join(calls, "\n") != strings.Join(want, "\n") {
+				t.Fatalf("hook calls:\n%s\n\nwant:\n%s", strings.Join(calls, "\n"), strings.Join(want, "\n"))
+			}
+		})
 	}
 }
 
