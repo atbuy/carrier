@@ -21,6 +21,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 - Closing a recorded bash terminal no longer records its last command again as a new run that stays `running`. Bash runs carrier's exit handler when the terminal closes, and carrier took that for a new command line.
 - With fish 4, a terminal started by `carrier init` closes again when its automatic session ends. From fish 4, `exit` in carrier's prompt handler only ended the handler, leaving a plain shell open.
 - `carrier self update` recognizes a binary installed with `go install` when `GOBIN` or `GOPATH` is reached through a symlink, and leaves it alone as intended.
+- On Windows, `carrier run` records the Git root with backslashes, like the working directory, instead of the forward slashes Git prints.
 
 ## [1.5.2] - 2026-10-24
 

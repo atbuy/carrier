@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -34,7 +36,7 @@ func TestHeadMatchesGit(t *testing.T) {
 		t.Helper()
 		got, ok := Head(cwd)
 		want := Collect(cwd)
-		if !ok || got.Root != want.Root || got.Branch != want.Branch || got.Commit != want.Commit || got.Dirty != nil {
+		if !ok || !sameDir(got.Root, want.Root) || got.Branch != want.Branch || got.Commit != want.Commit || got.Dirty != nil {
 			t.Errorf("%s: Head = %+v ok=%v, git says root=%q branch=%q commit=%q", name, got, ok, want.Root, want.Branch, want.Commit)
 		}
 	}
@@ -72,4 +74,21 @@ func TestIsCommitID(t *testing.T) {
 			t.Errorf("isCommitID(%q) = %v", s, got)
 		}
 	}
+}
+
+// sameDir reports whether two paths name the same directory. Head keeps the
+// path it was given, while git resolves symlinks (macOS /var is /private/var)
+// and, on Windows, short names such as RUNNER~1.
+func sameDir(a, b string) bool {
+	resolve := func(p string) string {
+		if r, err := filepath.EvalSymlinks(p); err == nil {
+			return r
+		}
+		return filepath.Clean(p)
+	}
+	ra, rb := resolve(a), resolve(b)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(ra, rb)
+	}
+	return ra == rb
 }
