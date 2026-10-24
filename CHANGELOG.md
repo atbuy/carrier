@@ -2,6 +2,14 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.5.1] - 2026-10-24
+
+### Changed
+
+- A successful `carrier self update` shows carrier's logo next to the versions it went between, in terminals with 256 or more colors.
+- `carrier self update` reports the update on two lines, `updated carrier 1.4.0 → 1.5.0` and then the install path, so a long path does not wrap.
+- The changes `carrier self update` lists after updating keep their colors in terminals with 24-bit color.
+
 ## [1.5.0] - 2026-10-24
 
 ### Added
