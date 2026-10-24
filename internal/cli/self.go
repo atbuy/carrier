@@ -35,7 +35,7 @@ func deprecatedSelfAlias(moved *cobra.Command) *cobra.Command {
 	moved.Hidden = true
 	inner := moved.RunE
 	moved.RunE = func(cmd *cobra.Command, args []string) error {
-		printHint(cmd, fmt.Sprintf("%q is deprecated; use %q", "carrier "+name, "carrier self "+name))
+		printDeprecation(cmd, fmt.Sprintf("%q is deprecated; use %q", "carrier "+name, "carrier self "+name))
 		return inner(cmd, args)
 	}
 	return moved

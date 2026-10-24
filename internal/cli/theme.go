@@ -23,6 +23,9 @@ func configureTheme(cfg config.Config) {
 	activeUI = cfg.UI
 }
 
+// deprecatedColor is the orange of deprecation warnings.
+const deprecatedColor = "#E5953A"
+
 type theme struct {
 	// Typography
 	Bold   lipgloss.Style
@@ -39,6 +42,10 @@ type theme struct {
 	// Structural
 	Accent lipgloss.Style // session IDs, tree connectors, primary accent
 	Label  lipgloss.Style // user-defined labels, flag/command names in help
+
+	// Deprecated marks warnings about deprecated commands. It is a fixed
+	// orange rather than a theme color, so it stands apart from Warning.
+	Deprecated lipgloss.Style
 }
 
 func newTheme(w io.Writer) theme {
@@ -56,6 +63,8 @@ func newTheme(w io.Writer) theme {
 		Warning: r.NewStyle().Foreground(lipgloss.Color(c.Warning)),
 		Accent:  r.NewStyle().Foreground(lipgloss.Color(c.Accent)),
 		Label:   r.NewStyle().Foreground(lipgloss.Color(c.Label)),
+
+		Deprecated: r.NewStyle().Foreground(lipgloss.Color(deprecatedColor)),
 	}
 }
 

@@ -11,6 +11,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 
 ### Changed
 
+- Deprecation warnings, such as the one for `carrier version`, are orange so they are not missed. They stay plain when colors are off.
 - carrier is built with Go 1.27.3. `go install` needs Go 1.27 or newer, which the `go` command downloads by itself when it is older.
 
 ## [1.4.0] - 2026-10-24
