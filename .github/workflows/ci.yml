@@ -69,3 +69,31 @@ jobs:
           files: coverage.out
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+
+  test-os:
+    # Releases ship for Windows and macOS, so the tests run there too.
+    # Coverage comes from the Linux job above.
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Install fish
+        # macOS ships zsh and bash 3.2; the shell hook tests run both, and fish.
+        if: runner.os == 'macOS'
+        run: brew install fish
+
+      - name: Test
+        run: go test ./...
