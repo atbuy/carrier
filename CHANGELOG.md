@@ -19,6 +19,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 ### Fixed
 
 - Closing a recorded bash terminal no longer records its last command again as a new run that stays `running`. Bash runs carrier's exit handler when the terminal closes, and carrier took that for a new command line.
+- With fish 4, a terminal started by `carrier init` closes again when its automatic session ends. From fish 4, `exit` in carrier's prompt handler only ended the handler, leaving a plain shell open.
 
 ## [1.5.2] - 2026-10-24
 
