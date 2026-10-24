@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -97,7 +96,7 @@ func startShellWithInit(t *testing.T, shellName, fakeExit string, extraEnv []str
 		cmd.Env = append(cmd.Env, strings.ReplaceAll(kv, "@self", tty.Name()))
 	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, tty, tty
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true}
+	cmd.SysProcAttr = ttyProcAttr()
 	err = cmd.Start()
 	_ = tty.Close()
 	if err != nil {

@@ -42,6 +42,15 @@ jobs:
       - name: Lint
         run: make lint
 
+      - name: Check Windows and macOS
+        # Releases ship for Windows and macOS too. vet compiles every package
+        # and its tests for each, so Unix-only code shows up here.
+        run: |
+          for target in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
+            echo "go vet for $target"
+            GOOS=${target%/*} GOARCH=${target#*/} go vet ./...
+          done
+
       - name: Test with coverage
         run: go test -covermode=atomic -coverprofile=coverage.out ./...
 
