@@ -225,7 +225,10 @@ func TestTailPollDrainsThenErrors(t *testing.T) {
 	_ = f.Close()
 
 	select {
-	case <-done:
+	case err := <-done:
+		if err == nil {
+			t.Error("expected an error after the file was closed")
+		}
 		if !strings.Contains(buf.String(), content) {
 			t.Errorf("expected drained content %q in output %q", content, buf.String())
 		}

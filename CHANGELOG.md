@@ -9,6 +9,10 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 - carrier has a logo: a shipping container with a prompt on its side. It is at the top of the README and the documentation, and is the documentation's header logo and favicon.
 - `carrier self version` and `carrier setup` show the logo in terminals with 256 or more colors. It is left out when the output is not a terminal and when colors are off. The install script ends with `carrier self version`, so new installs show it too.
 
+### Changed
+
+- carrier is built with Go 1.27.3. `go install` needs Go 1.27 or newer, which the `go` command downloads by itself when it is older.
+
 ## [1.4.0] - 2026-10-24
 
 ### Added
