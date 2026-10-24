@@ -2,6 +2,7 @@ package gitmeta
 
 import (
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -18,6 +19,8 @@ func Collect(cwd string) Meta {
 	if !ok {
 		return Meta{}
 	}
+	// Git prints forward slashes on Windows too; match the run's directory.
+	root = filepath.FromSlash(root)
 
 	var (
 		branch, commit string
