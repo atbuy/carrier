@@ -308,6 +308,9 @@ func TestInstallIntoReadOnlyDir(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores directory permissions")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not use Unix directory permissions")
+	}
 	f := newFakeRelease(t)
 	f.addPlatform(runtime.GOOS, runtime.GOARCH, newBinary)
 	u := f.start()
@@ -433,6 +436,15 @@ func TestInGoBin(t *testing.T) {
 		if got := inGoBin(path); got != want {
 			t.Errorf("inGoBin(%q) = %v, want %v", path, got, want)
 		}
+	}
+
+	// The binary reached through a symlink to GOBIN is still in GOBIN.
+	link := filepath.Join(t.TempDir(), "gobin-link")
+	if err := os.Symlink(gobin, link); err != nil {
+		t.Skipf("cannot create a symlink: %v", err)
+	}
+	if !inGoBin(filepath.Join(link, "carrier")) {
+		t.Errorf("inGoBin through a symlink to GOBIN = false, want true")
 	}
 }
 

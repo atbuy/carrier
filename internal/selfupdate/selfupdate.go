@@ -295,14 +295,28 @@ func inGoBin(target string) bool {
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		dirs = append(dirs, filepath.Join(home, "go", "bin"))
 	}
-	dir := filepath.Dir(target)
-	for _, candidate := range dirs {
-		if resolved, err := filepath.EvalSymlinks(candidate); err == nil {
-			candidate = resolved
+	// Compare resolved paths: a temp or home directory can be reached through
+	// a symlink (macOS /var is /private/var) or a short 8.3 name on Windows.
+	resolve := func(path string) string {
+		if resolved, err := filepath.EvalSymlinks(path); err == nil {
+			return resolved
 		}
-		if dir == filepath.Clean(candidate) {
+		return filepath.Clean(path)
+	}
+	dir := resolve(filepath.Dir(target))
+	for _, candidate := range dirs {
+		if samePath(dir, resolve(candidate)) {
 			return true
 		}
 	}
 	return false
+}
+
+// samePath compares two cleaned paths, ignoring case on Windows, whose file
+// systems do.
+func samePath(a, b string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }
