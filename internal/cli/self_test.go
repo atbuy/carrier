@@ -92,6 +92,15 @@ func TestDeprecatedTopLevelCommands(t *testing.T) {
 	if !strings.HasPrefix(out, "carrier ") {
 		t.Fatalf("carrier version stdout = %q, want it to still print the version", out)
 	}
+
+	// With colors on, the warning is orange.
+	t.Setenv("CARRIER_COLOR", "always")
+	if _, errOut, err = runEmpty(t, version, nil, nil); err != nil {
+		t.Fatalf("carrier version: %v", err)
+	}
+	if orange := "38;2;229;149;58"; !strings.Contains(errOut, orange) {
+		t.Fatalf("carrier version stderr = %q, want the warning in orange (%s)", errOut, orange)
+	}
 }
 
 func TestSkipsStore(t *testing.T) {

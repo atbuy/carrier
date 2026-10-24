@@ -40,6 +40,12 @@ func (a *app) hasRuns() bool {
 	return err == nil
 }
 
+// printDeprecation writes an orange deprecation warning to stderr.
+func printDeprecation(cmd *cobra.Command, msg string) {
+	w := cmd.ErrOrStderr()
+	_, _ = fmt.Fprintln(w, newTheme(w).Deprecated.Render("carrier: "+msg))
+}
+
 // printHint writes a muted hint to stderr, so empty lists still explain
 // themselves without adding lines to piped or JSON output.
 func printHint(cmd *cobra.Command, msg string) {
