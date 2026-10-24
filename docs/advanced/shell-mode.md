@@ -143,7 +143,7 @@ Add one line to your shell config, after `PATH` is set, to start every interacti
 eval "$(carrier init zsh)"
 ```
 
-Use `carrier init bash` in `~/.bashrc`, or `carrier init fish | source` in `~/.config/fish/config.fish`. `carrier doctor` shows whether it is set up.
+Use `carrier init bash` in `~/.bashrc`, or `carrier init fish | source` in `~/.config/fish/config.fish`. `carrier doctor` shows whether it is set up. The same line sets up [tab completion](../guide/commands.md#completion).
 
 How it behaves:
 

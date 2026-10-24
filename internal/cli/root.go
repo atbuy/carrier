@@ -71,6 +71,10 @@ type app struct {
 	noRedact     bool
 	timeout      time.Duration
 	label        string
+
+	// completionTried is set once shell completion has tried to open the
+	// store, so a failure is not retried for every candidate.
+	completionTried bool
 }
 
 func Execute() int {
@@ -91,6 +95,11 @@ func newRootCmd(a *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Completion opens the store read-only itself, and must not fail
+			// or write anything on a Tab press.
+			if isCompletionCmd(cmd) {
+				return nil
+			}
 			// Resolve color/theme settings for every command, including those
 			// that skip store setup (version, config).
 			if _, err := a.ensureConfig(); err != nil {
@@ -118,6 +127,7 @@ func newRootCmd(a *app) *cobra.Command {
 
 	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.setupCmd(), a.attachCmd(), a.doctorCmd(), a.configCmd(), a.selfCmd(), a.versionCmd(), deprecatedSelfAlias(a.changelogCmd()), a.statusCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.tuiCmd(), a.diffCmd(), a.completionCmd())
 	installHelp(root)
+	a.installCompletions(root)
 	return root
 }
 

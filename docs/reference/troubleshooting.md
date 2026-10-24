@@ -204,3 +204,14 @@ After `carrier attach` or `carrier session reload` inside a recorded shell, the 
 - In tmux, a tmux server started from a recorded shell copies that shell's variables into every new pane. Before 1.2.2, those panes did not start their own session; zsh panes even loaded the first shell's hooks, so `session reload` in a pane switched the first terminal instead, and could say `already in session`. Since 1.2.2 each pane starts its own session. A tmux server started before you upgraded still holds the old variables: run `tmux kill-server`, or close all tmux sessions, and start tmux again.
 - If carrier says `this shell was started by an older carrier`, the shell was opened before you upgraded to 1.1.0 or later. Its commands are recorded into the new session, but its prompt cannot follow; new terminals show the right session.
 - With a prompt theme that rebuilds the right prompt itself, the indicator may not show at all. powerlevel10k is supported with a `carrier` segment; for other themes, use `$CARRIER_SESSION_ID` and `$CARRIER_SESSION_LABEL` in your prompt, which are updated before every prompt.
+
+## Tab does not complete carrier commands
+
+Tab completion is set up by the `carrier init` line in your shell config; open a new terminal after adding it. Then check your shell:
+
+- zsh: completion needs `compinit`, which most zsh setups and frameworks run. Without one, add `autoload -U compinit && compinit` to `~/.zshrc`. It can come before or after the `carrier init` line.
+- bash: completion works without the bash-completion package, but completing the command after `carrier run` and `carrier watch`, such as `c run git ch<Tab>`, needs it. Install `bash-completion` from your package manager.
+- An alias other than `c`: zsh and fish follow any alias; in bash, add `complete -o default -F __carrier_complete <alias>` after the `carrier init` line.
+
+If Tab offers nothing for runs or sessions, carrier has not recorded anything yet, or `storage.data_dir` points somewhere else than the commands you ran used.
+

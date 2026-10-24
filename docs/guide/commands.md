@@ -579,6 +579,8 @@ carrier init fish | source
 
 Without an argument, `init` uses the shell from `$SHELL`. See [Record every terminal](../advanced/shell-mode.md#record-every-terminal) for how it works and how to turn it off.
 
+The same line sets up [tab completion](#completion) for `carrier` and the `c` alias.
+
 ## `status`
 
 Show whether this terminal is recorded, and into which session:
@@ -852,24 +854,48 @@ carrier config init --force
 
 ## `completion`
 
-Generate a shell completion script:
+Tab completes commands, flags, and their values in zsh, bash, and fish, for `carrier` and the `c` alias. The `carrier init` line that `carrier setup` adds to your shell config sets it up, so there is nothing else to install.
+
+What Tab offers:
+
+| Where | Offers |
+| --- | --- |
+| a run: `show`, `tail`, `export`, `rerun`, `diff`, `label`, `similar`, `--run` | recent runs, newest first, with their status, age, command, and label; `tail` only offers running runs |
+| a session: `attach`, `session show`, `export`, `end`, `pin`, `keep`, `unkeep`, `label`, `--session` | recent sessions with their label, number of runs, and age; `attach` leaves out the session you are in, `keep` and `unkeep` only offer sessions they would change |
+| `--status`, `--stream`, `--format`, `setup --shell` | the values they accept |
+| `history --branch`, `--label`, `--cwd`, `--command`, `stats --command` | values from your recorded runs |
+| `--since`, `--older-than` | common durations such as `7d` |
+| `self changelog`, `self update --version` | released versions, read from the built-in changelog |
+| `notes rm` | notes, with their text |
+| `run` and `watch` | the command you run, completed as if you typed it on its own: `c run git ch<Tab>` completes like `git ch<Tab>` |
+
+Run and session references complete by ID: `c show <Tab>` lists recent runs and inserts the ID you pick. Type letters instead, and Tab completes labels: `c a BUG<Tab>` inserts `BUG-1234:\ fix\ login`, quoted for the shell. Where nothing can be completed, such as a note's text or a number, Tab offers nothing rather than file names.
+
+Completion only reads the database, never changes it, and offers nothing if carrier has not recorded anything yet.
+
+```text
+$ c show <Tab>
+48  -- failed · 2m ago · go test ./... · BUG-1234: fix login
+47  -- success · 9m ago · make lint
+```
+
+Without `carrier init`, add a completion script yourself:
 
 ```bash title="Install completions"
-# Bash — write once, restart shell
-carrier completion bash > /etc/bash_completion.d/carrier
-
-# Bash — per-session (add to ~/.bashrc for persistence)
+# Bash (add to ~/.bashrc)
 source <(carrier completion bash)
 
-# Zsh
+# Zsh: write once into a directory in $fpath, then restart the shell
 carrier completion zsh > "${fpath[1]}/_carrier"
 
-# Fish
+# Fish: write once (fish loads it when needed)
 carrier completion fish > ~/.config/fish/completions/carrier.fish
 
 # PowerShell (add to $PROFILE)
 carrier completion powershell | Out-String | Invoke-Expression
 ```
+
+The bash and fish scripts are the same as `carrier init` sets up. The zsh file does not complete the command after `run` and `watch`, and neither does PowerShell.
 
 ## `version`
 
