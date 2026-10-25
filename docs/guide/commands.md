@@ -190,10 +190,13 @@ carrier history --cwd api
 carrier history --branch main
 carrier history --command 'go test'
 carrier history --label deploy
+carrier history --repo
 carrier history --json
 ```
 
 Each run in `--json` output has a `session_id` when it was recorded in a shell session.
+
+`--repo` shows only runs from the Git repository you are in, wherever in it they ran: runs whose recorded Git root is this repository, and older runs without one whose directory is inside it. A sibling directory such as `api-v2` does not count for `api`, and runs in a nested repository such as a submodule belong to that repository instead. Outside a repository, `--repo` is an error. It combines with the other filters, and with `--sessions-only` it lists the sessions that have runs in the repository.
 
 ### Session grouping
 

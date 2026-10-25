@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -10,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/atbuy/carrier/internal/duration"
+	"github.com/atbuy/carrier/internal/gitmeta"
 	"github.com/atbuy/carrier/internal/store"
 )
 
@@ -33,12 +37,15 @@ func (a *app) historyCmd() *cobra.Command {
 		session      string
 		sessionsOnly bool
 		short        bool
+		repo         bool
 	)
 	cmd := &cobra.Command{
 		Use:     "history",
 		Aliases: []string{"h"},
 		Short:   "list recorded runs oldest-first",
 		Long: `List recorded runs oldest-first, one per line.
+
+  carrier history --repo     # only runs from the Git repository you are in
 
 Pipe to fzf to fuzzy-search and extract an ID for rerun:
 
@@ -53,6 +60,13 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				}
 				f.SessionID = &sess.ID
 			}
+			if repo {
+				roots, err := currentRepoRoots()
+				if err != nil {
+					return err
+				}
+				f.RepoRoots = roots
+			}
 			if since != "" {
 				d, err := duration.Parse(since)
 				if err != nil {
@@ -61,7 +75,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 				f.Since = time.Now().Add(-d)
 			}
 			if sessionsOnly {
-				return a.printSessionsOnly(cmd, limit, label, jsonOutput)
+				return a.printSessionsOnly(cmd, limit, label, f.RepoRoots, jsonOutput)
 			}
 
 			runs, err := a.st.ListHistory(limit, f)
@@ -185,6 +199,7 @@ Pipe to fzf to fuzzy-search and extract an ID for rerun:
 	cmd.Flags().StringVarP(&command, "command", "c", "", "filter by command (substring match)")
 	cmd.Flags().StringVar(&label, "label", "", "filter by label (substring match)")
 	cmd.Flags().StringVarP(&session, "session", "s", "", "filter by session ID or label")
+	cmd.Flags().BoolVar(&repo, "repo", false, "only runs from the Git repository of the current directory")
 	cmd.Flags().BoolVar(&sessionsOnly, "sessions-only", false, "show only session headers, no individual runs")
 	cmd.Flags().BoolVar(&short, "short", false, "collapse session children to a single '...' line (or use carrier hs)")
 	return cmd
@@ -224,10 +239,19 @@ func (a *app) historyNotes(runIDs, sessIDs []int64) (map[int64][]store.Note, map
 	return byRun, bySession, nil
 }
 
-func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter string, jsonOutput bool) error {
+// printSessionsOnly lists sessions, filtered by label and, with repoRoots,
+// to the sessions with runs in that repository.
+func (a *app) printSessionsOnly(cmd *cobra.Command, limit int, labelFilter string, repoRoots []string, jsonOutput bool) error {
 	sessions, err := a.st.ListSessions(limit)
 	if err != nil {
 		return err
+	}
+	if len(repoRoots) > 0 {
+		inRepo, err := a.st.HistorySessionIDs(store.HistoryFilter{RepoRoots: repoRoots})
+		if err != nil {
+			return err
+		}
+		sessions = slices.DeleteFunc(sessions, func(s store.Session) bool { return !inRepo[s.ID] })
 	}
 	slices.Reverse(sessions)
 	if jsonOutput {
@@ -302,4 +326,28 @@ func printRunLine(out io.Writer, t theme, r *store.Run, connector string) {
 		t.Muted.Render(collapseHome(r.CWD)),
 		labelSuffix,
 	)
+}
+
+// currentRepoRoots returns the root of the Git repository the current
+// directory is in, spelled both as reached and with symlinks resolved: shell
+// runs record the first, "carrier run" records what git prints, the second.
+func currentRepoRoots() ([]string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	root := ""
+	if head, ok := gitmeta.Head(cwd); ok {
+		root = head.Root
+	} else {
+		root = gitmeta.Collect(cwd).Root
+	}
+	if root == "" {
+		return nil, errors.New("not in a Git repository; --repo shows runs from the repository of the current directory")
+	}
+	roots := []string{root}
+	if resolved, err := filepath.EvalSymlinks(root); err == nil && resolved != root {
+		roots = append(roots, resolved)
+	}
+	return roots, nil
 }
