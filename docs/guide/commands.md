@@ -1041,6 +1041,14 @@ carrier self version      # same thing
 
 Prints the version, commit, and build date. In a terminal with 256 or more colors, they are shown next to carrier's logo. The logo is left out when the output is not a terminal, such as in a pipe or a script, and when colors are off (`NO_COLOR`, `CARRIER_COLOR=never`, or `ui.color = "never"`). `carrier setup` starts with the logo too.
 
+A release build also checks for a newer release, for up to 2 seconds, and when there is one says so on stderr:
+
+```text
+carrier: carrier 1.9.1 is available; update with: carrier self update
+```
+
+Nothing is printed when carrier is up to date, when the check cannot reach GitHub, or for a build that is not a release.
+
 ## `self`
 
 Commands about the carrier install itself: update it, show its version, and read what changed.
