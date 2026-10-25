@@ -7,13 +7,20 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/store"
 )
 
-// pickerRows is the most sessions the picker shows at once.
-const pickerRows = 10
+// pickerRows is the most sessions the picker shows at once; a smaller
+// terminal shows fewer.
+const pickerRows = 20
+
+// pickerChrome is the lines the picker has besides sessions: the title, the
+// filter, the "more" line, the help, and the shell prompt it was started
+// from, which stays in view above it.
+const pickerChrome = 5
 
 // SessionItem is a session offered by the picker, with tags such as
 // "pinned here" that say why it may be the one wanted.
@@ -131,12 +138,12 @@ func (m PickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// rows is how many sessions fit.
+// rows is how many sessions fit in the terminal.
 func (m PickerModel) rows() int {
 	if m.height <= 0 {
 		return pickerRows
 	}
-	return max(1, min(pickerRows, m.height-4))
+	return max(1, min(pickerRows, m.height-pickerChrome))
 }
 
 func (m PickerModel) View() string {
@@ -188,7 +195,9 @@ func (m PickerModel) View() string {
 		for _, tag := range item.Tags {
 			line += m.styles.muted.Render(" · ") + m.styles.warning.Render(tag)
 		}
-		b.WriteString(line + "\n")
+		// Cut rows at the terminal's width: a wrapped row would push the
+		// picker past its height.
+		b.WriteString(ansi.Truncate(line, width-1, "…") + "\n")
 	}
 	if more := len(m.visible) - end; more > 0 {
 		b.WriteString(m.styles.muted.Render(fmt.Sprintf("  … %d more", more)) + "\n")

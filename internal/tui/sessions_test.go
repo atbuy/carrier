@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/store"
@@ -82,5 +83,33 @@ func TestPickerMovesAndCancels(t *testing.T) {
 	m, cmd := pick(m, tea.KeyMsg{Type: tea.KeyEsc})
 	if m.Picked() != 0 || cmd == nil {
 		t.Fatal("esc should quit without picking")
+	}
+}
+
+// TestPickerFitsTheTerminal checks that the picker shows up to 20 sessions,
+// fewer in a short terminal, and never a line wider than the terminal.
+func TestPickerFitsTheTerminal(t *testing.T) {
+	var items []SessionItem
+	for i := 30; i > 0; i-- {
+		items = append(items, SessionItem{
+			SessionChoice: store.SessionChoice{ID: int64(i), Label: strings.Repeat("long label ", 6), StartedAt: time.Now(), Runs: i},
+			Tags:          []string{"pinned here"},
+		})
+	}
+	for _, tc := range []struct{ width, height, rows int }{{120, 50, 20}, {120, 15, 10}, {40, 4, 1}} {
+		tm, _ := NewPicker(items, config.Default().UI.Theme).Update(tea.WindowSizeMsg{Width: tc.width, Height: tc.height})
+		view := tm.(PickerModel).View()
+		lines := strings.Split(view, "\n")
+		if got := strings.Count(view, " runs · "); got != tc.rows {
+			t.Errorf("%dx%d: %d sessions shown, want %d", tc.width, tc.height, got, tc.rows)
+		}
+		if tc.height > pickerChrome && len(lines) > tc.height-1 {
+			t.Errorf("%dx%d: %d lines, more than fit below the prompt", tc.width, tc.height, len(lines))
+		}
+		for _, line := range lines {
+			if w := ansi.StringWidth(line); w >= tc.width {
+				t.Errorf("%dx%d: line is %d wide: %q", tc.width, tc.height, w, line)
+			}
+		}
 	}
 }

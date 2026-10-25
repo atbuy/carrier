@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.8.1] - 2026-10-25
+
+### Changed
+
+- The `carrier attach` session picker shows up to 20 sessions instead of 10, fewer when the terminal is shorter, and cuts rows that are wider than the terminal instead of wrapping them.
+
 ## [1.8.0] - 2026-10-25
 
 ### Added
