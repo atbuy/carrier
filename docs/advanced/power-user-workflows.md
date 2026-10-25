@@ -91,12 +91,12 @@ carrier rerun 42 --edit
 `--edit` opens a JSON array in `$EDITOR` or `$VISUAL`. The command is aborted if the file is unchanged, invalid JSON, or an empty array.
 
 
-## Triage with the TUI
+## Triage with the browser
 
-The text UI is useful when the question is "which run was that?" rather than "show run 42".
+The browser is useful when the question is "which run was that?" rather than "show run 42", or "what did I do in that session?".
 
 ```bash title="Interactive browser"
-carrier tui
+carrier browse
 ```
 
 Useful workflow:

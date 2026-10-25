@@ -37,7 +37,7 @@ It is designed for normal terminal work: local projects, long-running build/test
 1. Install with the script or `go install`.
 2. Run `carrier doctor`.
 3. Record a command with `carrier run <command...>`.
-4. Inspect it with `carrier last`, `carrier show <run-id>`, or `carrier tui`.
+4. Inspect it with `carrier last`, `carrier show <run-id>`, or `carrier browse`.
 5. Add a short alias only after the basic commands work.
 
 For deeper setup choices, use [Installation](tutorial/installation.md) and [Configuration reference](reference/configuration.md).

@@ -134,43 +134,75 @@ carrier last 5 --json   # JSON array of latest 5
 
     With N > 1, JSON output is an array.
 
-## `tui`
+## `browse`
 
-Browse recorded runs in an interactive, full-screen viewer:
+Browse recorded runs and sessions in an interactive, full-screen viewer:
 
-```bash title="Open the run browser"
-carrier tui
-carrier ui   # alias
+```bash title="Open the browser"
+carrier browse
+carrier tui   # alias, as is ui
 ```
 
-The screen is split into a run list on the left and a live output preview on the
-right. Move through the list to preview each run's details and captured output.
-You can rerun, label, or delete runs without leaving the browser.
+The browser has two tabs; `tab` switches between them, and each keeps its own filter.
 
-Rerun launches **after** the browser exits, so the command runs in your normal
-terminal (not nested inside the viewer).
+**Runs** lists runs on the left with a preview of the selected run's details and
+captured output on the right. You can rerun, label, or delete runs without
+leaving the browser. Rerun launches **after** the browser exits, so the command
+runs in your normal terminal (not nested inside the viewer).
 
 The preview shows `stdout`/`stderr` for `carrier run` commands. Shell-session
 recordings rely on terminal control sequences and can't render faithfully in the
 preview, so the browser points you to `carrier show <id>` or `carrier tail <id>`
 to replay them in a real terminal instead.
 
+**Sessions** lists sessions with their label, number of runs, and age; `●` marks an active session, `◆` a kept one, and `○` an ended one. The preview shows the selected session's timeline, as [`session show`](#session-show) prints it: its commands with status and duration, the error lines of failed commands, its notes, linked branches, and outcome.
+
+```text
+ Runs   Sessions   tab switches
+▌    12 ◆ 2h ago    BUG-1234: fix login · 14 runs   session 12 · BUG-1234: fix login
+      9 ○ 5h ago    no label · 3 runs               Oct 25 14:02 → 15:22 (1h 20m) · 14 commands, 3 failed
+      7 ● 2d ago    api refactor · 21 runs          Branches: BUG-1234-fix (api)
+
+                                                    14:02  ✓  make test  3.2s
+                                                    14:05  ✗  psql -h db  exit 2  0.1s
+                                                              │ error: connection refused
+                                                    14:06  ✎  the database was restarting
+↑/↓ move  enter attach  o runs  l label  K keep  / filter  tab runs  q quit
+```
+
+`enter` attaches to the session after the browser exits, as [`attach`](#attach) does: inside a recorded shell it switches the shell to it. `o` opens the Runs tab with only the session's runs; `esc` goes back to all of them.
+
 ### Keys
 
 | Key                     | Action                                           |
 | ----------------------- | ------------------------------------------------ |
+| `tab`                   | switch between Runs and Sessions                 |
 | `↑` / `↓`, `k` / `j`    | move selection                                   |
-| `g` / `G`               | jump to first / last run                         |
+| `g` / `G`               | jump to the first / last item                    |
 | `ctrl+u` / `ctrl+d`     | scroll the preview pane                          |
-| `/`                     | filter by command, status, cwd, or label         |
-| `r` / `enter`           | rerun the selected command (after the TUI exits) |
-| `l`                     | set or clear the label on the selected run       |
+| `/`                     | filter: runs by command, status, cwd, or label; sessions by ID or label |
+| `l`                     | set or clear the label of the selected run or session |
+| `q` / `esc` / `ctrl+c`  | quit; in a session's runs, `esc` first goes back to all runs |
+
+In the Runs tab:
+
+| Key                     | Action                                           |
+| ----------------------- | ------------------------------------------------ |
+| `r` / `enter`           | rerun the selected command (after the browser exits) |
 | `d`                     | delete the selected run (asks `y/N` to confirm)  |
-| `q` / `esc` / `ctrl+c`  | quit                                             |
+
+In the Sessions tab:
+
+| Key                     | Action                                           |
+| ----------------------- | ------------------------------------------------ |
+| `enter`                 | attach to the selected session (after the browser exits) |
+| `o` / `→`               | show the session's runs                          |
+| `K`                     | keep the session so it never expires, or let it expire again |
 
 While filtering, `enter` applies the filter and `esc` clears it. Deleting a run
 also removes its log files and prunes any environment snapshot it no longer
-shares.
+shares. Labeling a session updates the prompt of every shell recording into it,
+as [`session label`](#session-label) does.
 
 ## `history`
 

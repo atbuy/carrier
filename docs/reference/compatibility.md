@@ -85,7 +85,7 @@ These are not kept stable and may change in any release, including patch release
 - **Internals.** `carrier internal` commands, the generated shell hooks, `CARRIER_SHELL_STATE`, `CARRIER_HOOK_ACTIVE`, `CARRIER_NOTIFY`, `CARRIER_NOTIFY_ALWAYS`, `CARRIER_NO_REDACT`, `CARRIER_SESSION_LABEL`, and the sidecar files next to the database.
 - **Heuristics.** Which runs similar-failure hints and `carrier similar` match, and how label matching orders candidates when the result is unambiguous.
 - **Redaction.** Secret detection can become stricter in any release, so newly recorded logs may hide more than before. Logs already written are not changed.
-- **The TUI.** Layout and key bindings in `carrier tui`.
+- **The TUI.** Layout and key bindings in `carrier browse`, `carrier config`, and the `carrier attach` session picker.
 - **Bug fixes.** Behavior that is clearly wrong, such as a command recorded twice, is fixed in patch releases even if something relied on it.
 
 ## How this is checked

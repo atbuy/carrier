@@ -177,7 +177,12 @@ func addTimelineFlags(cmd *cobra.Command, opts *timelineOptions) {
 }
 
 func printTimeline(out io.Writer, tl *sessionTimeline) {
-	t := newTheme(out)
+	printTimelineWith(out, newTheme(out), tl)
+}
+
+// printTimelineWith prints the timeline in theme t, for output that is drawn
+// elsewhere than out, such as the browser's preview.
+func printTimelineWith(out io.Writer, t theme, tl *sessionTimeline) {
 	sess := tl.session
 	title := t.Accent.Bold(true).Render(fmt.Sprintf("session %d", sess.ID))
 	if sess.Label != "" {

@@ -1,8 +1,9 @@
-// Package tui implements the interactive run browser (`carrier tui`). It renders
-// a scrollable run list with a live output preview and supports rerunning,
-// labeling, and deleting runs. Rerun is executed by the caller after the program
-// exits (see Result) so the command runs in the normal terminal, not nested
-// inside the alt-screen.
+// Package tui implements carrier's interactive screens: the browser of runs
+// and sessions ("carrier browse"), the settings editor ("carrier config"), and
+// the session picker ("carrier attach" without a session). The browser's
+// actions that run commands, rerun and attach, are carried out by the caller
+// after the program exits (see Result), so they run in the normal terminal,
+// not nested inside the alt-screen.
 package tui
 
 import (
@@ -30,12 +31,15 @@ type Action int
 const (
 	ActionNone Action = iota
 	ActionRerun
+	// ActionAttach attaches to SessionID, as "carrier attach" does.
+	ActionAttach
 )
 
 // Result reports the action selected when the TUI exited.
 type Result struct {
-	Action Action
-	RunID  int64
+	Action    Action
+	RunID     int64
+	SessionID int64
 }
 
 type mode int
@@ -132,6 +136,16 @@ type Model struct {
 	ready     bool
 	statusMsg string
 	result    Result
+
+	// tab is the list on screen. otherFilter keeps the filter of the other
+	// tab, and runSession limits the runs to one session when not 0.
+	tab              tab
+	otherFilter      string
+	runSession       int64
+	src              Sessions
+	sessions         []store.SessionChoice
+	filteredSessions []store.SessionChoice
+	sessionCursor    int
 }
 
 // New builds a Model. runs should be newest-first. dataDir is used to remove log
@@ -176,7 +190,7 @@ func (m *Model) layout() {
 	if previewW < 10 {
 		previewW = 10
 	}
-	previewH := m.height - 2 // leave room for help line
+	previewH := m.height - 3 // leave room for the tabs and the help line
 	if previewH < 3 {
 		previewH = 3
 	}
@@ -190,6 +204,11 @@ func (m *Model) layout() {
 }
 
 func (m *Model) refreshPreview() {
+	if m.tab == tabSessions {
+		m.vp.SetContent(m.renderSessionPreview())
+		m.vp.GotoTop()
+		return
+	}
 	r, ok := m.selected()
 	if !ok {
 		m.vp.SetContent(m.styles.muted.Render("no run selected"))
@@ -201,12 +220,19 @@ func (m *Model) refreshPreview() {
 
 // applyFilter recomputes filtered from the current filter text and clamps cursor.
 func (m *Model) applyFilter() {
+	if m.tab == tabSessions {
+		m.applySessionFilter()
+		return
+	}
 	q := strings.ToLower(strings.TrimSpace(m.filter.Value()))
-	if q == "" {
+	if q == "" && m.runSession == 0 {
 		m.filtered = m.runs
 	} else {
 		out := make([]store.Run, 0, len(m.runs))
 		for _, r := range m.runs {
+			if m.runSession != 0 && (r.SessionID == nil || *r.SessionID != m.runSession) {
+				continue
+			}
 			hay := strings.ToLower(strings.Join([]string{
 				displayCommand(r), r.Status, r.CWD, r.Label,
 			}, " "))
@@ -259,8 +285,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) updateBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "q", "esc", "ctrl+c":
+	case "tab", "shift+tab":
+		if m.tab == tabRuns {
+			m.switchTab(tabSessions)
+		} else {
+			m.switchTab(tabRuns)
+		}
+		return m, nil
+	case "esc":
+		// Leave a session's runs before leaving the browser.
+		if m.tab == tabRuns && m.runSession != 0 {
+			m.runSession = 0
+			m.applyFilter()
+			m.refreshPreview()
+			return m, nil
+		}
 		return m, tea.Quit
+	case "q", "ctrl+c":
+		return m, tea.Quit
+	case "/":
+		m.mode = modeFilter
+		m.statusMsg = ""
+		m.filter.Focus()
+		return m, textinput.Blink
+	case "ctrl+d", "pgdown":
+		m.vp.HalfPageDown()
+		return m, nil
+	case "ctrl+u", "pgup":
+		m.vp.HalfPageUp()
+		return m, nil
+	}
+	if m.tab == tabSessions {
+		m, cmd, _ := m.updateSessions(msg.String())
+		return m, cmd
+	}
+	switch msg.String() {
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
@@ -280,15 +339,6 @@ func (m Model) updateBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor = 0
 		}
 		m.refreshPreview()
-	case "ctrl+d", "pgdown":
-		m.vp.HalfPageDown()
-	case "ctrl+u", "pgup":
-		m.vp.HalfPageUp()
-	case "/":
-		m.mode = modeFilter
-		m.statusMsg = ""
-		m.filter.Focus()
-		return m, textinput.Blink
 	case "l":
 		if r, ok := m.selected(); ok {
 			m.mode = modeLabel
@@ -337,6 +387,12 @@ func (m Model) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) updateLabel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
+		if m.tab == tabSessions {
+			m = m.labelSession(strings.TrimSpace(m.label.Value()))
+			m.mode = modeBrowse
+			m.label.Blur()
+			return m, nil
+		}
 		if r, ok := m.selected(); ok {
 			if err := m.st.SetLabel(r.ID, strings.TrimSpace(m.label.Value())); err != nil {
 				m.statusMsg = "label failed: " + err.Error()
@@ -392,18 +448,33 @@ func (m Model) View() string {
 	if !m.ready || m.width == 0 {
 		return "loading..."
 	}
-	list := m.renderList()
+	var list string
+	if m.tab == tabSessions {
+		list = lipgloss.NewStyle().Width(listWidth).Render(m.renderSessionList(m.listHeight()))
+	} else {
+		list = m.renderList()
+	}
 	preview := m.vp.View()
 	body := lipgloss.JoinHorizontal(lipgloss.Top, list, " ", preview)
-	return lipgloss.JoinVertical(lipgloss.Left, body, m.renderHelp())
+	if !m.hasSessions() {
+		return lipgloss.JoinVertical(lipgloss.Left, body, m.renderHelp())
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, m.renderTabs(), body, m.renderHelp())
+}
+
+// listHeight is the rows the lists have: all but the help line, and the tab
+// bar when there are tabs.
+func (m Model) listHeight() int {
+	height := m.height - 2
+	if m.hasSessions() {
+		height--
+	}
+	return max(1, height)
 }
 
 func (m Model) renderList() string {
 	var b strings.Builder
-	height := m.height - 2
-	if height < 1 {
-		height = 1
-	}
+	height := m.listHeight()
 	// Scroll the list window to keep the cursor visible.
 	start := 0
 	if m.cursor >= height {
@@ -440,6 +511,8 @@ func (m Model) renderList() string {
 	switch {
 	case len(m.runs) == 0:
 		b.WriteString(m.styles.muted.Render("  no runs recorded yet\n  try: carrier run echo hello\n  or:  carrier shell"))
+	case len(m.filtered) == 0 && m.runSession != 0 && m.filter.Value() == "":
+		b.WriteString(m.styles.muted.Render(fmt.Sprintf("  session %d has no runs", m.runSession)))
 	case len(m.filtered) == 0:
 		b.WriteString(m.styles.muted.Render("  no runs match"))
 	}
@@ -522,6 +595,14 @@ func (m Model) renderHelp() string {
 		return m.styles.warning.Render("delete run? (y/N)")
 	default:
 		help := "↑/↓ move  r/enter rerun  / filter  l label  d delete  q quit"
+		switch {
+		case m.tab == tabSessions:
+			help = "↑/↓ move  enter attach  o runs  l label  K keep  / filter  tab runs  q quit"
+		case m.runSession != 0:
+			help = "↑/↓ move  r/enter rerun  / filter  l label  d delete  esc all runs  q quit"
+		case m.hasSessions():
+			help = "↑/↓ move  r/enter rerun  / filter  l label  d delete  tab sessions  q quit"
+		}
 		if m.statusMsg != "" {
 			return m.styles.accent.Render(m.statusMsg) + "  " + m.styles.help.Render(help)
 		}
@@ -544,8 +625,10 @@ func (m Model) statusStyle(status string) lipgloss.Style {
 
 // Run launches the interactive browser and returns the chosen Result. It returns
 // an empty Result (ActionNone) when the user quits without selecting an action.
-func Run(st *store.Store, cfg config.Config, runs []store.Run) (Result, error) {
-	final, err := tea.NewProgram(New(st, cfg, runs), tea.WithAltScreen()).Run()
+func Run(st *store.Store, cfg config.Config, runs []store.Run, sessions Sessions) (Result, error) {
+	m := New(st, cfg, runs)
+	m.SetSessions(sessions)
+	final, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
 	if err != nil {
 		return Result{}, err
 	}
