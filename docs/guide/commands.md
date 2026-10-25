@@ -905,6 +905,32 @@ Settings  ~/.config/carrier/config.toml
 
 See [the configuration reference](../reference/configuration.md) for the keys and what each does.
 
+### `config set`
+
+Change one setting without opening the settings, for scripts and one-liners. It saves the change the same way: only the setting's line changes, and a value `carrier config check` rejects is not saved.
+
+```bash title="Change one setting"
+carrier config set shell.branch_sessions follow
+carrier config set notify.min_duration 1m
+carrier config set hints.similar_failures true      # also on, off, yes, no
+carrier config set ui.theme.accent '#BD93F9'
+carrier config set shell.ignore_commands vim less    # replace a list
+carrier config set shell.ignore_commands --add k9s   # add to it
+carrier config set --reset shell.branch_sessions     # back to the default
+```
+
+```text
+carrier: set shell.branch_sessions = "follow" in ~/.config/carrier/config.toml
+```
+
+Tab completes the keys, and the values of toggles and settings with a fixed set of values.
+
+| Flag       | Meaning                                                   |
+| ---------- | --------------------------------------------------------- |
+| `--add`    | Add the values to a list.                                 |
+| `--remove` | Remove the values from a list.                            |
+| `--reset`  | Remove the setting from the file, so its default applies. |
+
 Inspect and create config:
 
 ```bash title="Config commands"

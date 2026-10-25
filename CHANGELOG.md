@@ -12,6 +12,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 - `shell.branch_sessions` in the config: `"follow"` switches the shell to the branch's session on checkout, `"off"` turns the line off, and `"suggest"`, the default, prints it.
 - `carrier status` shows the branch checked out here and its session, also as `branch` in `--json`, and `carrier session show` lists the session's branches.
 - `carrier config` without a command opens the settings: scroll through every setting, grouped like the config file, toggle on/off settings, pick from a setting's values, type new ones, edit lists, reset to defaults, and search. Each change is checked and saved to the config file right away, keeping its comments and layout, and applies from the next command. `e` opens the file in `$EDITOR` for anything else.
+- `carrier config set <key> <value>` changes one setting from the command line or a script, saved the same way. `--add` and `--remove` change items of a list, and `--reset` returns a setting to its default. Tab completes the keys and their values.
 
 ## [1.6.0] - 2026-10-25
 

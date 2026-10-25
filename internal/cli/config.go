@@ -2,9 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -28,6 +30,7 @@ and everything else in the file stay as they are, so you can still edit the
 file by hand.`,
 		Example: strings.Join([]string{
 			"  carrier config",
+			"  carrier config set shell.branch_sessions follow",
 			"  carrier config path",
 			"  carrier config init",
 			"  carrier config check",
@@ -56,7 +59,7 @@ file by hand.`,
 		}
 		return nil
 	}
-	cmd.AddCommand(configPathCmd(), configShowCmd(), configInitCmd(), configCheckCmd())
+	cmd.AddCommand(configSetCmd(), configPathCmd(), configShowCmd(), configInitCmd(), configCheckCmd())
 	return cmd
 }
 
@@ -192,4 +195,127 @@ func defaultConfigTOML() string {
 	var buf bytes.Buffer
 	_ = toml.NewEncoder(&buf).Encode(config.Default())
 	return buf.String()
+}
+
+func configSetCmd() *cobra.Command {
+	var add, remove, reset bool
+	cmd := &cobra.Command{
+		Use:   "set <key> <value>...",
+		Short: "change one setting",
+		Long: `Change one setting in the config file, as "carrier config" does, from the
+command line or a script. Only the setting's line changes; comments and the
+rest of the file stay as they are. A value "carrier config check" rejects is
+not saved.
+
+Toggles take true or false (also on, off, yes, no). A list takes each value as
+an item and replaces the list; --add and --remove change single items.`,
+		Example: strings.Join([]string{
+			"  carrier config set shell.branch_sessions follow",
+			"  carrier config set notify.min_duration 1m",
+			"  carrier config set hints.similar_failures true",
+			"  carrier config set shell.ignore_commands --add k9s",
+			"  carrier config set ui.theme.accent '#BD93F9'",
+			"  carrier config set --reset shell.branch_sessions",
+		}, "\n"),
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			s, ok := config.LookupSetting(args[0])
+			if !ok {
+				return fmt.Errorf("no setting %q; \"carrier config\" lists them", args[0])
+			}
+			path, err := config.Path()
+			if err != nil {
+				return err
+			}
+			if _, err := config.LoadFrom(path); err != nil {
+				return fmt.Errorf("%s: %w\nfix the file by hand first; \"carrier config check\" checks it", collapseHome(path), err)
+			}
+			out := cmd.OutOrStdout()
+			if reset {
+				if add || remove || len(args) > 1 {
+					return errors.New("--reset takes only the key")
+				}
+				file, err := config.Reset(path, s)
+				if err != nil {
+					return err
+				}
+				cfg, _ := config.LoadFrom(path)
+				if file == "" {
+					_, _ = fmt.Fprintf(out, "carrier: %s already has its default value, %s\n", s.Name(), config.Literal(s.Value(cfg)))
+					return nil
+				}
+				_, _ = fmt.Fprintf(out, "carrier: reset %s to %s in %s\n", s.Name(), config.Literal(s.Value(cfg)), collapseHome(file))
+				return nil
+			}
+			if add && remove {
+				return errors.New("use --add or --remove, not both")
+			}
+			if (add || remove) && s.Kind != config.KindList {
+				return fmt.Errorf("--add and --remove change lists; %s is not one", s.Name())
+			}
+			value, err := config.ParseValue(s, args[1:])
+			if err != nil {
+				return err
+			}
+			if add || remove {
+				cfg, err := config.LoadFrom(path)
+				if err != nil {
+					return err
+				}
+				list := slices.Clone(s.Value(cfg).([]string))
+				for _, item := range value.([]string) {
+					if remove {
+						if !slices.Contains(list, item) {
+							return fmt.Errorf("%q is not in %s", item, s.Name())
+						}
+						list = slices.DeleteFunc(list, func(v string) bool { return v == item })
+					} else if !slices.Contains(list, item) {
+						list = append(list, item)
+					}
+				}
+				value = list
+			}
+			file, err := config.Set(path, s, value)
+			if err != nil {
+				return fmt.Errorf("%s: %w", s.Name(), err)
+			}
+			_, _ = fmt.Fprintf(out, "carrier: set %s = %s in %s\n", s.Name(), config.Literal(value), collapseHome(file))
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&add, "add", false, "add the values to a list")
+	cmd.Flags().BoolVar(&remove, "remove", false, "remove the values from a list")
+	cmd.Flags().BoolVar(&reset, "reset", false, "remove the setting from the file, so its default applies")
+	return cmd
+}
+
+// completeSettings completes "carrier config set": setting names with their
+// titles, then the values a toggle or choice accepts.
+func completeSettings(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		out := make([]cobra.Completion, 0, len(config.Settings))
+		for _, s := range config.Settings {
+			if strings.HasPrefix(s.Name(), toComplete) {
+				out = append(out, cobra.CompletionWithDesc(s.Name(), s.Title))
+			}
+		}
+		return out, noFiles
+	}
+	if f := cmd.Flags().Lookup("reset"); f != nil && f.Changed {
+		return nil, noFiles
+	}
+	s, ok := config.LookupSetting(args[0])
+	switch {
+	case !ok:
+		return nil, noFiles
+	case s.Kind == config.KindBool && len(args) == 1:
+		return []cobra.Completion{"true", "false"}, noFiles
+	case s.Kind == config.KindChoice && len(args) == 1:
+		return s.Choices, noFiles
+	case s.Name() == "storage.data_dir" && len(args) == 1:
+		return nil, cobra.ShellCompDirectiveFilterDirs
+	case s.Name() == "shell.program" && len(args) == 1:
+		return nil, cobra.ShellCompDirectiveDefault
+	}
+	return nil, noFiles
 }

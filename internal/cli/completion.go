@@ -175,6 +175,7 @@ func (a *app) completionSpecs() completionSpecs {
 		"carrier changelog":      onlyFirst(completeVersions),
 		"carrier completion":     fixedValues("bash", "zsh", "fish", "powershell"),
 		"carrier init":           fixedValues("zsh", "bash", "fish"),
+		"carrier config set":     completeSettings,
 	}
 	statuses := fixedValues(store.StatusSuccess, store.StatusFailed, store.StatusRunning, store.StatusKilled)
 	durations := completeDurations

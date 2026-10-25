@@ -196,3 +196,83 @@ func TestConfigWithoutTerminalPrintsHelp(t *testing.T) {
 		t.Fatalf("output:\n%s", out.String())
 	}
 }
+
+func runConfigSet(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	cmd := configSetCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return out.String(), err
+}
+
+func TestConfigSet(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	setHome(t, t.TempDir())
+	path := filepath.Join(xdg, "carrier", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("# mine\n[shell]\nignore_commands = [\"vim\"] # editors\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	read := func() string {
+		b, _ := os.ReadFile(path)
+		return string(b)
+	}
+
+	out, err := runConfigSet(t, "shell.branch_sessions", "follow")
+	if err != nil || !strings.Contains(out, `set shell.branch_sessions = "follow" in `) {
+		t.Fatalf("set: out=%q err=%v", out, err)
+	}
+	for _, args := range [][]string{
+		{"hints.similar_failures", "on"},
+		{"storage.max_output_mb", "50"},
+		{"notify.min_duration", "1m"},
+		{"shell.ignore_commands", "--add", "k9s", "vim"},
+	} {
+		if _, err := runConfigSet(t, args...); err != nil {
+			t.Fatalf("set %q: %v", args, err)
+		}
+	}
+	for _, want := range []string{"# mine\n", `branch_sessions = "follow"`, "similar_failures = true", "max_output_mb = 50", `min_duration = "1m"`, `ignore_commands = ["vim", "k9s"] # editors`} {
+		if !strings.Contains(read(), want) {
+			t.Errorf("config is missing %q:\n%s", want, read())
+		}
+	}
+	if _, err := runConfigSet(t, "shell.ignore_commands", "--remove", "vim"); err != nil || !strings.Contains(read(), `ignore_commands = ["k9s"]`) {
+		t.Fatalf("--remove: err=%v\n%s", err, read())
+	}
+
+	before := read()
+	for args, want := range map[string]string{
+		"shell.branch_sessions always":     `must be "suggest", "follow", or "off"`,
+		"notify.min_duration soon":         "invalid duration",
+		"hints.similar_failures maybe":     "use true or false",
+		"storage.max_output_mb lots":       "whole number",
+		"ui.colour never":                  `no setting "ui.colour"`,
+		"ui.color":                         "takes one value",
+		"ui.color --add never":             "change lists",
+		"shell.ignore_commands --remove x": `"x" is not in`,
+	} {
+		if _, err := runConfigSet(t, strings.Fields(args)...); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("set %s: err=%v, want %q", args, err, want)
+		}
+	}
+	if read() != before {
+		t.Fatalf("a rejected value changed the config:\n%s", read())
+	}
+
+	if out, err = runConfigSet(t, "--reset", "shell.branch_sessions"); err != nil || !strings.Contains(out, `reset shell.branch_sessions to "suggest"`) {
+		t.Fatalf("--reset: out=%q err=%v", out, err)
+	}
+	if strings.Contains(read(), "branch_sessions") {
+		t.Fatalf("--reset left the setting:\n%s", read())
+	}
+	if out, _ = runConfigSet(t, "--reset", "shell.branch_sessions"); !strings.Contains(out, "already has its default") {
+		t.Fatalf("second --reset: %q", out)
+	}
+}
