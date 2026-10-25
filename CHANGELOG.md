@@ -7,6 +7,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 ### Fixed
 
 - `carrier version` no longer says "update with: carrier self update" when carrier is already up to date. It checks for a newer release and only then says which one is available.
+- On Windows, `carrier shell`, `carrier init`, and `carrier attach` outside a recorded shell say plainly that recorded shells are not supported there and point to `carrier run`, instead of failing with "unsupported" after creating a session. `carrier setup` skips the automatic sessions step, and `carrier doctor` reports it.
 
 ## [1.9.0] - 2026-10-25
 

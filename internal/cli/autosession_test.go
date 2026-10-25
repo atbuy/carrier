@@ -270,6 +270,9 @@ func TestSessionLabelHintForAutoSessions(t *testing.T) {
 }
 
 func TestInitCmd(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("carrier init refuses on Windows; see TestRecordedShellsOnWindows")
+	}
 	a := &app{}
 	out, _, err := runEmpty(t, a.initCmd(), []string{"zsh"}, nil)
 	if err != nil || !strings.Contains(out, "shell --auto --program zsh && exit") {

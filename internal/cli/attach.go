@@ -77,6 +77,9 @@ func (a *app) attachTo(cmd *cobra.Command, sess *store.Session, newShell bool) e
 	if statePath := recordedShellState(); statePath != "" && !newShell {
 		return a.switchSession(cmd, statePath, sess)
 	}
+	if err := carriershell.Supported(); err != nil {
+		return err
+	}
 	_ = a.st.ReopenSession(sess.ID)
 	last, runErr := carriershell.Run(a.cfg, a.shellOptions(sess.ID, sess.Label, false))
 	a.finishInFlightShellRun(last, runErr)

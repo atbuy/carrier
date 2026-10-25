@@ -23,6 +23,8 @@ Both record the command, exit code, timing, working directory, and Git details. 
 
 `carrier doctor` reports whether the configured shell looks supported.
 
+Recorded shells work on Linux and macOS. They are not supported on Windows, where `carrier shell`, `carrier init`, and `carrier attach` outside a recorded shell say so; `carrier run <command>` records single commands there, and `carrier setup` skips the step that turns on automatic sessions.
+
 ## How it works
 
 Architecture:

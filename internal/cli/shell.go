@@ -31,6 +31,11 @@ An automatic session started in a directory pinned with "carrier session pin"
 joins the pinned session instead.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check before a session is created that the shell could not
+			// record into.
+			if err := carriershell.Supported(); err != nil {
+				return autoStartError(auto, err)
+			}
 			if len(args) == 1 && label == "" {
 				label = args[0]
 			}

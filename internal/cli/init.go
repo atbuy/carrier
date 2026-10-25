@@ -43,6 +43,9 @@ shell.auto_session_retention (default 30d) unless they have a label, notes,
 or are kept with "carrier session keep".`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := carriershell.Supported(); err != nil {
+				return err
+			}
 			name := ""
 			if len(args) == 1 {
 				name = args[0]
