@@ -53,9 +53,10 @@ func TestSelfVersionCmd(t *testing.T) {
 	if !strings.HasPrefix(out, "carrier ") {
 		t.Fatalf("carrier self version output = %q", out)
 	}
-	// The hint is how people find the new command.
-	if !strings.Contains(errOut, "carrier self update") {
-		t.Fatalf("carrier self version should hint at updating, got %q", errOut)
+	// A dev build never suggests updating; TestVersionUpdateHint covers
+	// release builds.
+	if errOut != "" {
+		t.Fatalf("carrier self version from a dev build should not hint, got %q", errOut)
 	}
 }
 

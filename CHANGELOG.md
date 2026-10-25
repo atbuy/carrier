@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.9.1] - 2026-10-25
+
+### Fixed
+
+- `carrier version` no longer says "update with: carrier self update" when carrier is already up to date. It checks for a newer release and only then says which one is available.
+
 ## [1.9.0] - 2026-10-25
 
 ### Added
