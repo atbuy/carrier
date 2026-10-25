@@ -2,6 +2,16 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.9.0] - 2026-10-25
+
+### Added
+
+- `carrier browse` has a Sessions tab next to the runs: sessions with their label, number of runs, and age, and a preview of the selected session's timeline as `carrier session show` prints it. Enter attaches to the session, `o` shows its runs in the Runs tab, `l` labels it, and `K` keeps it. Tab switches between the tabs, and each keeps its own filter.
+
+### Changed
+
+- `carrier tui` is now `carrier browse`. `carrier tui` and `carrier ui` still work.
+
 ## [1.8.1] - 2026-10-25
 
 ### Changed

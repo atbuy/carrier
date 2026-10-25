@@ -34,14 +34,14 @@ func printRootHelp(w io.Writer, t theme, cmd *cobra.Command) {
 	line(w)
 
 	printCommandGroup(w, t, "RUN", cmd, []string{"run", "shell", "init", "attach", "rerun", "watch"})
-	printCommandGroup(w, t, "INSPECT", cmd, []string{"tui", "last", "running", "show", "tail", "failed", "search", "similar", "history", "stats", "diff", "export"})
+	printCommandGroup(w, t, "INSPECT", cmd, []string{"browse", "last", "running", "show", "tail", "failed", "search", "similar", "history", "stats", "diff", "export"})
 	printCommandGroup(w, t, "MANAGE", cmd, []string{"setup", "label", "note", "notes", "session", "clean", "config", "completion", "doctor", "version", "self", "help"})
 
 	line(w, t.Header.Render("EXAMPLES"))
 	line(w)
 	printExample(w, t, "carrier run go test ./...", "record and log a command")
 	printExample(w, t, "carrier -n run docker compose build", "notify when done")
-	printExample(w, t, "carrier tui", "browse runs interactively")
+	printExample(w, t, "carrier browse", "browse runs and sessions interactively")
 	printExample(w, t, "carrier show 42", "inspect run #42")
 	printExample(w, t, "carrier tail 42", "stream output of run #42")
 	printExample(w, t, `carrier search "connection refused"`, "full-text search logs")

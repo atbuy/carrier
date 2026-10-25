@@ -63,19 +63,25 @@ the one linked to the branch checked out here come first.`,
 			if err != nil {
 				return err
 			}
-			if statePath := recordedShellState(); statePath != "" && !newShell {
-				return a.switchSession(cmd, statePath, sess)
-			}
-			_ = a.st.ReopenSession(sess.ID)
-			last, runErr := carriershell.Run(a.cfg, a.shellOptions(sess.ID, sess.Label, false))
-			a.finishInFlightShellRun(last, runErr)
-			_ = a.st.EndSession(finalSession(sess.ID, last), time.Now())
-			return runErr
+			return a.attachTo(cmd, sess, newShell)
 		},
 	}
 	cmd.Flags().BoolVar(&newShell, "new-shell", false, "start a new shell even inside a recorded shell")
 	cmd.Flags().BoolVarP(&branch, "branch", "b", false, "attach to the session of the Git branch checked out here")
 	return cmd
+}
+
+// attachTo records into sess: inside a recorded shell it switches that shell,
+// otherwise, or with newShell, it starts a new shell recording into sess.
+func (a *app) attachTo(cmd *cobra.Command, sess *store.Session, newShell bool) error {
+	if statePath := recordedShellState(); statePath != "" && !newShell {
+		return a.switchSession(cmd, statePath, sess)
+	}
+	_ = a.st.ReopenSession(sess.ID)
+	last, runErr := carriershell.Run(a.cfg, a.shellOptions(sess.ID, sess.Label, false))
+	a.finishInFlightShellRun(last, runErr)
+	_ = a.st.EndSession(finalSession(sess.ID, last), time.Now())
+	return runErr
 }
 
 // finalSession is the session a recorded shell ended in: the one it started

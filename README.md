@@ -162,6 +162,7 @@ carrier note suspect DNS cache     # note in the current session
 carrier notes                      # list notes
 carrier last
 carrier last --json
+carrier browse                     # browse runs and sessions interactively
 carrier show 42
 carrier show 42 --json
 carrier tail 42
