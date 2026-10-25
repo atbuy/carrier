@@ -142,3 +142,57 @@ func TestExpiredAutoSessionsAndDelete(t *testing.T) {
 		t.Fatal("other sessions' notes must survive")
 	}
 }
+
+func TestSessionBranches(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = st.Close() }()
+	now := time.Now()
+	first, _ := st.CreateSession(CreateSession{Label: "BUG-1234: fix login", StartedAt: now})
+	second, _ := st.CreateSession(CreateSession{Label: "spike", StartedAt: now})
+
+	if sess, err := st.BranchSession("/src/api", "BUG-1234-fix-login"); err != nil || sess != nil {
+		t.Fatalf("unlinked branch = %v, %v; want no session", sess, err)
+	}
+	if err := st.LinkBranch("/src/api", "BUG-1234-fix-login", first, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.LinkBranch("/src/api", "BUG-1234-tests", first, now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	sess, err := st.BranchSession("/src/api", "BUG-1234-fix-login")
+	if err != nil || sess == nil || sess.ID != first || sess.Label != "BUG-1234: fix login" {
+		t.Fatalf("linked branch = %+v, %v; want session %d", sess, err, first)
+	}
+	// The same branch name in another repository is a different branch.
+	if sess, _ := st.BranchSession("/src/web", "BUG-1234-fix-login"); sess != nil {
+		t.Fatalf("branch in another repository = %+v, want none", sess)
+	}
+	links, err := st.SessionBranches(first)
+	if err != nil || len(links) != 2 || links[0].Branch != "BUG-1234-fix-login" || links[1].Branch != "BUG-1234-tests" {
+		t.Fatalf("session branches = %+v, %v", links, err)
+	}
+
+	// Linking again moves the branch to the new session.
+	if err := st.LinkBranch("/src/api", "BUG-1234-tests", second, now); err != nil {
+		t.Fatal(err)
+	}
+	if sess, _ := st.BranchSession("/src/api", "BUG-1234-tests"); sess == nil || sess.ID != second {
+		t.Fatalf("relinked branch = %+v, want session %d", sess, second)
+	}
+
+	// Deleting a session removes its links.
+	if _, err := st.DeleteSession(first); err != nil {
+		t.Fatal(err)
+	}
+	if sess, _ := st.BranchSession("/src/api", "BUG-1234-fix-login"); sess != nil {
+		t.Fatalf("branch of a deleted session = %+v, want none", sess)
+	}
+	var left int
+	_ = st.db.QueryRow(`SELECT COUNT(*) FROM session_branches WHERE session_id = ?`, first).Scan(&left)
+	if left != 0 {
+		t.Fatalf("%d links left for the deleted session", left)
+	}
+}

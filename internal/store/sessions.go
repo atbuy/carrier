@@ -81,6 +81,7 @@ func (s *Store) DeleteSession(id int64) ([]Run, error) {
 		{`DELETE FROM notes WHERE session_id=? OR run_id IN (SELECT id FROM runs WHERE session_id=?)`, []any{id, id}},
 		{`DELETE FROM run_search WHERE rowid IN (SELECT id FROM runs WHERE session_id=?)`, []any{id}},
 		{`DELETE FROM runs WHERE session_id=?`, []any{id}},
+		{`DELETE FROM session_branches WHERE session_id=?`, []any{id}},
 		{`DELETE FROM shell_sessions WHERE id=?`, []any{id}},
 	} {
 		if _, err := tx.Exec(stmt.query, stmt.args...); err != nil {

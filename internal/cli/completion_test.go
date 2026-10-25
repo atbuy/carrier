@@ -160,6 +160,12 @@ func TestCompleteSessions(t *testing.T) {
 	if values, _, _ = complete(t, a, "a", "BUG"); !slices.Equal(values, []string{"BUG-1234: fix login"}) {
 		t.Errorf("attach BUG: got %q", values)
 	}
+	if values, _, _ = complete(t, a, "attach", "--branch", ""); len(values) != 0 {
+		t.Errorf("attach --branch takes no session: got %q", values)
+	}
+	if values, _, _ = complete(t, a, "session", "branch", "BUG"); !slices.Equal(values, []string{"BUG-1234: fix login"}) {
+		t.Errorf("session branch BUG: got %q", values)
+	}
 	if values, _, _ = complete(t, a, "session", "keep", ""); slices.Contains(values, fmt.Sprint(id["kept"])) {
 		t.Errorf("session keep offered a kept session: %q", values)
 	}

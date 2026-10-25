@@ -597,8 +597,11 @@ carrier status --json
 Recording  session 12 · BUG-1234: fix login
            active, started 2h ago · 14 commands, 3 failed · 2 notes
 Pin here   ~/src/api/.carrier-session → session 12 · BUG-1234: fix login
+Branch     BUG-1234-fix → session 12 · BUG-1234: fix login
 Terminal   /dev/pts/3
 ```
+
+The `Branch` line shows the Git branch checked out here and the session [linked to it](#session-branch), if any. `--json` has it as `branch`, with `name` and `session_id`.
 
 It also says when this terminal is not recorded, including a tmux pane that only inherited another terminal's carrier variables; when a pin here names another session than the one this shell records into, so `carrier session reload` would switch; when the pin names a session that does not exist; when the shell was started by a carrier too old for its prompt to follow switches; and when the tmux server holds variables from an older carrier. The outcome is shown once the session has one.
 
@@ -610,6 +613,7 @@ Attach to an existing shell session by session ID or label:
 carrier attach 5
 carrier attach backend-debug
 carrier attach 1234
+carrier attach --branch   # the session of the Git branch checked out here
 ```
 
 See [Referring to sessions](#referring-to-sessions) for how labels are matched.
@@ -626,6 +630,16 @@ Outside a recorded shell, `attach` re-opens the session, starts a new shell that
 | Flag          | Meaning                                              |
 | ------------- | ---------------------------------------------------- |
 | `--new-shell` | Start a new shell even inside a recorded shell.      |
+| `-b`, `--branch` | Attach to the session of the Git branch checked out here. |
+
+With `--branch`, `attach` uses the session [linked to the branch](#session-branch). When there is none, it uses a session labeled exactly like the branch, or starts a session named after it, and links the branch to it, so one command after `git checkout -b` gives the branch its own session:
+
+```text
+% git checkout -b BUG-1234-fix
+% carrier attach --branch
+carrier: started session 12 "BUG-1234-fix" for branch BUG-1234-fix
+carrier: switched to session 12 "BUG-1234-fix"
+```
 
 To make new terminals in a directory join a session on their own, [pin it](#session-pin).
 
@@ -719,6 +733,28 @@ carrier session reload
 
 Like `attach`, it switches in place and is not recorded itself.
 
+### `session branch`
+
+Link the Git branch checked out in the current directory to a session, by default the one this shell records into:
+
+```bash title="Link a branch"
+carrier session branch              # link this branch to this shell's session
+carrier session branch BUG-1234     # link it to a session by ID or label
+carrier session branch --unlink     # remove the link of this branch
+```
+
+When a recorded shell later checks the branch out while in another session, it says which session the branch belongs to:
+
+```text
+% git checkout BUG-1234-fix
+Switched to branch 'BUG-1234-fix'
+carrier: branch BUG-1234-fix has session 12 · BUG-1234: fix login; switch with carrier attach 12
+```
+
+With [`shell.branch_sessions = "follow"`](../reference/configuration.md#branch_sessions) it switches to that session instead. [`attach --branch`](#attach) attaches to it, and `session show` and `status` list it.
+
+A branch is linked to one session at a time; linking it again moves it. A session can have several branches, and the same branch name in another repository is a different branch. Automatic sessions linked to a branch are kept, so they never expire.
+
 ### `session show`
 
 Replay a session as a timeline: its commands with status and duration, the error lines of failed commands, the notes taken along the way, and the outcome:
@@ -745,7 +781,7 @@ Outcome: pool size was 0 after the config change
 14:20  ✓  kubectl get pods -n db  0.8s
 ```
 
-The directory and Git branch are shown when they change. Failed commands show their error lines, picked the same way as [similar-failure hints](../reference/configuration.md#similar_failures); `--lines` sets how many (3 by default, `0` for none). Use [`carrier show <run>`](#show) for a command's full output.
+Branches [linked to the session](#session-branch) are listed under the summary line, with their repository. The directory and Git branch are shown when they change. Failed commands show their error lines, picked the same way as [similar-failure hints](../reference/configuration.md#similar_failures); `--lines` sets how many (3 by default, `0` for none). Use [`carrier show <run>`](#show) for a command's full output.
 
 | Flag          | Meaning                                                  |
 | ------------- | -------------------------------------------------------- |

@@ -59,6 +59,11 @@ func Check(cfg Config) []Issue {
 	if _, err := ParseRetention(cfg.Shell.AutoSessionRetention); err != nil {
 		issues = append(issues, Issue{Level: IssueError, Field: "shell.auto_session_retention", Message: "invalid retention: " + err.Error()})
 	}
+	switch cfg.Shell.BranchSessions {
+	case BranchOff, BranchSuggest, BranchFollow:
+	default:
+		issues = append(issues, Issue{Level: IssueError, Field: "shell.branch_sessions", Message: fmt.Sprintf("must be %q, %q, or %q", BranchSuggest, BranchFollow, BranchOff)})
+	}
 	if age := strings.TrimSpace(cfg.Hints.SimilarMinAge); age != "" {
 		if _, err := duration.Parse(age); err != nil {
 			issues = append(issues, Issue{Level: IssueError, Field: "hints.similar_min_age", Message: "invalid duration: " + err.Error()})

@@ -23,7 +23,7 @@ func (a *app) sessionCmd() *cobra.Command {
 	}
 	cmd.AddCommand(a.sessionLabelCmd(), a.sessionListCmd(), a.sessionKeepCmd(true), a.sessionKeepCmd(false),
 		a.sessionPinCmd(), a.sessionUnpinCmd(), a.sessionReloadCmd(),
-		a.sessionShowCmd(), a.sessionExportCmd(), a.sessionEndCmd())
+		a.sessionShowCmd(), a.sessionExportCmd(), a.sessionEndCmd(), a.sessionBranchCmd())
 	return cmd
 }
 

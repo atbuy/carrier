@@ -50,7 +50,7 @@ func cleanTemp(now time.Time, dryRun bool) int {
 		if !ok || !ownRegularFile(statePath) || !old(statePath, now, cleanMinAge) || processAlive(pid) {
 			continue
 		}
-		for _, path := range []string{statePath, SessionInfoPath(statePath), statePath + ".env"} {
+		for _, path := range []string{statePath, SessionInfoPath(statePath), statePath + ".env", BranchPath(statePath)} {
 			if ownRegularFile(path) && remove(path, false) {
 				removed++
 			}

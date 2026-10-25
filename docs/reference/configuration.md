@@ -79,6 +79,7 @@ program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
 auto_session_retention = "30d"
 ask_outcome = false
+branch_sessions = "suggest"
 
 [hints]
 similar_failures = false
@@ -288,6 +289,32 @@ The answer is saved as the session's outcome, as with `carrier session end --not
 ```toml
 [shell]
 ask_outcome = true
+```
+
+### `branch_sessions`
+
+Type: string  
+Default: `"suggest"`
+
+What a recorded shell does when a command, such as `git checkout`, moves it to a Git branch [linked to another session](../guide/commands.md#session-branch):
+
+| Value       | Effect                                                                 |
+| ----------- | ---------------------------------------------------------------------- |
+| `"suggest"` | Print one line naming the branch's session and how to switch to it.    |
+| `"follow"`  | Switch the shell to the branch's session, as `carrier attach` does.    |
+| `"off"`     | Do nothing.                                                            |
+
+```text
+% git checkout BUG-1234-fix
+Switched to branch 'BUG-1234-fix'
+carrier: branch BUG-1234-fix has session 12 · BUG-1234: fix login; switch with carrier attach 12
+```
+
+The checkout itself stays in the session it was typed in. Branches without a link, a detached HEAD, and changing to another repository never switch or print anything.
+
+```toml
+[shell]
+branch_sessions = "follow"
 ```
 
 ## `[hints]`
@@ -541,6 +568,7 @@ when no label is provided at invocation time.
 | `shell.program`           | error if blank whitespace                             |
 | `shell.ignore_commands[]` | warning for blank command names                       |
 | `shell.auto_session_retention` | error if invalid or negative                     |
+| `shell.branch_sessions`   | error if not `suggest`, `follow`, or `off`            |
 | `hints.similar_min_age`   | error if invalid or negative                          |
 | `ui.color`                | error if not `auto`, `always`, or `never`             |
 | `ui.theme.*`              | error for invalid `#hex` color values                 |

@@ -192,6 +192,17 @@ From the next command on, runs are recorded into that session, and the prompt in
 
 Outside a recorded shell, or with `--new-shell`, `attach` starts a new shell that records into the session, which is useful to continue a session from another terminal or after a disconnect.
 
+### One session per branch
+
+When each branch is its own task, link the branch to its session. `carrier attach --branch` does it in one step, starting a session named after the branch when there is none:
+
+```bash
+git checkout -b BUG-1234-fix
+carrier attach --branch
+```
+
+`carrier session branch` links the branch checked out here to the session you are in. Afterwards, checking out a linked branch while in another session prints which session it belongs to, and checking out a branch for a quick look leaves you where you are. To switch on every checkout instead, set [`shell.branch_sessions = "follow"`](../reference/configuration.md#branch_sessions). See [`session branch`](../guide/commands.md#session-branch).
+
 ## What gets recorded
 
 Shell mode creates one run per command line. Shell runs use:

@@ -90,7 +90,18 @@ type ShellConfig struct {
 	// AskOutcome asks what a labeled session found when its shell exits, if
 	// it has no outcome yet.
 	AskOutcome bool `toml:"ask_outcome"`
+	// BranchSessions is what a recorded shell does when a Git checkout moves
+	// it to a branch linked to another session: BranchSuggest says so,
+	// BranchFollow switches to that session, BranchOff does nothing.
+	BranchSessions string `toml:"branch_sessions"`
 }
+
+// Values of shell.branch_sessions.
+const (
+	BranchOff     = "off"
+	BranchSuggest = "suggest"
+	BranchFollow  = "follow"
+)
 
 // HintsConfig controls optional hints printed after a run.
 type HintsConfig struct {
@@ -174,6 +185,7 @@ func Default() Config {
 		Shell: ShellConfig{
 			IgnoreCommands:       []string{"nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"},
 			AutoSessionRetention: "30d",
+			BranchSessions:       BranchSuggest,
 		},
 		Hints: HintsConfig{SimilarFailures: false, SimilarMinAge: "1h"},
 		UI: UIConfig{
@@ -294,6 +306,9 @@ func mergeInclude(base *Config, path string) error {
 	}
 	if meta.IsDefined("shell", "ask_outcome") {
 		base.Shell.AskOutcome = overlay.Shell.AskOutcome
+	}
+	if meta.IsDefined("shell", "branch_sessions") {
+		base.Shell.BranchSessions = overlay.Shell.BranchSessions
 	}
 	if meta.IsDefined("hints", "similar_failures") {
 		base.Hints.SimilarFailures = overlay.Hints.SimilarFailures

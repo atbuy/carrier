@@ -793,6 +793,9 @@ type sessionScanner interface {
 // sessionCols lists the shell_sessions columns read by scanSession.
 const sessionCols = `id, label, started_at, ended_at, auto, kept`
 
+// sessionColsQualified is sessionCols for a query that names shell_sessions s.
+const sessionColsQualified = `s.id, s.label, s.started_at, s.ended_at, s.auto, s.kept`
+
 func scanSession(row sessionScanner) (*Session, error) {
 	var sess Session
 	var started sql.NullString

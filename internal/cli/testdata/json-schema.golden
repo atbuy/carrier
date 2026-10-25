@@ -437,6 +437,9 @@ timeline[].type string
 
 ## status
 (root) object
+branch object
+branch.name string
+branch.session_id number
 failed_count number
 inherited bool
 note_count number

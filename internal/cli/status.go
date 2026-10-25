@@ -31,8 +31,12 @@ type terminalStatus struct {
 	Notes    int
 	Outcome  *store.Note
 	Pin      pinStatus
-	TTY      string
-	Shell    string
+	// Branch is the Git branch checked out here, and BranchSession the
+	// session it is linked to, if any.
+	Branch        string
+	BranchSession *store.Session
+	TTY           string
+	Shell         string
 	// TmuxStale is the problem with the tmux server's environment, if any.
 	TmuxStale string
 }
@@ -86,6 +90,10 @@ func (a *app) terminalStatus() terminalStatus {
 		s.TmuxStale = detail
 	}
 	if cwd, err := os.Getwd(); err == nil {
+		if root, branch, ok := currentBranch(cwd); ok {
+			s.Branch = branch
+			s.BranchSession, _ = a.st.BranchSession(root, branch)
+		}
 		path, ref, err := findPin(cwd)
 		s.Pin = pinStatus{Path: path, Ref: ref, Err: err}
 		if path != "" && err == nil {
@@ -173,6 +181,16 @@ func printStatus(out io.Writer, s terminalStatus) {
 			more(`this shell records into another session; "carrier session reload" switches to the pinned one`)
 		}
 	}
+	switch {
+	case s.Branch == "":
+	case s.BranchSession == nil:
+		line("Branch", t.Label.Render(s.Branch)+" "+t.Muted.Render(`not linked to a session; "carrier session branch" links it`))
+	default:
+		line("Branch", t.Label.Render(s.Branch)+" → "+sessionTitle(t, s.BranchSession))
+		if s.Recorded && s.Session != nil && s.Session.ID != s.BranchSession.ID {
+			more(fmt.Sprintf(`this shell records into another session; "carrier attach %d" switches to it`, s.BranchSession.ID))
+		}
+	}
 	if s.Recorded && s.TTY != "" {
 		line("Terminal", t.Muted.Render(s.TTY))
 	}
@@ -200,8 +218,15 @@ type statusView struct {
 	NoteCount   int          `json:"note_count"`
 	Outcome     *noteView    `json:"outcome,omitempty"`
 	Pin         *pinView     `json:"pin,omitempty"`
+	Branch      *branchView  `json:"branch,omitempty"`
 	Terminal    string       `json:"terminal,omitempty"`
 	TmuxStale   string       `json:"tmux_problem,omitempty"`
+}
+
+// branchView is the Git branch checked out here and its linked session.
+type branchView struct {
+	Name      string `json:"name"`
+	SessionID int64  `json:"session_id,omitempty"`
 }
 
 type pinView struct {
@@ -226,6 +251,12 @@ func (s terminalStatus) view() statusView {
 	if s.Outcome != nil {
 		n := noteViewFromStore(*s.Outcome)
 		v.Outcome = &n
+	}
+	if s.Branch != "" {
+		v.Branch = &branchView{Name: s.Branch}
+		if s.BranchSession != nil {
+			v.Branch.SessionID = s.BranchSession.ID
+		}
 	}
 	if s.Pin.Path != "" {
 		v.Pin = &pinView{Path: s.Pin.Path, Ref: s.Pin.Ref}

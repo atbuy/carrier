@@ -40,6 +40,7 @@ Tables:
 | `environments`     | Deduplicated env snapshots (SHA-256 indexed) |
 | `shell_sessions`   | Shell session groupings                      |
 | `notes`            | Notes attached to sessions and runs          |
+| `session_branches` | Git branches linked to sessions              |
 | `run_search`       | FTS5 full-text search index                  |
 | `goose_db_version` | Applied migration versions                   |
 

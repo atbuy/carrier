@@ -40,6 +40,8 @@ type sessionTimeline struct {
 	failed  int
 	notes   int
 	events  []timelineEvent
+	// branches are the Git branches linked to the session.
+	branches []store.BranchLink
 }
 
 func (a *app) loadTimeline(sess *store.Session, opts timelineOptions) (*sessionTimeline, error) {
@@ -55,7 +57,11 @@ func (a *app) loadTimeline(sess *store.Session, opts timelineOptions) (*sessionT
 	if err != nil {
 		return nil, err
 	}
-	tl := &sessionTimeline{session: *sess, outcome: outcome, runs: len(runs), notes: len(notes)}
+	branches, err := a.st.SessionBranches(sess.ID)
+	if err != nil {
+		return nil, err
+	}
+	tl := &sessionTimeline{session: *sess, outcome: outcome, runs: len(runs), notes: len(notes), branches: branches}
 	for i := range runs {
 		r := &runs[i]
 		if r.Status == store.StatusFailed {
@@ -179,6 +185,13 @@ func printTimeline(out io.Writer, tl *sessionTimeline) {
 	}
 	_, _ = fmt.Fprintln(out, title)
 	_, _ = fmt.Fprintln(out, t.Muted.Render(timelineSummary(tl, collapseHome)))
+	if len(tl.branches) > 0 {
+		names := make([]string, len(tl.branches))
+		for i, b := range tl.branches {
+			names[i] = t.Label.Render(b.Branch) + t.Muted.Render(" ("+filepath.Base(b.GitRoot)+")")
+		}
+		_, _ = fmt.Fprintln(out, t.Muted.Render("Branches: ")+strings.Join(names, t.Muted.Render(", ")))
+	}
 	if tl.outcome != nil {
 		_, _ = fmt.Fprintln(out, "\n"+t.Bold.Render("Outcome: ")+tl.outcome.Text)
 	}
