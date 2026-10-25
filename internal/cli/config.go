@@ -10,22 +10,51 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/atbuy/carrier/internal/config"
+	"github.com/atbuy/carrier/internal/tui"
 )
 
 func (a *app) configCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "config <command>",
+		Use:     "config [command]",
 		Aliases: []string{"cfg"},
-		Short:   "inspect and create config",
+		Short:   "change settings, or inspect and create config",
+		Long: `Without a command, open the settings: scroll through every setting, toggle
+it, pick one of its values, or type a new one. Each change is saved to the
+config file right away, and carrier uses it from its next command. Comments
+and everything else in the file stay as they are, so you can still edit the
+file by hand.`,
 		Example: strings.Join([]string{
+			"  carrier config",
 			"  carrier config path",
 			"  carrier config init",
 			"  carrier config check",
 			"  carrier config show",
 			"  carrier config init --force",
 		}, "\n"),
+	}
+	cmd.Args = cobra.NoArgs
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+			return cmd.Help()
+		}
+		path, err := config.Path()
+		if err != nil {
+			return err
+		}
+		if _, err := config.LoadFrom(path); err != nil {
+			return fmt.Errorf("%s: %w\nfix the file by hand first; \"carrier config check\" checks it", collapseHome(path), err)
+		}
+		summary, err := tui.RunConfig(path)
+		if err != nil {
+			return err
+		}
+		if summary != "" {
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), summary)
+		}
+		return nil
 	}
 	cmd.AddCommand(configPathCmd(), configShowCmd(), configInitCmd(), configCheckCmd())
 	return cmd

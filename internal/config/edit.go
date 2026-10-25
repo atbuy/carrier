@@ -30,22 +30,7 @@ func SetValue(content []byte, section, key, value string) ([]byte, error) {
 		lines = lines[:len(lines)-1]
 	}
 
-	start, end := -1, len(lines) // section body is lines[start:end]
-	current := ""
-	for i, line := range lines {
-		m := tableHeader.FindStringSubmatch(line)
-		if m == nil {
-			continue
-		}
-		if current == section && start >= 0 {
-			end = i
-			break
-		}
-		current = strings.TrimSpace(m[1])
-		if current == section && !strings.HasPrefix(strings.TrimSpace(line), "[[") {
-			start = i + 1
-		}
-	}
+	start, end := sectionBody(lines, section)
 
 	var out []string
 	switch {
@@ -56,18 +41,11 @@ func SetValue(content []byte, section, key, value string) ([]byte, error) {
 		}
 		out = append(out, "["+section+"]", key+" = "+value)
 	default:
-		replaced := false
-		for i := start; i < end; i++ {
+		if i, last, rest, found := findKey(lines, start, end, key); found {
 			m := keyLine.FindStringSubmatch(lines[i])
-			if m == nil || m[2] != key {
-				continue
-			}
-			lines[i] = m[1] + m[2] + m[3] + value + trailingComment(m[4])
-			replaced = true
-			break
-		}
-		if replaced {
-			out = lines
+			out = append(out, lines[:i]...)
+			out = append(out, m[1]+m[2]+m[3]+value+trailingComment(rest))
+			out = append(out, lines[last+1:]...)
 			break
 		}
 		// Insert after the section's last non-blank line.
@@ -90,6 +68,92 @@ func SetValue(content []byte, section, key, value string) ([]byte, error) {
 		return nil, err
 	}
 	return []byte(result), nil
+}
+
+// sectionBody returns the lines of section's table as lines[start:end];
+// start is -1 when the file has no such table.
+func sectionBody(lines []string, section string) (start, end int) {
+	start, end = -1, len(lines)
+	current := ""
+	for i, line := range lines {
+		m := tableHeader.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		if current == section && start >= 0 {
+			return start, i
+		}
+		current = strings.TrimSpace(m[1])
+		if current == section && !strings.HasPrefix(strings.TrimSpace(line), "[[") {
+			start = i + 1
+		}
+	}
+	return start, end
+}
+
+// findKey finds key among lines[start:end]. Its value runs from line i to
+// line last, as an array written over several lines does; rest is what
+// follows "key = " on line i when the value fits on it, else what follows the
+// closing bracket on line last, so a trailing comment can be kept.
+func findKey(lines []string, start, end int, key string) (i, last int, rest string, found bool) {
+	for i = start; i < end; i++ {
+		m := keyLine.FindStringSubmatch(lines[i])
+		if m == nil || m[2] != key {
+			continue
+		}
+		if !strings.HasPrefix(m[4], "[") {
+			return i, i, m[4], true
+		}
+		depth := 0
+		var quote byte
+		for last = i; last < end; last++ {
+			line := lines[last]
+			if last == i {
+				line = m[4]
+			}
+			for j := 0; j < len(line); j++ {
+				c := line[j]
+				switch {
+				case quote != 0:
+					if c == '\\' && quote == '"' {
+						j++
+					} else if c == quote {
+						quote = 0
+					}
+				case c == '"' || c == '\'':
+					quote = c
+				case c == '#':
+					j = len(line)
+				case c == '[':
+					depth++
+				case c == ']':
+					depth--
+					if depth == 0 {
+						return i, last, line[j+1:], true
+					}
+				}
+			}
+		}
+		return i, i, m[4], true
+	}
+	return 0, 0, "", false
+}
+
+// RemoveValue returns content without section.key, so the setting falls back
+// to its default or to an earlier file. Only the key's lines change. Content
+// without the key is returned as it is.
+func RemoveValue(content []byte, section, key string) []byte {
+	lines := strings.Split(string(content), "\n")
+	start, end := sectionBody(lines, section)
+	if start < 0 {
+		return content
+	}
+	i, last, _, found := findKey(lines, start, end, key)
+	if !found {
+		return content
+	}
+	out := append(append([]string{}, lines[:i]...), lines[last+1:]...)
+	return []byte(strings.Join(out, "\n"))
 }
 
 // trailingComment returns what follows a TOML value on its line: the
@@ -128,7 +192,12 @@ func checkValue(content []byte, section, key, value string) error {
 	if _, err := toml.Decode("v = "+value, &want); err != nil {
 		return fmt.Errorf("invalid value %s: %w", value, err)
 	}
-	table, ok := doc[section].(map[string]any)
+	table, ok := map[string]any(doc), true
+	for _, part := range strings.Split(section, ".") {
+		if table, ok = table[part].(map[string]any); !ok {
+			break
+		}
+	}
 	if !ok || fmt.Sprint(table[key]) != fmt.Sprint(want["v"]) {
 		return fmt.Errorf("could not set %s.%s safely; edit the config by hand", section, key)
 	}
@@ -154,7 +223,7 @@ func DefinedIn(mainPath, section, key string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("includes: %s: %w", includes[i], err)
 		}
-		if incMeta.IsDefined(section, key) {
+		if incMeta.IsDefined(append(strings.Split(section, "."), key)...) {
 			return includes[i], nil
 		}
 	}

@@ -181,3 +181,18 @@ min_duration = "soon"
 		}
 	}
 }
+
+// TestConfigWithoutTerminalPrintsHelp checks that "carrier config" in a pipe
+// or script prints its help instead of opening the settings.
+func TestConfigWithoutTerminalPrintsHelp(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := (&app{}).configCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	if !strings.Contains(out.String(), "open the settings") || !strings.Contains(out.String(), "carrier config check") {
+		t.Fatalf("output:\n%s", out.String())
+	}
+}

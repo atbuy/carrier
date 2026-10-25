@@ -139,7 +139,7 @@ func TestCarrierCLIIntegrationConfigInit(t *testing.T) {
 	help := runCarrier(t, env, "config", "--help")
 	help.requireExit(t, 0)
 	for _, want := range []string{
-		"config <command>",
+		"config [command]",
 		"COMMANDS",
 		"path        show config file path",
 		"show        show active config",
