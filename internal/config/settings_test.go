@@ -268,3 +268,45 @@ func TestSetWritesThroughSymlink(t *testing.T) {
 		t.Fatalf("linked file:\n%s", readConfig(t, real))
 	}
 }
+
+func TestRemoveValueDropsEmptyTable(t *testing.T) {
+	for _, tc := range []struct{ name, content, section, key, want string }{
+		{
+			"last table", "# mine\n\n[shell]\nask_outcome = true\n", "shell", "ask_outcome",
+			"# mine\n",
+		},
+		{
+			"between tables", "[notify]\nsuccess = false\n\n[shell]\nask_outcome = true\n\n[ui]\ncolor = \"never\"\n", "shell", "ask_outcome",
+			"[notify]\nsuccess = false\n\n[ui]\ncolor = \"never\"\n",
+		},
+		{
+			"first table", "[shell]\nask_outcome = true\n\n[ui]\ncolor = \"never\"\n", "shell", "ask_outcome",
+			"[ui]\ncolor = \"never\"\n",
+		},
+		{
+			"only table", "[shell]\nask_outcome = true\n", "shell", "ask_outcome",
+			"",
+		},
+		{
+			"other keys left", "[shell]\nask_outcome = true\nprogram = \"zsh\"\n", "shell", "ask_outcome",
+			"[shell]\nprogram = \"zsh\"\n",
+		},
+		{
+			"comment left", "[shell]\n# for work\nask_outcome = true\n", "shell", "ask_outcome",
+			"[shell]\n# for work\n",
+		},
+		{
+			"nested table", "[ui]\ncolor = \"never\"\n\n[ui.theme]\naccent = \"#BD93F9\"\n", "ui.theme", "accent",
+			"[ui]\ncolor = \"never\"\n",
+		},
+	} {
+		got := string(RemoveValue([]byte(tc.content), tc.section, tc.key))
+		if got != tc.want {
+			t.Errorf("%s:\ngot:\n%q\nwant:\n%q", tc.name, got, tc.want)
+		}
+		var doc map[string]any
+		if _, err := toml.Decode(got, &doc); err != nil {
+			t.Errorf("%s: result is not TOML: %v", tc.name, err)
+		}
+	}
+}

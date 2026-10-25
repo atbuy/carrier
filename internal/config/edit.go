@@ -140,8 +140,9 @@ func findKey(lines []string, start, end int, key string) (i, last int, rest stri
 }
 
 // RemoveValue returns content without section.key, so the setting falls back
-// to its default or to an earlier file. Only the key's lines change. Content
-// without the key is returned as it is.
+// to its default or to an earlier file. Only the key's lines change, and the
+// table's header when nothing else is left in the table; a table that still
+// holds a comment is kept. Content without the key is returned as it is.
 func RemoveValue(content []byte, section, key string) []byte {
 	lines := strings.Split(string(content), "\n")
 	start, end := sectionBody(lines, section)
@@ -153,7 +154,29 @@ func RemoveValue(content []byte, section, key string) []byte {
 		return content
 	}
 	out := append(append([]string{}, lines[:i]...), lines[last+1:]...)
-	return []byte(strings.Join(out, "\n"))
+	end -= last + 1 - i
+	for _, line := range out[start:end] {
+		if strings.TrimSpace(line) != "" {
+			return []byte(strings.Join(out, "\n"))
+		}
+	}
+	// The table is empty: remove its header, and the blank lines before it,
+	// keeping one blank line between the tables around it and the file's
+	// final newline.
+	from := start - 1
+	for from > 0 && strings.TrimSpace(out[from-1]) == "" {
+		from--
+	}
+	kept := append([]string{}, out[:from]...)
+	switch {
+	case end < len(out) && from > 0:
+		kept = append(append(kept, ""), out[end:]...)
+	case end < len(out):
+		kept = append(kept, out[end:]...)
+	case from > 0 && strings.HasSuffix(string(content), "\n"):
+		kept = append(kept, "")
+	}
+	return []byte(strings.Join(kept, "\n"))
 }
 
 // trailingComment returns what follows a TOML value on its line: the
