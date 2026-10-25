@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -230,4 +231,54 @@ func quote(s string) string {
 	_ = toml.NewEncoder(&buf).Encode(map[string]string{"v": s})
 	_, value, _ := strings.Cut(strings.TrimSpace(buf.String()), " = ")
 	return value
+}
+
+// ParseValue reads the value of s from the command line, for "carrier config
+// set": true or false (also on, off, yes, no) for a toggle, one of the
+// choices, a whole number, or text. A list takes each argument as an item;
+// anything else takes exactly one.
+func ParseValue(s Setting, args []string) (any, error) {
+	if s.Kind == KindList {
+		if len(args) == 0 {
+			return nil, fmt.Errorf("%s is a list; give one or more items", s.Name())
+		}
+		return args, nil
+	}
+	if len(args) != 1 {
+		return nil, fmt.Errorf("%s takes one value; quote it if it has spaces", s.Name())
+	}
+	arg := args[0]
+	switch s.Kind {
+	case KindBool:
+		switch strings.ToLower(arg) {
+		case "true", "on", "yes":
+			return true, nil
+		case "false", "off", "no":
+			return false, nil
+		}
+		return nil, fmt.Errorf("%s is on or off; use true or false", s.Name())
+	case KindChoice:
+		if !slices.Contains(s.Choices, arg) {
+			return nil, fmt.Errorf("%s must be %s", s.Name(), orList(s.Choices))
+		}
+	case KindInt:
+		n, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%s must be a whole number", s.Name())
+		}
+		return n, nil
+	}
+	return arg, nil
+}
+
+// orList quotes values as `"a", "b", or "c"`.
+func orList(values []string) string {
+	quoted := make([]string, len(values))
+	for i, v := range values {
+		quoted[i] = strconv.Quote(v)
+	}
+	if len(quoted) <= 2 {
+		return strings.Join(quoted, " or ")
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + ", or " + quoted[len(quoted)-1]
 }

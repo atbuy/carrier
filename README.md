@@ -176,6 +176,7 @@ carrier export 42
 carrier rerun 42
 carrier doctor
 carrier config
+carrier config set shell.branch_sessions follow
 carrier config path
 carrier config show
 carrier config check

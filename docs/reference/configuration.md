@@ -16,6 +16,15 @@ This lists every setting, grouped like the file, with its value. Move with the a
 
 Each change is checked like `carrier config check` does and saved to the file right away; an invalid value is not saved. Only the setting's line changes, so comments and the rest of the file stay as they are. carrier reads the file on every command, so a change applies from the next one, also in recorded shells. When an [include](#includes) sets the value, the include is changed, since its value is the one that takes effect. `[[auto_label]]` rules and `includes` are edited in the file.
 
+Change one setting from the command line or a script with `carrier config set`, which saves it the same way:
+
+```bash
+carrier config set shell.branch_sessions follow
+carrier config set hints.similar_failures true
+carrier config set shell.ignore_commands --add k9s
+carrier config set --reset shell.branch_sessions
+```
+
 Show path:
 
 ```bash

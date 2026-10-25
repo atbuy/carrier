@@ -196,10 +196,16 @@ func TestCompleteFlagValues(t *testing.T) {
 		{[]string{"tail", "--stream", ""}, []string{"both", "stdout", "stderr", "terminal"}},
 		{[]string{"setup", "--shell", ""}, []string{"zsh", "bash", "fish"}},
 		{[]string{"completion", ""}, []string{"bash", "zsh", "fish", "powershell"}},
+		{[]string{"config", "set", "shell.branch_sessions", ""}, []string{"suggest", "follow", "off"}},
+		{[]string{"config", "set", "hints.similar_failures", ""}, []string{"true", "false"}},
+		{[]string{"config", "set", "--reset", "ui.color", ""}, nil},
 	} {
 		if values, _, _ := complete(t, a, tc.args...); !slices.Equal(values, tc.want) {
 			t.Errorf("%q: got %q, want %q", tc.args, values, tc.want)
 		}
+	}
+	if values, descs, _ := complete(t, a, "config", "set", "shell.b"); !slices.Equal(values, []string{"shell.branch_sessions"}) || descs[0] != "Branch sessions" {
+		t.Errorf("config set shell.b: got %q %q", values, descs)
 	}
 	values, _, _ := complete(t, a, "clean", "--older-than", "")
 	if !slices.Contains(values, "30d") {
