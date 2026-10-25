@@ -8,9 +8,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	_ "modernc.org/sqlite"
 
@@ -281,9 +283,81 @@ type HistoryFilter struct {
 	Command   string    // substring match on command
 	Label     string    // substring match on label
 	SessionID *int64    // exact match on session_id
+	// RepoRoots keeps runs from the Git repository at any of these roots,
+	// the same directory spelled differently, such as with and without
+	// symlinks resolved. See repoCondition.
+	RepoRoots []string
+}
+
+// repoCondition matches runs from the repository at any of roots: runs whose
+// Git root is one of them, and runs with no Git root recorded whose directory
+// is a root or inside one. A run in a nested repository, such as a submodule,
+// has its own Git root and is left out. Paths compare exactly, ignoring case
+// on Windows, whose file systems do; substr counts characters, as SQLite does.
+func repoCondition(roots []string) (string, []any) {
+	col := func(name string) string {
+		if runtime.GOOS == "windows" {
+			return "LOWER(" + name + ")"
+		}
+		return name
+	}
+	fold := func(s string) string {
+		if runtime.GOOS == "windows" {
+			return strings.ToLower(s)
+		}
+		return s
+	}
+	var parts []string
+	var args []any
+	for _, root := range roots {
+		root = fold(filepath.Clean(root))
+		inside := strings.TrimSuffix(root, string(filepath.Separator)) + string(filepath.Separator)
+		parts = append(parts, `(`+col("COALESCE(r.git_root, '')")+` = ? OR (COALESCE(r.git_root, '') = '' AND (`+
+			col("r.cwd")+` = ? OR substr(`+col("r.cwd")+`, 1, ?) = ?)))`)
+		args = append(args, root, root, utf8.RuneCountInString(inside), inside)
+	}
+	return "(" + strings.Join(parts, " OR ") + ")", args
 }
 
 func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
+	where, args := historyWhere(f)
+	q := runSelect
+	if len(where) > 0 {
+		q += " WHERE " + strings.Join(where, " AND ")
+	}
+	q += " ORDER BY r.id DESC LIMIT ?"
+	args = append(args, limit)
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanRuns(rows)
+}
+
+// HistorySessionIDs returns the sessions that have at least one run matching
+// f, for listing sessions instead of runs.
+func (s *Store) HistorySessionIDs(f HistoryFilter) (map[int64]bool, error) {
+	where, args := historyWhere(f)
+	where = append(where, "r.session_id IS NOT NULL")
+	rows, err := s.db.Query(`SELECT DISTINCT r.session_id `+runFrom+` WHERE `+strings.Join(where, " AND "), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	ids := map[int64]bool{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids[id] = true
+	}
+	return ids, rows.Err()
+}
+
+// historyWhere turns f into WHERE conditions and their arguments.
+func historyWhere(f HistoryFilter) ([]string, []any) {
 	where := []string{}
 	args := []any{}
 	if f.Status != "" {
@@ -314,18 +388,12 @@ func (s *Store) ListHistory(limit int, f HistoryFilter) ([]Run, error) {
 		where = append(where, "session_id = ?")
 		args = append(args, *f.SessionID)
 	}
-	q := runSelect
-	if len(where) > 0 {
-		q += " WHERE " + strings.Join(where, " AND ")
+	if len(f.RepoRoots) > 0 {
+		cond, condArgs := repoCondition(f.RepoRoots)
+		where = append(where, cond)
+		args = append(args, condArgs...)
 	}
-	q += " ORDER BY r.id DESC LIMIT ?"
-	args = append(args, limit)
-	rows, err := s.db.Query(q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	return scanRuns(rows)
+	return where, args
 }
 
 func (s *Store) ListOlderThan(cutoff time.Time) ([]Run, error) {

@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -287,5 +291,80 @@ func TestShortFlagsAreConsistent(t *testing.T) {
 		if f := cmd.Flags().ShorthandLookup("L"); f == nil || f.Name != "label" {
 			t.Errorf("%s -L should be --label, got %v", name, f)
 		}
+	}
+}
+
+func TestHistoryRepo(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	t.Setenv("CARRIER_COLOR", "never")
+	st := openCmdStore(t)
+	defer func() { _ = st.Close() }()
+	a := &app{st: st}
+
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "api")
+	if err := os.MkdirAll(filepath.Join(repo, "cmd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", repo, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	sessInRepo, _ := st.CreateSession(store.CreateSession{Label: "BUG-1234: fix login", StartedAt: time.Now()})
+	sessElsewhere, _ := st.CreateSession(store.CreateSession{Label: "web work", StartedAt: time.Now()})
+	run := func(cmd, cwd, root string, session int64) int64 {
+		t.Helper()
+		r := store.CreateRun{Status: store.StatusRunning, Mode: store.ModeShell, Command: cmd, ArgvJSON: "[]", CWD: cwd, GitRoot: root, StartedAt: time.Now()}
+		if session != 0 {
+			r.SessionID = &session
+		}
+		id, err := st.CreateRun(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	inRepo := run("make test", filepath.Join(repo, "cmd"), repo, sessInRepo)
+	noRoot := run("ls", repo, "", 0)
+	_ = run("npm test", filepath.Join(dir, "web"), filepath.Join(dir, "web"), sessElsewhere)
+	_ = run("ls", repo+"-v2", "", 0)
+
+	// From a subdirectory of the repository.
+	t.Chdir(filepath.Join(repo, "cmd"))
+	ids := func(flags map[string]string) []int64 {
+		t.Helper()
+		out, _, err := runEmpty(t, a.historyCmd(), nil, flags)
+		if err != nil {
+			t.Fatalf("history %v: %v", flags, err)
+		}
+		var views []struct {
+			ID int64 `json:"id"`
+		}
+		if err := json.Unmarshal([]byte(out), &views); err != nil {
+			t.Fatalf("history %v: %v\n%s", flags, err, out)
+		}
+		var got []int64
+		for _, v := range views {
+			got = append(got, v.ID)
+		}
+		return got
+	}
+	if got, want := ids(map[string]string{"repo": "true", "json": "true"}), []int64{inRepo, noRoot}; !slices.Equal(got, want) {
+		t.Fatalf("history --repo = %v, want %v", got, want)
+	}
+	if got := ids(map[string]string{"repo": "true", "command": "make", "json": "true"}); !slices.Equal(got, []int64{inRepo}) {
+		t.Fatalf("history --repo --command make = %v, want [%d]", got, inRepo)
+	}
+	// With --sessions-only, the sessions with runs in the repository.
+	if got := ids(map[string]string{"repo": "true", "sessions-only": "true", "json": "true"}); !slices.Equal(got, []int64{sessInRepo}) {
+		t.Fatalf("history --repo --sessions-only = %v, want [%d]", got, sessInRepo)
+	}
+
+	// Outside any repository it says so, instead of showing everything.
+	t.Chdir(t.TempDir())
+	_, _, err := runEmpty(t, a.historyCmd(), nil, map[string]string{"repo": "true"})
+	if err == nil || !strings.Contains(err.Error(), "not in a Git repository") {
+		t.Fatalf("history --repo outside a repository: err = %v", err)
 	}
 }

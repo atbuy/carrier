@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1724,4 +1725,56 @@ func createStatsRun(t *testing.T, st *Store, status, command, argv string, start
 		t.Fatalf("finish stats run: %v", err)
 	}
 	return id
+}
+
+func TestListHistoryRepo(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = st.Close() }()
+	repo := filepath.Join(string(filepath.Separator)+"home", "dev", "api")
+	resolved := filepath.Join(string(filepath.Separator)+"data", "src", "api")
+	ids := map[string]int64{}
+	for _, r := range []struct{ name, cwd, root string }{
+		{"root", repo, repo},
+		{"subdir", filepath.Join(repo, "cmd"), repo},
+		{"resolved", resolved, resolved},
+		{"no git root", filepath.Join(repo, "web"), ""},
+		{"sibling", repo + "-v2", ""},
+		{"submodule", filepath.Join(repo, "vendor", "lib"), filepath.Join(repo, "vendor", "lib")},
+		{"other", filepath.Join(string(filepath.Separator)+"home", "dev", "web"), filepath.Join(string(filepath.Separator)+"home", "dev", "web")},
+	} {
+		id, err := st.CreateRun(CreateRun{
+			Status: StatusRunning, Mode: ModeRun, Command: r.name, ArgvJSON: "[]", CWD: r.cwd, GitRoot: r.root, StartedAt: time.Now(),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[r.name] = id
+	}
+	runIDs := func(f HistoryFilter) []int64 {
+		t.Helper()
+		runs, err := st.ListHistory(100, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []int64
+		for _, r := range runs {
+			out = append(out, r.ID)
+		}
+		slices.Sort(out)
+		return out
+	}
+
+	// The repository spelled both ways: as reached, and with symlinks resolved.
+	got := runIDs(HistoryFilter{RepoRoots: []string{repo, resolved}})
+	want := []int64{ids["root"], ids["subdir"], ids["resolved"], ids["no git root"]}
+	if !slices.Equal(got, want) {
+		t.Fatalf("--repo runs = %v, want %v (root, subdir, resolved, no git root)", got, want)
+	}
+	// It combines with the other filters.
+	if got := runIDs(HistoryFilter{RepoRoots: []string{repo}, Command: "sub"}); !slices.Equal(got, []int64{ids["subdir"]}) {
+		t.Fatalf("--repo with --command = %v, want the subdir run", got)
+	}
 }

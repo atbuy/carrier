@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.7.0] - 2026-10-25
+
+### Added
+
+- `carrier history --repo` shows only runs from the Git repository you are in, wherever in it they ran, including runs recorded before carrier stored Git roots. It combines with the other filters, and with `--sessions-only` lists the sessions that have runs in the repository.
+
 ## [1.6.0] - 2026-10-25
 
 ### Added
