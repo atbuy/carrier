@@ -104,6 +104,7 @@ failure = true
 [shell]
 program = "/bin/zsh"
 ignore_commands = ["vim"]
+branch_sessions = "follow"
 `), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -125,7 +126,7 @@ ignore_commands = ["vim"]
 	if cfg.NotifyMinDuration() != 3*time.Second {
 		t.Fatalf("notify duration mismatch: %s", cfg.NotifyMinDuration())
 	}
-	if cfg.Shell.Program != "/bin/zsh" || len(cfg.Shell.IgnoreCommands) != 1 {
+	if cfg.Shell.Program != "/bin/zsh" || len(cfg.Shell.IgnoreCommands) != 1 || cfg.Shell.BranchSessions != BranchFollow {
 		t.Fatalf("shell config mismatch: %#v", cfg.Shell)
 	}
 }
@@ -1088,5 +1089,22 @@ func TestDurationSettingsAcceptDays(t *testing.T) {
 	}
 	if got := cfg.AutoSessionRetentionDuration(); got != 36*time.Hour {
 		t.Errorf("AutoSessionRetentionDuration = %s", got)
+	}
+}
+
+func TestBranchSessionsDefaultAndCheck(t *testing.T) {
+	cfg := Default()
+	if cfg.Shell.BranchSessions != BranchSuggest {
+		t.Fatalf("default branch_sessions = %q, want %q", cfg.Shell.BranchSessions, BranchSuggest)
+	}
+	for _, mode := range []string{BranchSuggest, BranchFollow, BranchOff} {
+		cfg.Shell.BranchSessions = mode
+		if hasIssue(Check(cfg), "shell.branch_sessions") {
+			t.Errorf("%q should be allowed", mode)
+		}
+	}
+	cfg.Shell.BranchSessions = "always"
+	if !hasIssue(Check(cfg), "shell.branch_sessions") {
+		t.Fatal(`missing shell.branch_sessions issue for "always"`)
 	}
 }

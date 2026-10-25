@@ -57,6 +57,7 @@ func (a *app) internalBeginCmd() *cobra.Command {
 			// command starts; it starts no process, so the command does not
 			// wait. "git status" and the environment come in the background.
 			head, inRepo := gitmeta.Head(cwd)
+			a.noteRepoBranch(statePath, head)
 			id, err := a.st.CreateRun(store.CreateRun{
 				Status: store.StatusRunning, Mode: store.ModeShell, Command: command, ArgvJSON: string(argvJSON),
 				CWD: cwd, StartedAt: started, Hostname: host, Shell: os.Getenv("SHELL"),
@@ -112,7 +113,13 @@ func (a *app) internalEndCmd() *cobra.Command {
 					_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
 				}
 			}
-			return sf.Write(carriershell.State{SessionID: state.SessionID})
+			if err := sf.Write(carriershell.State{SessionID: state.SessionID}); err != nil {
+				return err
+			}
+			// After the run is recorded where it ran: a checkout belongs to
+			// the session it was typed in, even when it leads to another.
+			a.noticeBranchChange(statePath)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&statePath, "state", "", "state file")

@@ -48,21 +48,33 @@ func (a *app) switchSession(cmd *cobra.Command, statePath string, sess *store.Se
 		_, _ = fmt.Fprintf(out, "carrier: already in session %s\n", sessionName(sess))
 		return nil
 	}
+	if err := a.moveShell(sf, state, sess); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(out, "carrier: switched to session %s\n", sessionName(sess))
+	if hooksIgnoreSessionInfo(statePath) {
+		printOldHooksHint(cmd, state.SessionID)
+	}
+	return nil
+}
+
+// moveShell points the recorded shell with state at sess: its run in progress
+// is kept, its session file is updated for the prompt, and the session it
+// leaves is ended, or deleted when it is an empty automatic session.
+func (a *app) moveShell(sf *carriershell.StateFile, state carriershell.State, sess *store.Session) error {
 	if err := a.st.ReopenSession(sess.ID); err != nil {
 		return err
 	}
 	if err := sf.Write(carriershell.State{CurrentID: state.CurrentID, CurrentLog: state.CurrentLog, SessionID: sess.ID}); err != nil {
 		return err
 	}
-	oldHooks := hooksIgnoreSessionInfo(statePath)
-	if err := carriershell.WriteSessionInfo(statePath, sess.ID, sess.Label); err != nil {
-		return err
+	// A shell from a carrier older than 1.1.0 has no session file to update.
+	if !hooksIgnoreSessionInfo(sf.Path) {
+		if err := carriershell.WriteSessionInfo(sf.Path, sess.ID, sess.Label); err != nil {
+			return err
+		}
 	}
 	a.leaveSession(state.SessionID)
-	_, _ = fmt.Fprintf(out, "carrier: switched to session %s\n", sessionName(sess))
-	if oldHooks {
-		printOldHooksHint(cmd, state.SessionID)
-	}
 	return nil
 }
 

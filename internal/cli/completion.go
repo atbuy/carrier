@@ -161,7 +161,8 @@ func (a *app) completionSpecs() completionSpecs {
 		"carrier label":          onlyFirst(runs),
 		"carrier similar":        onlyFirst(runs),
 		"carrier diff":           a.completeRuns(runCompletion{pairs: true}),
-		"carrier attach":         onlyFirst(a.completeSessions(sessionCompletion{notCurrent: true})),
+		"carrier attach":         unlessFlag("branch", onlyFirst(a.completeSessions(sessionCompletion{notCurrent: true}))),
+		"carrier session branch": onlyFirst(sessions),
 		"carrier session show":   onlyFirst(sessions),
 		"carrier session export": onlyFirst(sessions),
 		"carrier session end":    onlyFirst(sessions),
@@ -209,6 +210,17 @@ func (a *app) completionSpecs() completionSpecs {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// unlessFlag completes with fn unless the flag is set, which replaces the
+// argument, as --branch does for attach.
+func unlessFlag(flag string, fn cobra.CompletionFunc) cobra.CompletionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+		if f := cmd.Flags().Lookup(flag); f != nil && f.Changed {
+			return nil, noFiles
+		}
+		return fn(cmd, args, toComplete)
+	}
+}
 
 // onlyFirst completes the first argument with fn and nothing after it.
 func onlyFirst(fn cobra.CompletionFunc) cobra.CompletionFunc {

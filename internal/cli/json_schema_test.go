@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -74,6 +75,13 @@ func TestJSONOutputSchema(t *testing.T) {
 		t.Chdir(dir)
 		t.Setenv("TMUX", "")
 		if err := os.WriteFile(pinFileName, []byte("BUG-1234\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		// A repository on a branch linked to the session, for "branch".
+		if out, err := exec.Command("git", "init", "-q", "-b", "main").CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v\n%s", err, out)
+		}
+		if err := st.LinkBranch(canonicalRepoRoot(dir), "main", 1, time.Now()); err != nil {
 			t.Fatal(err)
 		}
 		recordedShell(t, a, dir, 1, "make test")

@@ -7,6 +7,10 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 ### Added
 
 - `carrier history --repo` shows only runs from the Git repository you are in, wherever in it they ran, including runs recorded before carrier stored Git roots. It combines with the other filters, and with `--sessions-only` lists the sessions that have runs in the repository.
+- Git branches can be linked to sessions. `carrier session branch` links the branch checked out here to this shell's session, or to another by ID or label, and `--unlink` removes the link. When a command such as `git checkout` moves a recorded shell to a branch linked to another session, carrier prints one line naming that session and how to switch.
+- `carrier attach --branch` switches to the session of the branch checked out here. Without one it uses a session labeled like the branch, or starts a session named after it, and links the branch.
+- `shell.branch_sessions` in the config: `"follow"` switches the shell to the branch's session on checkout, `"off"` turns the line off, and `"suggest"`, the default, prints it.
+- `carrier status` shows the branch checked out here and its session, also as `branch` in `--json`, and `carrier session show` lists the session's branches.
 
 ## [1.6.0] - 2026-10-25
 
