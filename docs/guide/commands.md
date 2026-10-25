@@ -614,6 +614,19 @@ carrier attach 5
 carrier attach backend-debug
 carrier attach 1234
 carrier attach --branch   # the session of the Git branch checked out here
+carrier attach            # pick a session from a list
+```
+
+Without a session, `attach` lists recent sessions to pick from. Type to filter them by ID or words of their label, move with ↑/↓, and press Enter to attach or Esc to cancel. The session [pinned](#session-pin) in the current directory and the one [linked to the branch](#session-branch) checked out there come first, marked as such:
+
+```text
+% c a
+Attach to a session
+› type to filter by ID or label
+❯ 12  BUG-1234: fix login       14 runs · 2h ago · pinned here
+   9  no label                  3 runs · 5h ago · ended
+   7  api refactor              21 runs · 2d ago · kept
+↑/↓ move · enter attach · esc cancel
 ```
 
 See [Referring to sessions](#referring-to-sessions) for how labels are matched.

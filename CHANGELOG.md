@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.8.0] - 2026-10-25
+
+### Added
+
+- `carrier attach` without a session lists recent sessions to pick from, with their label, number of runs, and age. Typing filters them by ID or label, and Enter attaches. The session pinned in the current directory and the one linked to the branch checked out there come first. Outside a terminal, attach still asks for a session.
+
 ## [1.7.0] - 2026-10-25
 
 ### Added

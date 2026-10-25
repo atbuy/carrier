@@ -461,3 +461,14 @@ func TestSessionLabelUpdatesOtherShells(t *testing.T) {
 		t.Fatalf("the other shell's session file = %q", b)
 	}
 }
+
+// TestAttachWithoutSessionOutsideTerminal checks that attach without a
+// session asks for one when it cannot show the picker.
+func TestAttachWithoutSessionOutsideTerminal(t *testing.T) {
+	a, _ := autoSessionApp(t)
+	newSession(t, a, "deploy", false)
+	_, _, err := runEmpty(t, a.attachCmd(), nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "give a session ID or label") {
+		t.Fatalf("err = %v", err)
+	}
+}
