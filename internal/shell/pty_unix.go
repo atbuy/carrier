@@ -48,6 +48,10 @@ func startPTY(cmd *exec.Cmd) (*os.File, error) {
 	return ptmx, nil
 }
 
+// Supported reports whether recorded shells work here; they do on Linux and
+// macOS.
+func Supported() error { return nil }
+
 // ownRegularFile reports whether path is a regular file, not a symlink, owned
 // by this user.
 func ownRegularFile(path string) bool {

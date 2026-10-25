@@ -3,6 +3,7 @@ package shell
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,9 @@ import (
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/logs"
 )
+
+// ErrUnsupported is returned where recorded shells do not work, on Windows.
+var ErrUnsupported = errors.New(`recorded shells are not supported on Windows; "carrier run <command>" records a command there`)
 
 // RunEndFunc is called after a command's run has ended and its terminal log
 // has been flushed, so the log is complete. A non-empty return value is
@@ -41,6 +45,9 @@ type Options struct {
 // hook state, whose CurrentID is non-zero when a command was still in flight
 // as the shell exited (e.g. "exit" itself), so the caller can finish that run.
 func Run(cfg config.Config, opts Options) (State, error) {
+	if err := Supported(); err != nil {
+		return State{}, err
+	}
 	sessionID, label, onRunEnd := opts.SessionID, opts.Label, opts.OnRunEnd
 	program := cfg.Shell.Program
 	if program == "" {

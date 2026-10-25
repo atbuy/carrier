@@ -39,6 +39,9 @@ type setupEnv struct {
 	notifyAvailable func() bool
 	notifyTest      func() error
 	lookPath        func(string) (string, error)
+	// shellsSupported reports whether recorded shells work here; nil means
+	// they do.
+	shellsSupported func() error
 
 	cfg     config.Config
 	changed []string // files written
@@ -84,6 +87,7 @@ are kept) and backed up first.
 				in: bufio.NewReader(cmd.InOrStdin()), out: cmd.OutOrStdout(), t: newTheme(cmd.OutOrStdout()),
 				dryRun: dryRun, home: home, shell: supportedShell(shellName), configPath: configPath,
 				now: time.Now, notifyAvailable: notify.Available, notifyTest: notify.Test, lookPath: exec.LookPath,
+				shellsSupported: carriershell.Supported,
 			}
 			return env.run()
 		},
@@ -152,6 +156,12 @@ func (e *setupEnv) run() error {
 // --- steps -----------------------------------------------------------------
 
 func (e *setupEnv) stepAutoSessions() error {
+	if e.shellsSupported != nil {
+		if err := e.shellsSupported(); err != nil {
+			e.skip(err.Error())
+			return nil
+		}
+	}
 	rc, ok := e.shellConfig()
 	if !ok {
 		return nil

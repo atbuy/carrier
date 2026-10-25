@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	carriershell "github.com/atbuy/carrier/internal/shell"
 )
 
 type setupFixture struct {
@@ -384,5 +386,28 @@ func TestSetupCmdNeedsTerminal(t *testing.T) {
 	cmd := (&app{}).setupCmd()
 	if err := cmd.RunE(cmd, nil); err == nil || !strings.Contains(err.Error(), "--dry-run") {
 		t.Fatalf("setup without a terminal should suggest --dry-run, got %v", err)
+	}
+}
+
+// TestSetupSkipsRecordedShellsWhereUnsupported checks that setup does not
+// offer the carrier init line where recorded shells do not work, on Windows.
+func TestSetupSkipsRecordedShellsWhereUnsupported(t *testing.T) {
+	f := newSetupFixture(t)
+	f.write(".bashrc", "# mine\n")
+	env := &setupEnv{
+		in: bufio.NewReader(strings.NewReader("n\nn\nn\n")), out: &f.out, t: newTheme(&f.out),
+		home: f.home, shell: "bash", configPath: f.configPath, now: time.Now,
+		notifyAvailable: func() bool { return false }, notifyTest: func() error { return nil },
+		lookPath:        func(string) (string, error) { return "", errors.New("not found") },
+		shellsSupported: func() error { return carriershell.ErrUnsupported },
+	}
+	if err := env.run(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(f.out.String(), "skipped: recorded shells are not supported on Windows") {
+		t.Fatalf("output:\n%s", f.out.String())
+	}
+	if got := f.read(".bashrc"); strings.Contains(got, "carrier init") {
+		t.Fatalf(".bashrc should not get the init line:\n%s", got)
 	}
 }
