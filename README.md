@@ -37,6 +37,7 @@ c last
 c show <run-id>     # or -1 for the latest run, or a label
 c rerun -1
 c attach BUG-1234  # attach to a session by its label
+c a                # or pick one from a list
 c search "connection refused"
 ```
 
@@ -54,7 +55,7 @@ New users should start with the [Getting started guide](https://atbuy.github.io/
 - optional notifications use `notify-send` on Linux.
 - human-readable output is colorized on TTYs; use `NO_COLOR=1` to disable or `CARRIER_COLOR=always` to force.
 - `carrier shell` starts a recorded shell session for zsh, bash, or fish. Each shell session groups its runs in `carrier history`, `carrier history --session my-session`, and `carrier history --sessions-only`.
-- `carrier attach <id-or-label>` switches a recorded shell to an existing session, or opens it in a new shell from any other terminal.
+- `carrier attach <id-or-label>` switches a recorded shell to an existing session, or opens it in a new shell from any other terminal. Without a session it lists recent ones to pick from.
 - `carrier session pin` pins a directory to a session, so every new terminal or tmux window started there joins it.
 - `carrier session list` lists shell sessions; `carrier session label` sets or clears a session label.
 - `eval "$(carrier init zsh)"` in your shell config records every terminal in an automatic session; unlabeled ones expire after 30 days (`shell.auto_session_retention`).
@@ -147,6 +148,7 @@ carrier -N run ls
 carrier shell                      # start a recorded shell session
 carrier shell 'my-session'         # start a named session
 carrier attach my-session          # switch to an existing session
+carrier attach                     # pick a session to switch to
 carrier session pin my-session     # new terminals in this directory join it
 carrier status                     # is this terminal recorded, and into which session?
 carrier session show my-session    # replay a session as a timeline

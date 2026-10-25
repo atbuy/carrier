@@ -186,6 +186,7 @@ Inside a recorded shell, `carrier attach` switches the shell to another session 
 carrier attach 5
 carrier attach backend-debug
 carrier attach BUG-1234   # matches the label "BUG-1234: fix login"
+carrier attach            # pick from recent sessions
 ```
 
 From the next command on, runs are recorded into that session, and the prompt indicator, terminal title, and `CARRIER_SESSION_ID` follow. The session you leave is ended; an automatic session you leave without running anything is deleted. `carrier attach 1234` also works: when there is no session 1234, carrier matches the number against labels. See [Referring to sessions](../guide/commands.md#referring-to-sessions).
