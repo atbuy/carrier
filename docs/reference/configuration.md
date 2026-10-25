@@ -6,6 +6,16 @@
 ~/.config/carrier/config.toml
 ```
 
+Change settings without editing the file:
+
+```bash
+carrier config
+```
+
+This lists every setting, grouped like the file, with its value. Move with the arrow keys and press Enter to change the selected one: on/off settings toggle, settings with a fixed set of values move to the next one (←/→ pick either way), and other settings open for typing. Lists, such as `ignore_commands`, open on their own screen to add, edit, and delete items. Press `r` to reset a setting to its default, `/` to search, and `e` to open the file in `$EDITOR`.
+
+Each change is checked like `carrier config check` does and saved to the file right away; an invalid value is not saved. Only the setting's line changes, so comments and the rest of the file stay as they are. carrier reads the file on every command, so a change applies from the next one, also in recorded shells. When an [include](#includes) sets the value, the include is changed, since its value is the one that takes effect. `[[auto_label]]` rules and `includes` are edited in the file.
+
 Show path:
 
 ```bash
@@ -34,7 +44,7 @@ If the config file is missing, code defaults are used.
 
 !!! tip
 
-    Run `carrier config check` after editing config. It catches invalid regexes, invalid durations, blank paths, and risky output cap settings.
+    Run `carrier config check` after editing the file by hand. It catches invalid regexes, invalid durations, blank paths, and risky output cap settings.
 
 ## Durations
 

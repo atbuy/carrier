@@ -881,6 +881,30 @@ It also checks the terminal it runs in:
 
 ## `config`
 
+Change settings interactively, saving each change to the config file:
+
+```bash title="Change settings"
+carrier config
+```
+
+```text
+Settings  ~/.config/carrier/config.toml
+ Shell
+   Shell program                 $SHELL
+   Commands without output       8 · nvim, vim, less, man, fzf, yazi, lazygit, tmux
+   Automatic session retention   30d
+   Ask for the outcome           ○ off
+ ❯ Branch sessions               ● suggest  ○ follow  ○ off
+
+ shell.branch_sessions · default
+ When a checkout moves a recorded shell to a branch linked to another session: suggest says so,
+ follow switches to it, off does nothing.
+
+ ↑/↓ move · enter change · ←/→ choose · r reset · / search · e edit file · q quit
+```
+
+See [the configuration reference](../reference/configuration.md) for the keys and what each does.
+
 Inspect and create config:
 
 ```bash title="Config commands"

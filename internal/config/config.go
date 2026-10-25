@@ -204,17 +204,27 @@ func Default() Config {
 }
 
 func Load() (Config, error) {
-	cfg := Default()
 	path, err := Path()
 	if err != nil {
-		return cfg, err
+		return Default(), err
 	}
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+	return load(path, os.ReadFile)
+}
+
+// load reads the config at path and its includes with read, so a change can
+// be checked before it is written.
+func load(path string, read func(string) ([]byte, error)) (Config, error) {
+	cfg := Default()
+	content, err := read(path)
+	if errors.Is(err, os.ErrNotExist) {
 		cfg.Storage.DataDir = Expand(cfg.Storage.DataDir)
 		cfg.fillThemeDefaults()
 		return cfg, nil
 	}
-	if _, err := toml.DecodeFile(path, &cfg); err != nil {
+	if err != nil {
+		return cfg, err
+	}
+	if _, err := toml.Decode(string(content), &cfg); err != nil {
 		return cfg, err
 	}
 	includes, err := IncludeFiles(cfg.Includes, filepath.Dir(path))
@@ -222,7 +232,7 @@ func Load() (Config, error) {
 		return cfg, err
 	}
 	for _, inc := range includes {
-		if err := mergeInclude(&cfg, inc); err != nil {
+		if err := mergeInclude(&cfg, inc, read); err != nil {
 			return cfg, fmt.Errorf("includes: %s: %w", inc, err)
 		}
 	}
@@ -261,9 +271,13 @@ func IncludeFiles(patterns []string, configDir string) ([]string, error) {
 // it into base. Arrays are always appended; scalar fields are only overridden
 // when explicitly defined in the include file. The overlay's Includes field is
 // ignored — recursive includes are not supported.
-func mergeInclude(base *Config, path string) error {
+func mergeInclude(base *Config, path string, read func(string) ([]byte, error)) error {
+	content, err := read(path)
+	if err != nil {
+		return err
+	}
 	var overlay Config
-	meta, err := toml.DecodeFile(path, &overlay)
+	meta, err := toml.Decode(string(content), &overlay)
 	if err != nil {
 		return err
 	}
