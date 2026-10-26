@@ -43,8 +43,9 @@ func startBashWithInit(t *testing.T, fakeExit string, extraEnv []string, lines [
 }
 
 // startShellWithInit runs an interactive shell whose own config loads the
-// init snippet, pointing at a stand-in carrier that logs its arguments and
-// exits with fakeExit. It types lines at the prompt and returns the log, the
+// init snippet the way InitLine does, pointing at a stand-in carrier that logs
+// its arguments, and whether its input is not the terminal, and exits with
+// fakeExit. It types lines at the prompt and returns the log, the
 // terminal output, and whether the shell exited on its own.
 func startShellWithInit(t *testing.T, shellName, fakeExit string, extraEnv []string, lines []string) (string, string, bool) {
 	t.Helper()
@@ -58,7 +59,8 @@ func startShellWithInit(t *testing.T, shellName, fakeExit string, extraEnv []str
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "calls.log")
 	fake := filepath.Join(dir, "carrier")
-	if err := os.WriteFile(fake, []byte("#!/bin/sh\necho \"$@\" >> '"+logPath+"'\nexit "+fakeExit+"\n"), 0o755); err != nil {
+	fakeScript := "#!/bin/sh\necho \"$@\" >> '" + logPath + "'\n[ -t 0 ] || echo 'stdin is not a terminal' >> '" + logPath + "'\nexit " + fakeExit + "\n"
+	if err := os.WriteFile(fake, []byte(fakeScript), 0o755); err != nil {
 		t.Fatalf("write fake carrier: %v", err)
 	}
 	snippet, err := InitScript(shellName, fake)
@@ -74,7 +76,16 @@ func startShellWithInit(t *testing.T, shellName, fakeExit string, extraEnv []str
 	if err := os.MkdirAll(filepath.Dir(rc), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(rc, []byte(config.prompt+snippet), 0o600); err != nil {
+	load := snippet
+	if shellName == "fish" {
+		// As "carrier init fish | source": the snippet's input is the pipe.
+		snippetPath := filepath.Join(dir, "init.fish")
+		if err := os.WriteFile(snippetPath, []byte(snippet), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		load = "cat '" + snippetPath + "' | source\n"
+	}
+	if err := os.WriteFile(rc, []byte(config.prompt+load), 0o600); err != nil {
 		t.Fatalf("write shell config: %v", err)
 	}
 	isolateZsh(t, shellName, dir)

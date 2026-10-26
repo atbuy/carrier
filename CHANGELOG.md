@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.10.0] - 2026-10-26
+
+### Fixed
+
+- In fish, the `carrier init fish | source` line now starts recording the terminal. Through the pipe, fish gave the snippet the pipe as its input instead of the terminal, so carrier never started and the terminal stayed a plain shell.
+
 ## [1.9.1] - 2026-10-26
 
 ### Fixed

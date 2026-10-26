@@ -279,7 +279,7 @@ func TestInitCmd(t *testing.T) {
 		t.Fatalf("init zsh: %v\n%s", err, out)
 	}
 	t.Setenv("SHELL", "/usr/bin/fish")
-	if out, _, err := runEmpty(t, a.initCmd(), nil, nil); err != nil || !strings.Contains(out, "shell --auto --program fish\n") {
+	if out, _, err := runEmpty(t, a.initCmd(), nil, nil); err != nil || !strings.Contains(out, "shell --auto --program fish </dev/tty\n") {
 		t.Fatalf("init from $SHELL: %v\n%s", err, out)
 	}
 	t.Setenv("SHELL", "/bin/sh")
