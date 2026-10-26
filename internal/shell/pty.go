@@ -8,9 +8,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
+	"syscall"
 
 	"github.com/creack/pty"
 	"golang.org/x/term"
@@ -18,6 +21,11 @@ import (
 	"github.com/atbuy/carrier/internal/config"
 	"github.com/atbuy/carrier/internal/logs"
 )
+
+// ErrHungUp is returned by Run when the terminal hung up on the shell, as
+// closing a terminal window or "tmux kill-server" does. A command still
+// running then was cut short.
+var ErrHungUp = errors.New("the terminal hung up")
 
 // ErrUnsupported is returned where recorded shells do not work, on Windows.
 var ErrUnsupported = errors.New(`recorded shells are not supported on Windows; "carrier run <command>" records a command there`)
@@ -102,6 +110,25 @@ func Run(cfg config.Config, opts Options) (State, error) {
 	}
 	defer func() { _ = ptmx.Close() }()
 
+	// Closing the terminal, or "tmux kill-server", hangs up on carrier, which
+	// would end on the spot and leave the command in flight running forever.
+	// Hang up on the shell instead, which ends it and its commands, and
+	// finish as usual.
+	var hungUp atomic.Bool
+	hangups := make(chan os.Signal, 1)
+	signal.Notify(hangups, syscall.SIGHUP, syscall.SIGTERM)
+	defer signal.Stop(hangups)
+	exited := make(chan struct{})
+	defer close(exited)
+	go func() {
+		select {
+		case <-hangups:
+			hungUp.Store(true)
+			_ = cmd.Process.Signal(syscall.SIGHUP)
+		case <-exited:
+		}
+	}()
+
 	if cols, rows, err := term.GetSize(int(os.Stdin.Fd())); err == nil {
 		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
 	}
@@ -147,6 +174,12 @@ func Run(cfg config.Config, opts Options) (State, error) {
 		}
 	}
 	waitErr := cmd.Wait()
+	if hungUp.Load() {
+		if waitErr != nil {
+			return state.Read(), fmt.Errorf("%w: %w", ErrHungUp, waitErr)
+		}
+		return state.Read(), ErrHungUp
+	}
 	return state.Read(), waitErr
 }
 

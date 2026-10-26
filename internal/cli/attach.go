@@ -84,6 +84,9 @@ func (a *app) attachTo(cmd *cobra.Command, sess *store.Session, newShell bool) e
 	last, runErr := carriershell.Run(a.cfg, a.shellOptions(sess.ID, sess.Label, false))
 	a.finishInFlightShellRun(last, runErr)
 	_ = a.st.EndSession(finalSession(sess.ID, last), time.Now())
+	if errors.Is(runErr, carriershell.ErrHungUp) {
+		return nil
+	}
 	return runErr
 }
 

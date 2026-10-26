@@ -623,7 +623,7 @@ func TestCleanTemp(t *testing.T) {
 	if n := LeftoverTemp(now); n != len(gone) {
 		t.Errorf("LeftoverTemp = %d, want %d", n, len(gone))
 	}
-	if n := CleanTemp(now); n != len(gone) {
+	if n, _ := CleanTemp(now); n != len(gone) {
 		t.Errorf("CleanTemp removed %d, want %d", n, len(gone))
 	}
 	for _, path := range gone {

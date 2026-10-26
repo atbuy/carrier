@@ -72,6 +72,14 @@ joins the pinned session instead.`,
 				a.finishInFlightShellRun(last, runErr)
 			}
 			_ = a.st.EndSession(final, time.Now())
+			if errors.Is(runErr, carriershell.ErrHungUp) {
+				// Closing the terminal is how many shells end; there is no
+				// one left to tell.
+				if auto {
+					a.deleteIfEmptyAuto(final)
+				}
+				return nil
+			}
 			if !auto {
 				return runErr
 			}
@@ -181,6 +189,11 @@ func (a *app) finishInFlightShellRun(last carriershell.State, runErr error) {
 		case exitCode > 0:
 			status = store.StatusFailed
 		}
+	}
+	// The terminal closed while the command ran: it was cut short by the
+	// hangup, which exits with 128 + SIGHUP.
+	if errors.Is(runErr, carriershell.ErrHungUp) {
+		status, exitCode = store.StatusKilled, 129
 	}
 	_ = a.st.FinishRun(last.CurrentID, status, exitCode, time.Now())
 }

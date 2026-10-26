@@ -158,7 +158,7 @@ Default: `"24h"`
 
 When `carrier` starts, runs stuck in `running` longer than this threshold are marked `killed`.
 
-This protects the history after crashes, machine shutdowns, or killed parent processes.
+This protects the history after crashes, machine shutdowns, or killed parent processes. A recorded shell whose terminal is closed, or whose tmux server is killed, marks the command it was running as killed right away, and the cleanup of temp files, once a day when a shell starts, does the same for shells killed outright, such as with `kill -9`.
 
 ### `capture_env`
 

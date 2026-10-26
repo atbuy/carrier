@@ -17,6 +17,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 
 - Lists in `carrier browse`, `carrier config`, the `carrier attach` picker, and history search scroll only when the selection would leave the screen. Before, moving back up a long list scrolled it along with the selection, instead of moving the selection within the screen.
 - Text pasted into `carrier browse`, `carrier config`, the `carrier attach` picker, or history search, or typed faster than the screen reads it, is handled as if typed one key at a time. Before, pasting `/min` into `carrier config` did not open the search, since the keys arrived together.
+- Closing a recorded terminal, or `tmux kill-server`, while a command runs no longer leaves that command `running` in the history for a day. carrier passes the hangup on to the shell and records the command as killed (exit 129), and ends the session, as when the shell exits. Shells killed outright, such as with `kill -9`, have their command marked killed when carrier next cleans up after them.
 
 ## [1.10.0] - 2026-10-26
 

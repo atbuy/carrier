@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,7 +24,32 @@ func (a *app) cleanTempIfDue() {
 		return
 	}
 	touchSidecar(dataDir, tempCleanupFilename)
-	carriershell.CleanTemp(time.Now())
+	_, killed := carriershell.CleanTemp(time.Now())
+	a.finishKilledShells(killed)
+}
+
+// finishKilledShells finishes what shells killed outright, such as with
+// "kill -9", left behind: the command still running in each is marked killed,
+// and its session ended. A shell that hangs up finishes these itself.
+func (a *app) finishKilledShells(states []carriershell.State) {
+	for _, state := range states {
+		if state.CurrentID != 0 {
+			if r, err := a.st.GetRun(state.CurrentID); err == nil && r.Status == store.StatusRunning {
+				// When it died is not known; it last showed signs of life
+				// when it wrote output. 137 is 128 + SIGKILL.
+				ended := r.StartedAt
+				if info, err := os.Stat(r.TerminalOutputPath); err == nil && info.ModTime().After(ended) {
+					ended = info.ModTime()
+				}
+				_ = a.st.FinishRun(r.ID, store.StatusKilled, 137, ended)
+			}
+		}
+		if state.SessionID != 0 {
+			if sess, err := a.st.GetSession(state.SessionID); err == nil && sess.EndedAt == nil {
+				_ = a.st.EndSession(sess.ID, time.Now())
+			}
+		}
+	}
 }
 
 // expireAutoSessionsIfDue deletes expired automatic sessions at most once a
