@@ -21,13 +21,19 @@ const (
 // when they are killed instead of exiting, such as by "tmux kill-server":
 // state files, their session and environment files, and hook directories.
 // Only this user's files, whose carrier process has ended, are removed. It
-// returns the number of files and directories removed.
-func CleanTemp(now time.Time) int { return cleanTemp(now, false) }
+// returns the number of files and directories removed, and the last state of
+// each shell whose state file it removed: a command still in flight there was
+// cut short when the shell was killed.
+func CleanTemp(now time.Time) (int, []State) { return cleanTemp(now, false) }
 
 // LeftoverTemp counts the files and directories CleanTemp would remove.
-func LeftoverTemp(now time.Time) int { return cleanTemp(now, true) }
+func LeftoverTemp(now time.Time) int {
+	n, _ := cleanTemp(now, true)
+	return n
+}
 
-func cleanTemp(now time.Time, dryRun bool) int {
+func cleanTemp(now time.Time, dryRun bool) (int, []State) {
+	var killed []State
 	tmp := os.TempDir()
 	done := map[string]bool{}
 	remove := func(path string, all bool) bool {
@@ -49,6 +55,9 @@ func cleanTemp(now time.Time, dryRun bool) int {
 		pid, ok := pidFromName(strings.TrimSuffix(filepath.Base(statePath), ".json"))
 		if !ok || !ownRegularFile(statePath) || !old(statePath, now, cleanMinAge) || processAlive(pid) {
 			continue
+		}
+		if !dryRun {
+			killed = append(killed, (&StateFile{Path: statePath}).Read())
 		}
 		for _, path := range []string{statePath, SessionInfoPath(statePath), statePath + ".env", BranchPath(statePath)} {
 			if ownRegularFile(path) && remove(path, false) {
@@ -84,7 +93,7 @@ func cleanTemp(now time.Time, dryRun bool) int {
 			removed++
 		}
 	}
-	return removed
+	return removed, killed
 }
 
 // pidFromName reads the process ID from a state file name, "carrier-shell-<pid>".
