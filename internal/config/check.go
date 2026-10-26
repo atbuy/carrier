@@ -59,6 +59,9 @@ func Check(cfg Config) []Issue {
 	if _, err := ParseRetention(cfg.Shell.AutoSessionRetention); err != nil {
 		issues = append(issues, Issue{Level: IssueError, Field: "shell.auto_session_retention", Message: "invalid retention: " + err.Error()})
 	}
+	if _, err := ParseKey(cfg.Shell.HistorySearchKey); err != nil {
+		issues = append(issues, Issue{Level: IssueError, Field: "shell.history_search_key", Message: err.Error()})
+	}
 	switch cfg.Shell.BranchSessions {
 	case BranchOff, BranchSuggest, BranchFollow:
 	default:

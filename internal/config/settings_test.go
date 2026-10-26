@@ -310,3 +310,24 @@ func TestRemoveValueDropsEmptyTable(t *testing.T) {
 		}
 	}
 }
+
+func TestParseKey(t *testing.T) {
+	for in, want := range map[string]Key{"ctrl-r": {Letter: 'r'}, "Alt-F": {Alt: true, Letter: 'f'}, " ctrl-x ": {Letter: 'x'}} {
+		if got, err := ParseKey(in); err != nil || got != want {
+			t.Errorf("ParseKey(%q) = %+v, %v; want %+v", in, got, err, want)
+		}
+	}
+	for _, in := range []string{"", "r", "ctrl-", "ctrl-rr", "super-r", "ctrl-1", "ctrl+r"} {
+		if _, err := ParseKey(in); err == nil {
+			t.Errorf("ParseKey(%q) should fail", in)
+		}
+	}
+	cfg := Default()
+	if cfg.Shell.HistorySearch || cfg.Shell.HistorySearchKey != "ctrl-r" {
+		t.Fatalf("defaults = %v %q", cfg.Shell.HistorySearch, cfg.Shell.HistorySearchKey)
+	}
+	cfg.Shell.HistorySearchKey = "super-r"
+	if !hasIssue(Check(cfg), "shell.history_search_key") {
+		t.Fatal("an unbindable key should be an error")
+	}
+}

@@ -297,3 +297,30 @@ func nullable(s string) any {
 	}
 	return s
 }
+
+func TestRecentCommands(t *testing.T) {
+	st, ids := completionStore(t)
+	got, err := st.RecentCommands(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for i, c := range got {
+		if seen[c.Command] {
+			t.Errorf("%q is listed twice", c.Command)
+		}
+		seen[c.Command] = true
+		if i > 0 && c.ID > got[i-1].ID {
+			t.Errorf("not newest first: %d after %d", c.ID, got[i-1].ID)
+		}
+		if c.Command == "go test ./..." && (c.ID != ids["again"] || c.Runs != 2 || c.Status != StatusSuccess) {
+			t.Errorf("go test should show its newest run, %d, and 2 runs: %+v", ids["again"], c)
+		}
+	}
+	if !seen["go test ./..."] || !seen["kubectl apply -f k8s"] {
+		t.Fatalf("commands = %v", seen)
+	}
+	if limited, _ := st.RecentCommands(2); len(limited) != 2 {
+		t.Fatalf("limit 2: got %d", len(limited))
+	}
+}

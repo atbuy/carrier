@@ -128,6 +128,18 @@ var Settings = []Setting{
 		Value:   func(c Config) any { return c.Shell.AutoSessions },
 	},
 	{
+		Section: "shell", Key: "history_search", Kind: KindBool,
+		Title:   "Search history with a key",
+		Summary: "Bind history_search_key to search the commands of every terminal and put the one you pick on the command line, through the line from \"carrier init\". Applies to terminals opened after the change.",
+		Value:   func(c Config) any { return c.Shell.HistorySearch },
+	},
+	{
+		Section: "shell", Key: "history_search_key", Kind: KindText,
+		Title:   "History search key",
+		Summary: "The key history search is bound to: ctrl- or alt- and a letter, such as ctrl-r (the default, replacing the shell's own search) or alt-r.",
+		Value:   func(c Config) any { return c.Shell.HistorySearchKey },
+	},
+	{
 		Section: "shell", Key: "auto_session_retention", Kind: KindDuration,
 		Title:   "Automatic session retention",
 		Summary: "How long automatic sessions are kept after they end. 0 keeps them all. Labeled, noted, and kept sessions never expire.",

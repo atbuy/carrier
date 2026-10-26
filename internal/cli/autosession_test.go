@@ -337,3 +337,29 @@ func TestShellAutoWhenAutoSessionsOff(t *testing.T) {
 		t.Fatalf("carrier shell without --auto: %v", err)
 	}
 }
+
+func TestInitAddsHistorySearchBinding(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("carrier init refuses on Windows")
+	}
+	a := &app{cfg: config.Default()}
+	out, _, err := runEmpty(t, a.initCmd(), []string{"zsh"}, nil)
+	if err != nil || strings.Contains(out, "_carrier_search_widget") {
+		t.Fatalf("history search is off by default: %v\n%s", err, out)
+	}
+	a.cfg.Shell.HistorySearch = true
+	if out, _, err = runEmpty(t, a.initCmd(), []string{"zsh"}, nil); err != nil || !strings.Contains(out, "bindkey '^R' _carrier_search_widget") {
+		t.Fatalf("with history search on: %v\n%s", err, out)
+	}
+	a.cfg.Shell.HistorySearchKey = "alt-s"
+	if out, _, _ = runEmpty(t, a.initCmd(), []string{"bash"}, nil); !strings.Contains(out, `bind -x '"\es": _carrier_search'`) {
+		t.Fatalf("with alt-s:\n%s", out)
+	}
+}
+
+func TestSearchWithoutTextNeedsTerminal(t *testing.T) {
+	a, _ := autoSessionApp(t)
+	if _, _, err := runEmpty(t, a.searchCmd(), nil, nil); err == nil || !strings.Contains(err.Error(), "give text to search for") {
+		t.Fatalf("err = %v", err)
+	}
+}

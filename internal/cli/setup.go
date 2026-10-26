@@ -129,6 +129,7 @@ func (e *setupEnv) run() error {
 		run   func() error
 	}{
 		{"Record every terminal", e.stepAutoSessions},
+		{"History search", e.stepHistorySearch},
 		{"Similar-failure hints", e.stepHints},
 		{"Desktop notifications", e.stepNotify},
 		{`The "c" alias`, e.stepAlias},
@@ -218,6 +219,32 @@ func (e *setupEnv) stepAutoSessions() error {
 		return nil
 	}
 	return e.setConfig("shell", "auto_session_retention", strconv.Quote(value))
+}
+
+// stepHistorySearch offers a key, Ctrl+R by default, that searches the
+// commands of every terminal. The binding comes with the "carrier init" line.
+func (e *setupEnv) stepHistorySearch() error {
+	if e.shell == "" {
+		e.skip(fmt.Sprintf("your shell is not supported (use --shell %s)", strings.Join(carriershell.InitShells, "|")))
+		return nil
+	}
+	key := e.cfg.Shell.HistorySearchKey
+	if e.cfg.Shell.HistorySearch {
+		e.done("on, with " + key)
+		return nil
+	}
+	rc := shellConfigFiles(e.home)[e.shell]
+	if content, _ := os.ReadFile(rc); !strings.Contains(string(content), "carrier init") && !e.dryRun {
+		e.skip(`needs the "carrier init" line from the step before`)
+		return nil
+	}
+	e.printf("Press %s to search the commands of every terminal, and put the one you pick\n", key)
+	e.printf("on the command line. It replaces the shell's own %s search, and fzf's or\n", key)
+	e.printf("atuin's if you use them; shell.history_search_key picks another key.\n")
+	if !e.ask("Search history with "+key+"?", false) {
+		return nil
+	}
+	return e.setConfig("shell", "history_search", "true")
 }
 
 func (e *setupEnv) stepHints() error {
