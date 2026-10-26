@@ -273,8 +273,21 @@ func (e *setupEnv) stepNotify() error {
 			e.printf("%s\n", e.t.Muted.Render("sent; check that it appeared"))
 		}
 	}
+	if !e.cfg.Notify.Shell && (e.shellsSupported == nil || e.shellsSupported() == nil) {
+		e.printf("Recorded shells can notify for every long command too, without -n; editors,\n")
+		e.printf("pagers, ssh, and commands stopped with Ctrl+C never notify.\n")
+		if e.ask("Notify for long commands in recorded shells?", false) {
+			if err := e.setConfig("notify", "shell", "true"); err != nil {
+				return err
+			}
+		}
+	}
 	current := e.cfg.Notify.MinDuration
-	value := e.askValue("With -n, notify for commands that run longer than", current, func(s string) error {
+	prompt := "With -n, notify for commands that run longer than"
+	if e.cfg.Notify.Shell {
+		prompt = "Notify for commands that run longer than"
+	}
+	value := e.askValue(prompt, current, func(s string) error {
 		_, err := duration.Parse(s)
 		return err
 	})

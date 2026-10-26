@@ -27,19 +27,30 @@ var (
 // the send error if the platform notifier fails. Returns nil when not requested
 // or when suppressed by config (success/failure flags).
 func MaybeSend(cfg config.Config, r store.Run) error {
+	title, body, err := Message(cfg, r)
+	if err != nil || title == "" {
+		return err
+	}
+	return send(title, body)
+}
+
+// Message returns the notification for r, when one should be sent: requested,
+// long enough, and of a status the config notifies for. title is "" when there
+// is none; err is ErrBelowThreshold when only the duration held it back.
+func Message(cfg config.Config, r store.Run) (title, body string, err error) {
 	if !r.NotifyRequested && !r.NotifyAlways {
-		return nil
+		return "", "", nil
 	}
 	if r.DurationMS != nil && !r.NotifyAlways && time.Duration(*r.DurationMS)*time.Millisecond < cfg.NotifyMinDuration() {
-		return ErrBelowThreshold
+		return "", "", ErrBelowThreshold
 	}
 	if r.Status == store.StatusSuccess && !cfg.Notify.Success {
-		return nil
+		return "", "", nil
 	}
 	if r.Status != store.StatusSuccess && !cfg.Notify.Failure {
-		return nil
+		return "", "", nil
 	}
-	title := "carrier: command finished"
+	title = "carrier: command finished"
 	if r.Status != store.StatusSuccess {
 		title = "carrier: command failed"
 	}
@@ -47,8 +58,17 @@ func MaybeSend(cfg config.Config, r store.Run) error {
 	if r.ExitCode != nil {
 		exit = fmt.Sprint(*r.ExitCode)
 	}
-	body := fmt.Sprintf("%s\nexit code: %s\nduration: %s", r.Command, exit, formatDuration(r.DurationMS))
-	return send(title, body)
+	return title, fmt.Sprintf("%s\nexit code: %s\nduration: %s", r.Command, exit, formatDuration(r.DurationMS)), nil
+}
+
+// SendInBackground starts the notification without waiting for it, so a
+// shell's prompt never waits for the notifier, which can take a moment.
+func SendInBackground(title, body string) error {
+	cmd := command(title, body)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
 }
 
 // Test sends a sample notification, so users can check that notifications
@@ -58,14 +78,17 @@ func Test() error {
 }
 
 // send dispatches to the platform-appropriate notification command.
-func send(title, body string) error {
+func send(title, body string) error { return command(title, body).Run() }
+
+// command is the platform's notification command for title and body.
+func command(title, body string) *exec.Cmd {
 	switch runtimeGOOS {
 	case "darwin":
 		script := fmt.Sprintf(
 			`display notification %q with title %q`,
 			body, title,
 		)
-		return execCommand("osascript", "-e", script).Run()
+		return execCommand("osascript", "-e", script)
 	case "windows":
 		// PowerShell toast via BurntToast is optional; fall back to a simple
 		// balloon via the Shell.Application COM object which ships with Windows.
@@ -79,9 +102,9 @@ func send(title, body string) error {
 				`$n.Dispose()`,
 			title, body,
 		)
-		return execCommand("powershell", "-NonInteractive", "-NoProfile", "-Command", script).Run()
+		return execCommand("powershell", "-NonInteractive", "-NoProfile", "-Command", script)
 	default:
-		return execCommand("notify-send", title, body).Run()
+		return execCommand("notify-send", title, body)
 	}
 }
 

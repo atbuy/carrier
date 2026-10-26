@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -110,11 +112,8 @@ func (a *app) internalEndCmd() *cobra.Command {
 			if err := a.st.FinishRun(state.CurrentID, status, exitCode, time.Now()); err != nil {
 				return err
 			}
-			r, err := a.st.GetRun(state.CurrentID)
-			if err == nil {
-				if notifyErr := notify.MaybeSend(a.cfg, *r); notifyErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
-				}
+			if r, err := a.st.GetRun(state.CurrentID); err == nil {
+				a.notifyShellRun(*r, exitCode)
 			}
 			if err := sf.Write(carriershell.State{SessionID: state.SessionID, Detached: state.Detached}); err != nil {
 				return err
@@ -128,6 +127,54 @@ func (a *app) internalEndCmd() *cobra.Command {
 	cmd.Flags().StringVar(&statePath, "state", "", "state file")
 	cmd.Flags().IntVar(&exitCode, "exit", 0, "exit code")
 	return cmd
+}
+
+// notifyShellRun sends the notification for a command that finished in a
+// recorded shell: one the shell asked for with -n, or, with notify.shell on,
+// any command that may be worth one. It is sent in the background, so the
+// next prompt does not wait for the notifier.
+func (a *app) notifyShellRun(r store.Run, exitCode int) {
+	if !r.NotifyRequested && !r.NotifyAlways && a.cfg.Notify.Shell && notifiesInShell(r.Command, exitCode, a.cfg.Shell.IgnoreCommands) {
+		r.NotifyRequested = true
+	}
+	title, body, err := notify.Message(a.cfg, r)
+	if err != nil || title == "" {
+		return
+	}
+	where := collapseHome(r.CWD)
+	if r.SessionID != nil {
+		if sess, err := a.st.GetSession(*r.SessionID); err == nil && sess.Label != "" {
+			where += " · " + sess.Label
+		}
+	}
+	_ = sendNotification(title, body+"\n"+where)
+}
+
+// sendNotification sends a shell's notifications; tests replace it.
+var sendNotification = notify.SendInBackground
+
+// notifiesInShell reports whether notify.shell notifies for command, which
+// ended with exitCode. Commands that run long because you use them do not:
+// shell.ignore_commands such as editors and pagers, remote shells, and
+// carrier's own screens. Neither do commands stopped with Ctrl+C.
+func notifiesInShell(command string, exitCode int, ignore []string) bool {
+	if exitCode == 130 {
+		return false
+	}
+	if outputIgnored(command, slices.Concat(ignore, []string{"ssh", "mosh"})) {
+		return false
+	}
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return false
+	}
+	if name := filepath.Base(fields[0]); name != "carrier" && name != "c" {
+		return true
+	}
+	// carrier run and rerun do real work; its other commands are mostly
+	// screens or quick.
+	words := carrierCommandWords(command)
+	return len(words) > 0 && slices.Contains([]string{"run", "r", "rerun", "rr"}, words[0])
 }
 
 func captureEnvCLI(cfg config.Config) string {

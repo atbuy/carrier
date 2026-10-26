@@ -92,6 +92,7 @@ patterns = [
 min_duration = "10s"
 success = true
 failure = true
+shell = false
 
 [shell]
 program = ""
@@ -220,14 +221,14 @@ Setting `patterns` replaces the defaults, so keep any default patterns you still
 
 ## `[notify]`
 
-Notifications are opt-in per command. Carrier uses `notify-send` on Linux, `osascript` on macOS, and PowerShell on Windows.
+Notifications are opt-in: per command with `-n`, or for every long command in recorded shells with [`shell`](#shell). Carrier uses `notify-send` on Linux, `osascript` on macOS, and PowerShell on Windows.
 
 ### `min_duration`
 
 Type: [duration](#durations)  
 Default: `"10s"`
 
-Used with `-n` / `--notify`.
+Used with `-n` / `--notify`, and by [`shell`](#shell).
 
 ```bash
 carrier -n run docker compose build
@@ -257,6 +258,28 @@ Type: boolean
 Default: `true`
 
 Send notifications for failed commands when notification is requested.
+
+### `shell`
+
+Type: boolean  
+Default: `false`
+
+Notify when a command in a recorded shell runs at least [`min_duration`](#min_duration), without `-n`, so a long build or test run tells you when it is done while you are in another window:
+
+```text
+carrier: command failed
+go test ./...
+exit code: 1
+duration: 2m14s
+~/src/api · BUG-1234: fix login
+```
+
+Commands that run long because you are using them never notify: the programs in [`shell.ignore_commands`](#ignore_commands), such as editors and pagers, `ssh` and `mosh`, and carrier's own screens such as `carrier browse`; `carrier run` and `carrier rerun` do notify. Neither do commands you stop with Ctrl+C. [`success`](#success) and [`failure`](#failure) apply, so `success = false` notifies only for failures. Notifications are sent in the background, so the next prompt never waits for them. A shell started with `carrier -n shell` notifies the same way with this off.
+
+```toml
+[notify]
+shell = true
+```
 
 ## `[shell]`
 

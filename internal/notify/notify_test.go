@@ -278,3 +278,35 @@ func TestMaybeSendNilExitCode(t *testing.T) {
 		t.Fatal("should not get ErrBelowThreshold")
 	}
 }
+
+func TestMessageAndSendInBackground(t *testing.T) {
+	ms := int64(90_000)
+	code := 2
+	title, body, err := Message(defaultCfg(), store.Run{Command: "make test", Status: store.StatusFailed, ExitCode: &code, DurationMS: &ms, NotifyRequested: true})
+	if err != nil || title != "carrier: command failed" || body != "make test\nexit code: 2\nduration: 1m30s" {
+		t.Fatalf("Message = %q %q %v", title, body, err)
+	}
+	if title, _, _ := Message(defaultCfg(), store.Run{Status: store.StatusSuccess, DurationMS: &ms}); title != "" {
+		t.Fatal("a run that did not ask to notify has no message")
+	}
+
+	// The notifier is started and not waited for.
+	oldOS, oldExec := runtimeGOOS, execCommand
+	t.Cleanup(func() { runtimeGOOS, execCommand = oldOS, oldExec })
+	runtimeGOOS = "linux"
+	var got []string
+	execCommand = func(name string, args ...string) *exec.Cmd {
+		got = append([]string{name}, args...)
+		return exec.Command(os.Args[0], "-test.run=^$")
+	}
+	start := time.Now()
+	if err := SendInBackground("carrier: command failed", "make test"); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || got[0] != "notify-send" || got[2] != "make test" {
+		t.Fatalf("command = %q", got)
+	}
+	if time.Since(start) > 2*time.Second {
+		t.Fatal("SendInBackground should not wait for the notifier")
+	}
+}
