@@ -84,8 +84,8 @@ func TestSetupFreshHome(t *testing.T) {
 	f.write(".bashrc", "# my bashrc\nexport PATH=\"$HOME/bin:$PATH\"\n")
 
 	// record: yes, apply to .bashrc, apply to the config; retention: keep;
-	// hints: yes, apply; alias: yes, apply
-	env, err := f.run("bash", false, "y", "y", "y", "", "y", "y", "y", "y")
+	// history search: no; hints: yes, apply; alias: yes, apply
+	env, err := f.run("bash", false, "y", "y", "y", "", "n", "y", "y", "y", "y")
 	if err != nil {
 		t.Fatalf("setup: %v\n%s", err, f.out.String())
 	}
@@ -142,8 +142,8 @@ cmd = 'go test.*'
 
 	// The init line is there but automatic sessions are off. record: yes,
 	// apply; retention: 60d, apply; hints: yes, apply; test notification:
-	// no; min duration: 30s, apply
-	if _, err := f.run("bash", false, "y", "y", "60d", "y", "y", "y", "n", "30s", "y"); err != nil {
+	// no; min duration: 30s, apply. History search: no.
+	if _, err := f.run("bash", false, "y", "y", "60d", "y", "n", "y", "y", "n", "30s", "y"); err != nil {
 		t.Fatalf("setup: %v\n%s", err, f.out.String())
 	}
 	want := strings.Replace(mainConfig, `min_duration = "5s"   # quick feedback`, `min_duration = "30s"   # quick feedback`, 1) +
@@ -254,12 +254,12 @@ func TestSetupUnsupportedShellAndFish(t *testing.T) {
 	if _, err := f.run("", false, "n"); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
-	if strings.Count(f.out.String(), "skipped: your shell is not supported") != 2 {
+	if strings.Count(f.out.String(), "skipped: your shell is not supported") != 3 {
 		t.Fatalf("shell steps should be skipped:\n%s", f.out.String())
 	}
 
 	f = newSetupFixture(t)
-	if _, err := f.run("fish", false, "y", "y", "y", "", "n", "y", "y"); err != nil {
+	if _, err := f.run("fish", false, "y", "y", "y", "", "n", "n", "y", "y"); err != nil {
 		t.Fatalf("setup fish: %v", err)
 	}
 	got := f.read(".config/fish/config.fish")
@@ -414,5 +414,34 @@ func TestSetupSkipsRecordedShellsWhereUnsupported(t *testing.T) {
 	}
 	if got := f.read(".bashrc"); strings.Contains(got, "carrier init") {
 		t.Fatalf(".bashrc should not get the init line:\n%s", got)
+	}
+}
+
+func TestSetupHistorySearch(t *testing.T) {
+	f := newSetupFixture(t)
+	f.write(".zshrc", "eval \"$(carrier init zsh)\"\n")
+	f.write(".config/carrier/config.toml", "[shell]\nauto_sessions = true\n")
+	// retention: keep; history search: yes, apply; hints: no; alias: no
+	if _, err := f.run("zsh", false, "", "y", "y", "n", "n"); err != nil {
+		t.Fatalf("setup: %v\n%s", err, f.out.String())
+	}
+	if got := f.read(".config/carrier/config.toml"); got != "[shell]\nauto_sessions = true\nhistory_search = true\n" {
+		t.Fatalf("config:\n%s", got)
+	}
+	if !strings.Contains(f.out.String(), "replaces the shell's own ctrl-r search") {
+		t.Fatalf("setup should say what the key replaces:\n%s", f.out.String())
+	}
+	if _, err := f.run("zsh", false, ""); err != nil || !strings.Contains(f.out.String(), "✓ on, with ctrl-r") {
+		t.Fatalf("second run: %v\n%s", err, f.out.String())
+	}
+
+	// Without the "carrier init" line, the binding would never load.
+	f = newSetupFixture(t)
+	f.write(".zshrc", "# mine\n")
+	if _, err := f.run("zsh", false, "n", "n", "n"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(f.out.String(), `skipped: needs the "carrier init" line`) {
+		t.Fatalf("output:\n%s", f.out.String())
 	}
 }

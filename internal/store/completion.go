@@ -240,3 +240,41 @@ func limitOr(limit, fallback int) int {
 	}
 	return limit
 }
+
+// CommandChoice is a command line offered by history search: the newest run
+// of it, and how many runs it has.
+type CommandChoice struct {
+	Run
+	Runs int
+}
+
+// RecentCommands returns each distinct command line once, with its newest
+// run, the most recently run first.
+func (s *Store) RecentCommands(limit int) ([]CommandChoice, error) {
+	rows, err := s.db.Query(`SELECT `+runCols+`, g.n `+runFrom+`
+JOIN (SELECT MAX(id) AS id, COUNT(*) AS n FROM runs WHERE TRIM(command) != '' GROUP BY command) g ON g.id = r.id
+ORDER BY r.id DESC LIMIT ?`, limitOr(limit, 1000))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []CommandChoice
+	for rows.Next() {
+		var c CommandChoice
+		r, err := scanRun(countScanner{rows, &c.Runs})
+		if err != nil {
+			return nil, err
+		}
+		c.Run = *r
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// countScanner scans a run followed by one more column, a count.
+type countScanner struct {
+	rows  *sql.Rows
+	count *int
+}
+
+func (c countScanner) Scan(dest ...any) error { return c.rows.Scan(append(dest, c.count)...) }

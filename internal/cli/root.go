@@ -82,7 +82,7 @@ func Execute() int {
 	root := newRootCmd(&app{})
 	root.SetArgs(rewriteRunRefArgs(root, os.Args[1:]))
 	if err := root.Execute(); err != nil {
-		if !errors.Is(err, errAutoSessionsOff) {
+		if !errors.Is(err, errAutoSessionsOff) && !errors.Is(err, errPickCancelled) {
 			fmt.Fprintln(os.Stderr, newTheme(os.Stderr).Danger.Render("carrier:"), err)
 		}
 		return 1

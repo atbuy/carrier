@@ -70,6 +70,13 @@ or are kept with "carrier session keep".`,
 			if err != nil {
 				return err
 			}
+			if a.cfg.Shell.HistorySearch {
+				binding, err := carriershell.SearchBinding(name, carrierPath, a.cfg.Shell.HistorySearchKey)
+				if err != nil {
+					return fmt.Errorf("shell.history_search_key: %w", err)
+				}
+				completion += "\n" + binding
+			}
 			_, err = fmt.Fprint(cmd.OutOrStdout(), script+completion)
 			return err
 		},

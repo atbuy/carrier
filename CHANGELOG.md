@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.11.0] - 2026-10-26
+
+### Added
+
+- History search: `carrier search` without text lists every command you ran, in every terminal and session, newest first, filtered as you type; Tab narrows it to this directory or this session. With `shell.history_search` on, Ctrl+R in zsh, bash, and fish opens it from the command line and puts the command you pick there, without running it. `shell.history_search_key` binds another key, such as `alt-r`, to leave Ctrl+R to the shell, fzf, or atuin. Both are in `carrier config`, and `carrier setup` offers the key.
+
 ## [1.10.0] - 2026-10-26
 
 ### Added

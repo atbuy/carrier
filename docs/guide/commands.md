@@ -359,6 +359,27 @@ Search uses SQLite FTS over command text, working directory, and stored output s
 
     `--since` accepts [durations](#durations) like `30m`, `24h`, `7d`, or `2w`. `--status` accepts `success`, `failed`, `killed`, `running`.
 
+### History search
+
+Without text, or with `--pick`, `search` opens history search: every command you ran, in every terminal and session, newest first, each once:
+
+```text
+Search history · every terminal
+› kubectl
+❯ ✓ kubectl rollout status deploy/api       2h ago · ~/src/infra · BUG-1234: fix login · 3 runs
+  ✗ kubectl apply -f k8s                     1d ago · ~/src/infra
+↑/↓ move · enter pick · tab every terminal / this directory / this session · esc cancel
+```
+
+Type to filter by words of the command, and press Enter to pick one. `tab` narrows the list to this directory, then to this session, and back. `carrier search` prints the command picked, so `eval "$(carrier search)"` runs it.
+
+With [`shell.history_search`](../reference/configuration.md#history_search) on, a key in zsh, bash, and fish opens history search from the command line, starting with what you typed, and puts the command you pick on the command line to edit or run; Esc leaves the line as it was. The key is Ctrl+R, replacing the shell's own search, unless [`shell.history_search_key`](../reference/configuration.md#history_search_key) names another, such as `alt-r`. It comes with the [`carrier init`](#init) line, so it applies to terminals opened after turning it on, and `carrier setup` offers it. In bash it needs bash 4.0 or newer; macOS's bash 3.2 keeps its own Ctrl+R.
+
+```bash
+carrier config set shell.history_search true
+carrier config set shell.history_search_key alt-r   # leave Ctrl+R to the shell
+```
+
 ## `similar`
 
 List earlier failed runs whose output contains the same error as a run:
@@ -569,7 +590,7 @@ Use `carrier run` when precise stdout/stderr capture matters. See [Shell mode](.
 
 ## `setup`
 
-Set carrier up one step at a time: recording every terminal, similar-failure hints, desktop notifications, and the `c` alias.
+Set carrier up one step at a time: recording every terminal, history search on a key, similar-failure hints, desktop notifications, and the `c` alias.
 
 ```bash title="Setup"
 carrier setup

@@ -86,6 +86,10 @@ type ShellConfig struct {
 	// AutoSessions lets the line from "carrier init" record every new
 	// terminal in an automatic session. Off, new terminals are plain shells.
 	AutoSessions bool `toml:"auto_sessions"`
+	// HistorySearch binds HistorySearchKey, through the line from "carrier
+	// init", to search the commands of every terminal.
+	HistorySearch    bool   `toml:"history_search"`
+	HistorySearchKey string `toml:"history_search_key"`
 	// AutoSessionRetention is how long sessions started by "carrier shell
 	// --auto" are kept after they end, e.g. "30d"; "0" keeps them forever.
 	// Labeled, noted, and kept sessions never expire.
@@ -188,6 +192,7 @@ func Default() Config {
 		Shell: ShellConfig{
 			IgnoreCommands:       []string{"nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"},
 			AutoSessionRetention: "30d",
+			HistorySearchKey:     "ctrl-r",
 			BranchSessions:       BranchSuggest,
 		},
 		Hints: HintsConfig{SimilarFailures: false, SimilarMinAge: "1h"},
@@ -320,6 +325,12 @@ func mergeInclude(base *Config, path string, read func(string) ([]byte, error)) 
 	}
 	if meta.IsDefined("shell", "auto_sessions") {
 		base.Shell.AutoSessions = overlay.Shell.AutoSessions
+	}
+	if meta.IsDefined("shell", "history_search") {
+		base.Shell.HistorySearch = overlay.Shell.HistorySearch
+	}
+	if meta.IsDefined("shell", "history_search_key") {
+		base.Shell.HistorySearchKey = overlay.Shell.HistorySearchKey
 	}
 	if meta.IsDefined("shell", "auto_session_retention") {
 		base.Shell.AutoSessionRetention = overlay.Shell.AutoSessionRetention
@@ -517,4 +528,21 @@ func expandLabelTemplate(label string, captures map[string]string) string {
 		}
 		return s
 	})
+}
+
+// Key is a key combination for a shell key binding: Ctrl or Alt with a
+// letter, such as "ctrl-r" or "alt-r".
+type Key struct {
+	Alt    bool
+	Letter byte
+}
+
+// ParseKey reads a key written as "ctrl-<letter>" or "alt-<letter>", in any
+// case.
+func ParseKey(s string) (Key, error) {
+	mod, letter, ok := strings.Cut(strings.ToLower(strings.TrimSpace(s)), "-")
+	if !ok || len(letter) != 1 || letter[0] < 'a' || letter[0] > 'z' || (mod != "ctrl" && mod != "alt") {
+		return Key{}, fmt.Errorf(`%q is not a key carrier can bind; use ctrl- or alt- and a letter, such as "ctrl-r" or "alt-r"`, s)
+	}
+	return Key{Alt: mod == "alt", Letter: letter[0]}, nil
 }

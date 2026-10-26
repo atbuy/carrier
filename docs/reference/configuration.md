@@ -98,6 +98,8 @@ program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
 auto_sessions = false
 auto_session_retention = "30d"
+history_search = false
+history_search_key = "ctrl-r"
 ask_outcome = false
 branch_sessions = "suggest"
 
@@ -303,6 +305,31 @@ How long automatic sessions (started by the line from `carrier init`) are kept a
 ```toml
 [shell]
 auto_session_retention = "30d"
+```
+
+### `history_search`
+
+Type: boolean  
+Default: `false`
+
+Bind [`history_search_key`](#history_search_key) in zsh, bash, and fish to [history search](../guide/commands.md#history-search): the commands of every terminal, filtered as you type, with the one you pick put on the command line. The binding comes with the [`carrier init`](../guide/commands.md#init) line, so it applies to terminals opened after the change. Bash needs 4.0 or newer for it.
+
+```toml
+[shell]
+history_search = true
+```
+
+### `history_search_key`
+
+Type: string  
+Default: `"ctrl-r"`
+
+The key history search is bound to: `ctrl-` or `alt-` and a letter. The default replaces the shell's own Ctrl+R search, and fzf's or atuin's if you use them; pick another key to keep those.
+
+```toml
+[shell]
+history_search = true
+history_search_key = "alt-r"
 ```
 
 ### `ask_outcome`
@@ -601,6 +628,7 @@ when no label is provided at invocation time.
 | `shell.ignore_commands[]` | warning for blank command names                       |
 | `shell.auto_session_retention` | error if invalid or negative                     |
 | `shell.branch_sessions`   | error if not `suggest`, `follow`, or `off`            |
+| `shell.history_search_key` | error if not `ctrl-` or `alt-` and a letter          |
 | `hints.similar_min_age`   | error if invalid or negative                          |
 | `ui.color`                | error if not `auto`, `always`, or `never`             |
 | `ui.theme.*`              | error for invalid `#hex` color values                 |
