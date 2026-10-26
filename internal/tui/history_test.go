@@ -91,3 +91,75 @@ func TestHistoryCancels(t *testing.T) {
 		t.Fatalf("scope = %v, want every terminal", m.scope)
 	}
 }
+
+func TestHistoryPreview(t *testing.T) {
+	h := historyFixture()
+	exit, ms := 1, int64(2400)
+	h.Commands[0].ExitCode, h.Commands[0].DurationMS, h.Commands[0].GitBranch = &exit, &ms, "fix-login"
+	reads := map[int64]int{}
+	h.Output = func(r *store.Run, lines int) []string {
+		reads[r.ID]++
+		if r.ID == 9 {
+			return []string{"--- FAIL: TestLogin (0.02s)", "\tlogin_test.go:42: token expired"}
+		}
+		return nil
+	}
+	tm, _ := NewHistory(h, "", config.Default().UI.Theme).Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m := tm.(HistoryModel)
+	view := m.View()
+	for _, want := range []string{
+		"✗ exit 1 · 2.4s · 2h ago · /src/api · fix-login · run 9",
+		"│ --- FAIL: TestLogin (0.02s)",
+		"│     login_test.go:42: token expired",
+		"ctrl+o preview",
+	} {
+		if !strings.Contains(view, want) {
+			t.Errorf("preview is missing %q:\n%s", want, view)
+		}
+	}
+	// The preview keeps its height, so moving to a run with no output does not
+	// move the help line.
+	height := strings.Count(view, "\n")
+	m, _ = historyKeys(m, tea.KeyMsg{Type: tea.KeyDown})
+	view = m.View()
+	if !strings.Contains(view, "✓ success · 2h ago · /src/infra · run 8") || !strings.Contains(view, "no output recorded") {
+		t.Errorf("preview of run 8:\n%s", view)
+	}
+	if got := strings.Count(view, "\n"); got != height {
+		t.Errorf("view is %d lines, was %d", got, height)
+	}
+	// Output is read once per run.
+	m, _ = historyKeys(m, tea.KeyMsg{Type: tea.KeyUp})
+	_ = m.View()
+	if reads[9] != 1 || reads[8] != 1 {
+		t.Errorf("output reads = %v", reads)
+	}
+
+	// ctrl+o hides it and shows it again.
+	m, _ = historyKeys(m, tea.KeyMsg{Type: tea.KeyCtrlO})
+	if view := m.View(); strings.Contains(view, "run 9") {
+		t.Errorf("ctrl+o should hide the preview:\n%s", view)
+	}
+	m, _ = historyKeys(m, tea.KeyMsg{Type: tea.KeyCtrlO})
+	if view := m.View(); !strings.Contains(view, "run 9") {
+		t.Errorf("ctrl+o again should show the preview:\n%s", view)
+	}
+}
+
+func TestHistoryPreviewNeedsRoom(t *testing.T) {
+	h := historyFixture()
+	h.Output = func(*store.Run, int) []string { return []string{"output"} }
+	tm, _ := NewHistory(h, "", config.Default().UI.Theme).Update(tea.WindowSizeMsg{Width: 120, Height: 14})
+	view := tm.(HistoryModel).View()
+	if strings.Contains(view, "run 9") || strings.Contains(view, "ctrl+o") {
+		t.Errorf("a short terminal has no room for the preview:\n%s", view)
+	}
+	if !strings.Contains(view, "kubectl apply") {
+		t.Errorf("the commands should still be listed:\n%s", view)
+	}
+	// Without Output there is no preview at all.
+	tm, _ = NewHistory(historyFixture(), "", config.Default().UI.Theme).Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if view := tm.(HistoryModel).View(); strings.Contains(view, "run 9") || strings.Contains(view, "ctrl+o") {
+		t.Errorf("no preview without Output:\n%s", view)
+	}
+}

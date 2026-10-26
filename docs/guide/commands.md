@@ -366,12 +366,17 @@ Without text, or with `--pick`, `search` opens history search: every command you
 ```text
 Search history · every terminal
 › kubectl
-❯ ✓ kubectl rollout status deploy/api       2h ago · ~/src/infra · BUG-1234: fix login · 3 runs
-  ✗ kubectl apply -f k8s                     1d ago · ~/src/infra
-↑/↓ move · enter pick · tab every terminal / this directory / this session · esc cancel
+  ✓ kubectl rollout status deploy/api       2h ago · ~/src/infra · BUG-1234: fix login · 3 runs
+❯ ✗ kubectl apply -f k8s                     1d ago · ~/src/infra
+────────────────────────────────────────────────────────────────────────────────
+  ✗ exit 1 · 1.2s · 1d ago · ~/src/infra · main · run 412
+  │ error: error validating "k8s/api.yaml": unknown field "replica"
+↑/↓ move · enter pick · tab scope · ctrl+o preview · esc cancel
 ```
 
-Type to filter by words of the command, and press Enter to pick one. `tab` narrows the list to this directory, then to this session, and back. `carrier search` prints the command picked, so `eval "$(carrier search)"` runs it.
+Type to filter by words of the command, and press Enter to pick one. `tab` narrows the list to this directory, then to this session, and back; the title says which.
+
+Below the list, a preview shows the last run of the selected command: how it ended, how long it took, when and where it ran, and the last lines of its output, so you can tell which one worked before you pick it. `ctrl+o` hides and shows the preview. A terminal too short for the preview and a few commands shows only the list. `carrier search` prints the command picked, so `eval "$(carrier search)"` runs it.
 
 With [`shell.history_search`](../reference/configuration.md#history_search) on, a key in zsh, bash, and fish opens history search from the command line, starting with what you typed, and puts the command you pick on the command line to edit or run; Esc leaves the line as it was. The key is Ctrl+R, replacing the shell's own search, unless [`shell.history_search_key`](../reference/configuration.md#history_search_key) names another, such as `alt-r`. It comes with the [`carrier init`](#init) line, so it applies to terminals opened after turning it on, and `carrier setup` offers it. In bash it needs bash 4.0 or newer; macOS's bash 3.2 keeps its own Ctrl+R.
 
