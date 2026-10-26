@@ -111,7 +111,12 @@ func (a *app) pickCommand(cmd *cobra.Command, query string) error {
 	if err != nil {
 		return err
 	}
-	h := tui.History{Commands: commands, Labels: map[int64]string{}, SessionID: currentSessionID()}
+	h := tui.History{
+		Commands: commands, Labels: map[int64]string{}, SessionID: currentSessionID(),
+		Output: func(r *store.Run, lines int) []string {
+			return runExcerpt(r, timelineOptions{allOutput: true, lines: lines})
+		},
+	}
 	h.CWD, _ = os.Getwd()
 	// Many commands share a session; asking for each once keeps the lookup quick.
 	var ids []int64

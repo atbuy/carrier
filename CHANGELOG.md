@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.13.0] - 2026-10-26
+
+### Added
+
+- History search previews the last run of the selected command below the list: its exit code, duration, when, directory, branch, and run ID, and the last lines of its output. `ctrl+o` hides and shows it, and a terminal too short for it shows only the list. The help line is shorter, saying `tab scope`; the title still says which scope is on.
+
 ## [1.12.0] - 2026-10-26
 
 ### Added

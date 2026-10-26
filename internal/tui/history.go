@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,7 +31,22 @@ type History struct {
 	Labels    map[int64]string
 	CWD       string
 	SessionID int64
+	// Output returns the last lines of a run's output for the preview, or
+	// nil when there is none. Without it there is no preview.
+	Output func(r *store.Run, lines int) []string
 }
+
+// previewLines is the most output lines the preview shows.
+const previewLines = 6
+
+// previewHeight is the lines the preview takes: a rule, the run's details,
+// and its output. It keeps its height as the selection moves, so the screen
+// does not jump.
+const previewHeight = 2 + previewLines
+
+// previewMinRows is the fewest commands the list keeps; a terminal too short
+// for them and the preview shows no preview.
+const previewMinRows = 5
 
 // HistoryModel is the bubbletea model of history search: a list of commands
 // from every terminal, filtered by what is typed, that returns the one picked.
@@ -46,6 +62,10 @@ type HistoryModel struct {
 	height  int
 	picked  string
 	done    bool
+	// hidePreview is set by ctrl+o.
+	hidePreview bool
+	// outputs caches the preview's output by run ID.
+	outputs map[int64][]string
 }
 
 // NewHistory builds the history search over h, starting with query.
@@ -56,7 +76,7 @@ func NewHistory(h History, query string, theme config.ThemeColors) HistoryModel 
 	filter.SetValue(query)
 	filter.CursorEnd()
 	filter.Focus()
-	m := HistoryModel{h: h, filter: filter, styles: newStyles(theme)}
+	m := HistoryModel{h: h, filter: filter, styles: newStyles(theme), outputs: map[int64][]string{}}
 	m.applyFilter()
 	return m
 }
@@ -149,6 +169,9 @@ func (m HistoryModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			m.nextScope()
 			return m, nil
+		case "ctrl+o":
+			m.hidePreview = !m.hidePreview
+			return m, nil
 		case "up", "ctrl+p", "ctrl+k", "ctrl+r":
 			if m.cursor > 0 {
 				m.cursor--
@@ -177,12 +200,26 @@ func (m HistoryModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// rows is how many commands fit in the terminal, as in the session picker.
+// rows is how many commands fit in the terminal, as in the session picker,
+// leaving room for the preview when it is shown.
 func (m HistoryModel) rows() int {
 	if m.height <= 0 {
 		return pickerRows
 	}
-	return max(1, min(pickerRows, m.height-pickerChrome))
+	space := m.height - pickerChrome
+	if m.showsPreview() {
+		space -= previewHeight
+	}
+	return max(1, min(pickerRows, space))
+}
+
+// showsPreview reports whether the preview is on screen: it can be, it is
+// not hidden, and the terminal is tall enough for it and a few commands.
+func (m HistoryModel) showsPreview() bool { return m.canPreview() && !m.hidePreview }
+
+// canPreview reports whether there is a preview and room for it.
+func (m HistoryModel) canPreview() bool {
+	return m.h.Output != nil && (m.height <= 0 || m.height-pickerChrome-previewHeight >= previewMinRows)
 }
 
 func (m HistoryModel) View() string {
@@ -229,8 +266,69 @@ func (m HistoryModel) View() string {
 	if more := len(m.visible) - end; more > 0 {
 		b.WriteString(m.styles.muted.Render(fmt.Sprintf("  … %d more", more)) + "\n")
 	}
-	b.WriteString(m.styles.help.Render("↑/↓ move · enter pick · tab every terminal / this directory / this session · esc cancel"))
+	if m.showsPreview() {
+		b.WriteString(m.renderPreview(width))
+	}
+	// The title says which of every terminal, this directory, and this
+	// session tab has chosen.
+	help := "↑/↓ move · enter pick · tab scope · esc cancel"
+	if m.canPreview() {
+		help = "↑/↓ move · enter pick · tab scope · ctrl+o preview · esc cancel"
+	}
+	b.WriteString(ansi.Truncate(m.styles.help.Render(help), width-1, "…"))
 	return b.String()
+}
+
+// renderPreview shows the last run of the selected command: how it ended,
+// when and where it ran, and the end of its output. It is always
+// previewHeight lines.
+func (m HistoryModel) renderPreview(width int) string {
+	lines := []string{m.styles.muted.Render(strings.Repeat("─", max(1, min(width-1, 80))))}
+	if m.cursor < len(m.visible) {
+		c := m.h.Commands[m.visible[m.cursor]]
+		lines = append(lines, m.previewDetails(c))
+		output, ok := m.outputs[c.ID]
+		if !ok {
+			output = m.h.Output(&c.Run, previewLines)
+			m.outputs[c.ID] = output
+		}
+		if len(output) == 0 {
+			lines = append(lines, m.styles.muted.Render("  no output recorded"))
+		}
+		for _, line := range output {
+			lines = append(lines, "  "+m.styles.muted.Render("│")+" "+ansi.Truncate(strings.ReplaceAll(line, "\t", "    "), max(1, width-5), "…"))
+		}
+	}
+	for len(lines) < previewHeight {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines[:previewHeight], "\n") + "\n"
+}
+
+// previewDetails is the line about the last run: "✗ exit 1 · 2.4s · 3h ago ·
+// ~/src/api · main · run 482".
+func (m HistoryModel) previewDetails(c store.CommandChoice) string {
+	status := c.Status
+	switch {
+	case c.Status == store.StatusRunning:
+		status = "running"
+	case c.ExitCode != nil:
+		status = fmt.Sprintf("exit %d", *c.ExitCode)
+	}
+	details := []string{m.statusStyle(c.Status).Render(statusGlyph(c.Status) + " " + status)}
+	if c.DurationMS != nil {
+		details = append(details, (time.Duration(*c.DurationMS) * time.Millisecond).Round(10*time.Millisecond).String())
+	}
+	details = append(details, formatRelativeTime(c.StartedAt), collapseHome(c.CWD))
+	if c.GitBranch != "" {
+		details = append(details, c.GitBranch)
+	}
+	details = append(details, fmt.Sprintf("run %d", c.ID))
+	line := "  " + details[0] + m.styles.muted.Render(" · "+strings.Join(details[1:], " · "))
+	if m.width > 0 {
+		line = ansi.Truncate(line, m.width-1, "…")
+	}
+	return line
 }
 
 func (m HistoryModel) statusStyle(status string) lipgloss.Style {
