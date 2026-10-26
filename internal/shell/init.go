@@ -35,13 +35,20 @@ if [[ $- == *i* && -t 0 && -t 1 && -z "$CARRIER_NO_AUTO" &&
 fi
 `, quoted), nil
 	case "fish":
+		// "carrier init fish | source" runs this snippet with the pipe as its
+		// standard input, so the recorded shell reads the terminal from
+		// /dev/tty, and tty names it from standard error. Unlike "tty
+		// </dev/tty", which names /dev/tty itself, that gives the name to
+		// compare with CARRIER_TTY; when tty fails, nothing starts, so a
+		// recorded shell never starts another inside itself.
+		//
 		// In fish, exit while reading config only stops reading it; the shell
 		// keeps running. Leave at the first prompt instead. From fish 4, exit
 		// in an event handler only ends the handler, so also queue the exit
 		// input function, which older fish may not have.
 		return fmt.Sprintf(`# carrier: record this terminal in an automatic session.
-if status is-interactive; and isatty stdin; and isatty stdout; and not set -q CARRIER_NO_AUTO; and begin; not set -q CARRIER_SESSION_ID; or begin; set -q CARRIER_TTY; and test "$CARRIER_TTY" != (tty); end; end
-    if %s shell --auto --program fish
+if status is-interactive; and isatty stdout; and isatty stderr; and test -r /dev/tty; and not set -q CARRIER_NO_AUTO; and begin; not set -q CARRIER_SESSION_ID; or begin; set -q CARRIER_TTY; and set -l __carrier_tty (tty <&2); and test "$CARRIER_TTY" != "$__carrier_tty"; end; end
+    if %s shell --auto --program fish </dev/tty
         set -g fish_greeting
         function __carrier_auto_exit --on-event fish_prompt
             commandline -f exit 2>/dev/null
