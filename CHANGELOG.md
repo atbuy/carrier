@@ -6,7 +6,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 
 ### Added
 
-- History search: `carrier search` without text lists every command you ran, in every terminal and session, newest first, filtered as you type; Tab narrows it to this directory or this session. With `shell.history_search` on, Ctrl+R in zsh, bash, and fish opens it from the command line and puts the command you pick there, without running it. `shell.history_search_key` binds another key, such as `alt-r`, to leave Ctrl+R to the shell, fzf, or atuin. Both are in `carrier config`, and `carrier setup` offers the key.
+- History search: `carrier search` without text lists every command you ran, in every terminal and session, newest first, filtered as you type; Tab narrows it to this directory or this session. With `shell.history_search` on, Ctrl+R in zsh, bash, and fish opens it from the command line and puts the command you pick there, without running it. `shell.history_search_key` binds another key, such as `alt-r`, to leave Ctrl+R to the shell, fzf, or atuin. Both are in `carrier config`, and `carrier setup` offers the key. It opens in about a tenth of a second on a history of 100,000 runs; the first carrier command after upgrading adds the index on commands that makes this quick.
 - `notify.shell` notifies when a command in a recorded shell runs at least `notify.min_duration`, without `-n`. Editors, pagers, `ssh`, other `shell.ignore_commands`, carrier's own screens, and commands stopped with Ctrl+C never notify. It is off by default, in `carrier config`, and `carrier setup` offers it.
 
 ### Changed

@@ -249,11 +249,16 @@ type CommandChoice struct {
 }
 
 // RecentCommands returns each distinct command line once, with its newest
-// run, the most recently run first.
+// run, the most recently run first. The runs have no Env: history search
+// does not show it, and leaving the environments out keeps opening the search
+// quick on a long history.
 func (s *Store) RecentCommands(limit int) ([]CommandChoice, error) {
-	rows, err := s.db.Query(`SELECT `+runCols+`, g.n `+runFrom+`
-JOIN (SELECT MAX(id) AS id, COUNT(*) AS n FROM runs WHERE TRIM(command) != '' GROUP BY command) g ON g.id = r.id
-ORDER BY r.id DESC LIMIT ?`, limitOr(limit, 1000))
+	// The grouping reads only idx_runs_command, and the limit applies before
+	// the runs are joined, so only the runs returned are read in full.
+	rows, err := s.db.Query(`SELECT `+strings.Replace(runCols, "e.env_json", "NULL", 1)+`, g.n
+FROM (SELECT MAX(id) AS id, COUNT(*) AS n FROM runs WHERE TRIM(command) != '' GROUP BY command ORDER BY 1 DESC LIMIT ?) g
+JOIN runs r ON r.id = g.id
+ORDER BY r.id DESC`, limitOr(limit, 1000))
 	if err != nil {
 		return nil, err
 	}

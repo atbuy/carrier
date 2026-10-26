@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -246,8 +247,8 @@ func TestCompletionQueriesAreFast(t *testing.T) {
 		if i%10 == 0 {
 			label = fmt.Sprintf("label %d", i)
 		}
-		if _, err := tx.Exec(`INSERT INTO runs (status, mode, command, argv_json, cwd, label, started_at, git_branch, session_id)
-VALUES (?, 'shell', ?, '[]', ?, ?, ?, ?, ?)`, StatusSuccess, fmt.Sprintf("make target-%d", i%300), fmt.Sprintf("/home/dev/p%d", i%50),
+		if _, err := tx.Exec(`INSERT INTO runs (status, mode, command, argv_json, cwd, label, started_at, git_branch, session_id, hostname, shell, git_root, git_commit, stdout_path, stderr_path, terminal_output_path)
+VALUES (?, 'shell', ?, '[]', ?, ?, ?, ?, ?, 'devbox', 'zsh', '', '', '', '', '')`, StatusSuccess, fmt.Sprintf("make target-%d", i%300), fmt.Sprintf("/home/dev/p%d", i%50),
 			nullable(label), fmtTime(time.Now()), fmt.Sprintf("branch-%d", i%80), i%sessions+1); err != nil {
 			t.Fatal(err)
 		}
@@ -276,6 +277,7 @@ VALUES (?, 'shell', ?, '[]', ?, ?, ?, ?, ?)`, StatusSuccess, fmt.Sprintf("make t
 		"directories":    func() error { _, err := ro.RunValues(ValueCWD, "", 0); return err },
 		"notes by ID":    func() error { _, err := ro.NoteChoices("1", 0); return err },
 		"labels by text": func() error { _, err := ro.RunValues(ValueLabel, "label", 0); return err },
+		"history search": func() error { _, err := ro.RecentCommands(5000); return err },
 	}
 	for name, query := range queries {
 		begin := time.Now()
@@ -320,7 +322,30 @@ func TestRecentCommands(t *testing.T) {
 	if !seen["go test ./..."] || !seen["kubectl apply -f k8s"] {
 		t.Fatalf("commands = %v", seen)
 	}
-	if limited, _ := st.RecentCommands(2); len(limited) != 2 {
-		t.Fatalf("limit 2: got %d", len(limited))
+	if limited, _ := st.RecentCommands(2); len(limited) != 2 || limited[0].ID != got[0].ID || limited[1].ID != got[1].ID {
+		t.Fatalf("limit 2 should keep the newest two: got %+v", limited)
+	}
+}
+
+// TestRecentCommandsUsesCommandIndex keeps history search quick on a long
+// history: grouping the commands must read the index, not every run.
+func TestRecentCommandsUsesCommandIndex(t *testing.T) {
+	st, _ := completionStore(t)
+	rows, err := st.db.Query(`EXPLAIN QUERY PLAN SELECT MAX(id) AS id, COUNT(*) AS n FROM runs WHERE TRIM(command) != '' GROUP BY command ORDER BY 1 DESC LIMIT 5`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }()
+	var plan []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		plan = append(plan, detail)
+	}
+	if !strings.Contains(strings.Join(plan, "\n"), "idx_runs_command") {
+		t.Fatalf("grouping does not use idx_runs_command: %v", plan)
 	}
 }
