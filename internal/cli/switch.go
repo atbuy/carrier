@@ -119,7 +119,7 @@ func isSessionCommand(line string) bool {
 	switch {
 	case len(words) == 0:
 		return false
-	case words[0] == "attach" || words[0] == "a":
+	case words[0] == "attach" || words[0] == "a" || words[0] == "detach" || words[0] == "dt":
 		return true
 	default:
 		return len(words) > 1 && (words[0] == "session" || words[0] == "se") && (words[1] == "reload" || words[1] == "end")

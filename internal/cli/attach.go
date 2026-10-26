@@ -90,6 +90,10 @@ func (a *app) attachTo(cmd *cobra.Command, sess *store.Session, newShell bool) e
 // finalSession is the session a recorded shell ended in: the one it started
 // with, unless it switched sessions.
 func finalSession(started int64, last carriershell.State) int64 {
+	if last.Detached {
+		// "carrier detach" already ended it.
+		return 0
+	}
 	if last.SessionID != 0 {
 		return last.SessionID
 	}

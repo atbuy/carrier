@@ -499,3 +499,100 @@ func TestZshHooksRestoreUserZDOTDIR(t *testing.T) {
 		}
 	}
 }
+
+// TestHooksStopWhileDetached types lines into each shell around "carrier
+// detach", which writes session 0 to the session file, and "carrier attach",
+// which writes a session again: while detached, no line reaches carrier.
+func TestHooksStopWhileDetached(t *testing.T) {
+	for _, sh := range []string{"zsh", "bash", "fish"} {
+		t.Run(sh, func(t *testing.T) {
+			if sh == "bash" && !bashHasPS0(t) {
+				t.Skip("needs bash 4.4 to record every line the same way")
+			}
+			calls := runShellHooks(t, sh, "", []string{
+				"echo one",
+				`printf '0\n\n' > "$_carrier_session_file"`,
+				"echo two",
+				`printf '5\n\n' > "$_carrier_session_file"`,
+				"echo three",
+				"exit",
+			})
+			got := strings.Join(calls, "\n")
+			for _, want := range []string{"begin echo one", "begin printf '0", "begin echo three"} {
+				if !strings.Contains(got, want) {
+					t.Errorf("missing %q in calls:\n%s", want, got)
+				}
+			}
+			for _, unwanted := range []string{"echo two", "printf '5"} {
+				if strings.Contains(got, unwanted) {
+					t.Errorf("%q ran while detached, calls:\n%s", unwanted, got)
+				}
+			}
+		})
+	}
+}
+
+// TestHooksShowNothingWhileDetached checks that session 0 in the session file
+// removes the prompt indicator and the session variables.
+func TestHooksShowNothingWhileDetached(t *testing.T) {
+	for _, tc := range []struct {
+		shell  string
+		script func(hookDir, sessionFile string) []string
+	}{
+		{"zsh", func(hookDir, sessionFile string) []string {
+			return []string{"-i", "-c", `RPROMPT=mine; _carrier_precmd
+printf '0\n\n' > ` + shellQuote(sessionFile) + `
+_carrier_precmd
+print -r -- "PROMPT[$RPROMPT] ID[$CARRIER_SESSION_ID]"`}
+		}},
+		{"bash", func(hookDir, sessionFile string) []string {
+			return []string{"--rcfile", filepath.Join(hookDir, ".bashrc"), "-i", "-c", `trap - DEBUG
+printf '0\n\n' > ` + shellQuote(sessionFile) + `
+_carrier_end; trap - DEBUG
+echo "PROMPT[$PS1] ID[$CARRIER_SESSION_ID]"`}
+		}},
+		{"fish", func(hookDir, sessionFile string) []string {
+			return []string{"--no-config", "-c", "source " + filepath.Join(hookDir, "carrier.fish") + `
+printf '0\n\n' > ` + shellQuote(sessionFile) + `
+_carrier_session
+# Unquoted, a substitution that prints nothing would drop the whole word.
+set -l prompt (fish_right_prompt)
+echo "PROMPT[$prompt] ID[$CARRIER_SESSION_ID]"`}
+		}},
+	} {
+		t.Run(tc.shell, func(t *testing.T) {
+			if _, err := exec.LookPath(tc.shell); err != nil {
+				t.Skipf("%s not installed", tc.shell)
+			}
+			dir := t.TempDir()
+			statePath := filepath.Join(dir, "state.json")
+			if err := WriteSessionInfo(statePath, 3, "deploy"); err != nil {
+				t.Fatal(err)
+			}
+			hookDir, err := WriteHookDir("/bin/true", statePath, tc.shell, 3, "deploy", "", false)
+			if err != nil {
+				t.Fatalf("WriteHookDir: %v", err)
+			}
+			defer func() { _ = os.RemoveAll(hookDir) }()
+			isolateZsh(t, tc.shell, hookDir)
+			cmd := exec.Command(tc.shell, tc.script(hookDir, SessionInfoPath(statePath))...)
+			cmd.Env = append(os.Environ(), "ZDOTDIR="+hookDir, "HOME="+dir, "XDG_CONFIG_HOME="+filepath.Join(dir, ".config"), "CARRIER_SESSION_ID=3")
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("%s: %v\n%s", tc.shell, err, out)
+			}
+			got := string(out)
+			i := strings.LastIndex(got, "PROMPT[")
+			if i < 0 {
+				t.Fatalf("%s printed no prompt:\n%s", tc.shell, got)
+			}
+			got = got[i:]
+			if strings.Contains(got, "carrier #") || strings.Contains(got, "deploy") || !strings.Contains(got, "ID[]") {
+				t.Fatalf("a detached shell should show no session:\n%s", got)
+			}
+			if tc.shell == "zsh" && !strings.Contains(got, "PROMPT[mine]") {
+				t.Fatalf("zsh should keep the user's own right prompt:\n%s", got)
+			}
+		})
+	}
+}

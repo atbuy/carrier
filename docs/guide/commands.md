@@ -688,6 +688,25 @@ carrier: switched to session 12 "BUG-1234-fix"
 
 To make new terminals in a directory join a session on their own, [pin it](#session-pin).
 
+## `detach`
+
+Stop recording the shell you are in, without closing it:
+
+```bash title="Stop recording"
+carrier detach
+carrier dt     # alias
+```
+
+```text
+% carrier detach
+carrier: stopped recording this shell; ended session 12 "BUG-1234: fix login"
+carrier: resume it with: carrier attach 12
+```
+
+The session is ended, or deleted if it is an automatic session with nothing in it, the prompt indicator and terminal title go away, and `CARRIER_SESSION_ID` is unset. Commands from then on are not recorded. [`carrier attach`](#attach) records into a session again in the same shell, and `exit` closes the terminal as before. `carrier status` shows a detached shell as not recording.
+
+`detach` itself is not recorded. It needs a shell started by carrier 1.10.0 or newer; in an older one it says to open a new terminal instead.
+
 ## `session`
 
 Manage shell session labels and history.

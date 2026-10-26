@@ -120,6 +120,8 @@ unset CARRIER_ZDOTDIR
 [[ -f "${ZDOTDIR:-$HOME}/.zshrc" ]] && source "${ZDOTDIR:-$HOME}/.zshrc"
 unsetopt warn_create_global 2>/dev/null
 autoload -Uz add-zsh-hook
+# Tells "carrier detach" that these hooks can stop recording in place.
+export CARRIER_HOOKS_VERSION=2
 _carrier_zle_init() {
   unsetopt warn_create_global 2>/dev/null
 }
@@ -131,6 +133,7 @@ _carrier_rprompt=
 # powerlevel10k draws its own right prompt and resets RPROMPT before every
 # prompt, so the session is shown as a p10k segment there instead.
 prompt_carrier() {
+  [[ -n "$_carrier_detached" ]] && return
   local text="carrier #${_carrier_session_id}"
   [[ -n "$_carrier_session_label" ]] && text+=" ${_carrier_session_label//\%%/%%%%}"
   p10k segment -f %s -t "$text"
@@ -144,6 +147,20 @@ fi
 _carrier_session() {
   local id label
   { IFS= read -r id; IFS= read -r label } < "$_carrier_session_file" 2>/dev/null
+  # Session 0 means "carrier detach" stopped recording this shell: drop the
+  # indicator, title, and variables until "carrier attach" names a session.
+  if [[ "$id" == 0 ]]; then
+    [[ -z "$_carrier_detached" ]] && printf '\033]0;\007'
+    _carrier_detached=1
+    unset CARRIER_SESSION_ID CARRIER_SESSION_LABEL
+    if [[ -n "$_carrier_rprompt" && "$RPROMPT" == "$_carrier_rprompt"* ]]; then
+      RPROMPT="${RPROMPT#"$_carrier_rprompt"}"
+      RPROMPT="${RPROMPT# }"
+    fi
+    _carrier_rprompt=
+    return
+  fi
+  _carrier_detached=
   if [[ -n "$id" ]]; then
     _carrier_session_id="$id"
     _carrier_session_label="$label"
@@ -166,7 +183,7 @@ _carrier_session() {
   printf '\033]0;%%s\007' "$title"
 }
 _carrier_preexec() {
-  [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
+  [[ -n "$CARRIER_HOOK_ACTIVE" || -n "$_carrier_detached" ]] && return
   export CARRIER_HOOK_ACTIVE=1
   command %q internal begin --state %q --cmd "$1" --cwd "$PWD" >/dev/null 2>&1
   unset CARRIER_HOOK_ACTIVE
@@ -235,6 +252,8 @@ func bashHooks(carrierPath, statePath string, sessionID int64, label, labelColor
 	// The trap is installed last so startup commands are not recorded.
 	return fmt.Sprintf(`
 [[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
+# Tells "carrier detach" that these hooks can stop recording in place.
+export CARRIER_HOOKS_VERSION=2
 _carrier_session_file=%s
 _carrier_session_id=%d
 _carrier_session_label=%s
@@ -243,6 +262,16 @@ _carrier_session_label=%s
 _carrier_session() {
   local id label
   { IFS= read -r id; IFS= read -r label; } < "$_carrier_session_file" 2>/dev/null
+  # Session 0 means "carrier detach" stopped recording this shell: drop the
+  # indicator, title, and variables until "carrier attach" names a session.
+  if [[ "$id" == 0 ]]; then
+    [[ -z "$_carrier_detached" ]] && printf '\033]0;\007'
+    _carrier_detached=1
+    unset CARRIER_SESSION_ID CARRIER_SESSION_LABEL
+    _carrier_indicator=
+    return
+  fi
+  _carrier_detached=
   if [[ -n "$id" ]]; then
     _carrier_session_id="$id"
     _carrier_session_label="$label"
@@ -273,11 +302,13 @@ _carrier_run_begin() {
 }
 # Runs in the PS0 command substitution, so it cannot set variables here.
 _carrier_ps0() {
+  [[ -n "$_carrier_detached" ]] && return
   _carrier_hist
   [[ -n "$_carrier_hnum" && "$_carrier_hnum" != "$_carrier_last_hist" ]] && _carrier_run_begin "$_carrier_htext"
 }
 _carrier_begin() {
   [[ -n "$_carrier_at_prompt" ]] || return
+  [[ -n "$_carrier_detached" ]] && return
   [[ -n "$_carrier_has_ps0" && -z "${_carrier_read+set}" ]] && return
   [[ "$BASH_COMMAND" == "trap _carrier_begin DEBUG" ]] && return
   [[ -n "$CARRIER_HOOK_ACTIVE" ]] && return
@@ -340,13 +371,26 @@ trap _carrier_begin DEBUG
 func fishHooks(carrierPath, statePath string, sessionID int64, label, labelColor string, banner bool) string {
 	color := fishColor(labelColor)
 	return fmt.Sprintf(`
+# Tells "carrier detach" that these hooks can stop recording in place.
+set -gx CARRIER_HOOKS_VERSION 2
 set -g _carrier_session_file %s
 set -g _carrier_session_id %d
 set -g _carrier_session_label %s
 # Reads the current session, which "carrier attach" changes when it switches
 # sessions, and updates the title and environment; fish_right_prompt shows it.
 function _carrier_session --on-event fish_prompt
-    if read --local --line id label < $_carrier_session_file 2>/dev/null; and test -n "$id"
+    read --local --line id label < $_carrier_session_file 2>/dev/null
+    # Session 0 means "carrier detach" stopped recording this shell: drop
+    # the indicator, title, and variables until "carrier attach" names one.
+    if test "$id" = 0
+        set -q _carrier_detached; or printf '\033]0;\007'
+        set -g _carrier_detached 1
+        set -e CARRIER_SESSION_ID
+        set -e CARRIER_SESSION_LABEL
+        return
+    end
+    set -e _carrier_detached
+    if test -n "$id"
         set -g _carrier_session_id $id
         set -g _carrier_session_label $label
     end
@@ -358,6 +402,7 @@ function _carrier_session --on-event fish_prompt
 end
 function _carrier_preexec --on-event fish_preexec
     set -q CARRIER_HOOK_ACTIVE; and return
+    set -q _carrier_detached; and return
     set -xg CARRIER_HOOK_ACTIVE 1
     command %q internal begin --state %q --cmd "$argv" --cwd "$PWD" >/dev/null 2>&1
     set -eg CARRIER_HOOK_ACTIVE
@@ -365,6 +410,7 @@ end
 function _carrier_postcmd --on-event fish_postexec
     set -l ec $status
     set -q CARRIER_HOOK_ACTIVE; and return
+    set -q _carrier_detached; and return
     set -xg CARRIER_HOOK_ACTIVE 1
     command %q internal end --state %q --exit $ec >/dev/null 2>&1
     set -eg CARRIER_HOOK_ACTIVE
@@ -380,6 +426,10 @@ else
     function _carrier_orig_right_prompt; end
 end
 function fish_right_prompt
+    if set -q _carrier_detached
+        _carrier_orig_right_prompt
+        return
+    end
     set_color --bold %s
     echo -n "carrier #$_carrier_session_id"
     if test -n "$_carrier_session_label"

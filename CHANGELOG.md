@@ -4,6 +4,10 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 
 ## [1.10.0] - 2026-10-26
 
+### Added
+
+- `carrier detach` (`carrier dt`) stops recording the shell you are in, without closing it. Its session is ended, or deleted if it is an empty automatic session, the prompt indicator and title go away, and nothing more is recorded until `carrier attach` records into a session again in the same shell. `carrier status` shows the shell as not recording, and `status --json` reports `"detached": true`.
+
 ### Fixed
 
 - In fish, the `carrier init fish | source` line now starts recording the terminal. Through the pipe, fish gave the snippet the pipe as its input instead of the terminal, so carrier never started and the terminal stayed a plain shell.
