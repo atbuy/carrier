@@ -31,6 +31,9 @@ An automatic session started in a directory pinned with "carrier session pin"
 joins the pinned session instead.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := a.checkAutoSessions(cmd); err != nil {
+				return err
+			}
 			// Check before a session is created that the shell could not
 			// record into.
 			if err := carriershell.Supported(); err != nil {
@@ -87,6 +90,24 @@ joins the pinned session instead.`,
 	cmd.Flags().BoolVar(&auto, "auto", false, "start an automatic session from a shell config (see carrier init)")
 	cmd.Flags().StringVar(&program, "program", "", "shell program to run (default: shell.program, then $SHELL)")
 	return cmd
+}
+
+// errAutoSessionsOff ends "carrier shell --auto" when shell.auto_sessions is
+// off. carrier exits 1 without a message, so the line from "carrier init"
+// carries on as a plain shell, as it does when carrier cannot start.
+var errAutoSessionsOff = errors.New("automatic sessions are off (shell.auto_sessions)")
+
+// checkAutoSessions returns errAutoSessionsOff for "carrier shell --auto"
+// when automatic sessions are off.
+func (a *app) checkAutoSessions(cmd *cobra.Command) error {
+	// "shell" right under the root, or on its own in tests.
+	if cmd.Name() != "shell" || (cmd.Parent() != nil && cmd.Parent().HasParent()) {
+		return nil
+	}
+	if auto, _ := cmd.Flags().GetBool("auto"); auto && !a.cfg.Shell.AutoSessions {
+		return errAutoSessionsOff
+	}
+	return nil
 }
 
 // autoPinnedSession returns the session pinned for the current directory when

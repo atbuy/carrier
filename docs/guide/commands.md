@@ -612,7 +612,7 @@ eval "$(carrier init bash)"
 carrier init fish | source
 ```
 
-Without an argument, `init` uses the shell from `$SHELL`. See [Record every terminal](../advanced/shell-mode.md#record-every-terminal) for how it works and how to turn it off.
+Without an argument, `init` uses the shell from `$SHELL`. The line only records new terminals when [`shell.auto_sessions`](../reference/configuration.md#auto_sessions) is on, which it is not by default; `carrier setup` sets both up. See [Record every terminal](../advanced/shell-mode.md#record-every-terminal) for how it works and how to turn it off.
 
 The same line sets up [tab completion](#completion) for `carrier` and the `c` alias.
 

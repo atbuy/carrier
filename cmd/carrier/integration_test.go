@@ -410,3 +410,19 @@ func requireShell(t *testing.T) {
 		t.Skip("sh not available")
 	}
 }
+
+// TestCarrierAutoSessionsOffByDefault runs what the line from "carrier init"
+// runs in every new terminal. With shell.auto_sessions off, the default, it
+// exits 1 without a word and without creating the data directory, so the
+// terminal carries on as a plain shell.
+func TestCarrierAutoSessionsOffByDefault(t *testing.T) {
+	env := newCarrierTestEnv(t)
+	got := runCarrier(t, env, "shell", "--auto", "--program", "sh")
+	got.requireExit(t, 1)
+	if got.stdout != "" || got.stderr != "" {
+		t.Fatalf("carrier shell --auto should be silent when off, got stdout %q stderr %q", got.stdout, got.stderr)
+	}
+	if _, err := os.Stat(filepath.Join(env.home, ".local", "share", "carrier")); !os.IsNotExist(err) {
+		t.Fatalf("carrier shell --auto should not create the data directory when off: %v", err)
+	}
+}

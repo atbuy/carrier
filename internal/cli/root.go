@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -81,7 +82,9 @@ func Execute() int {
 	root := newRootCmd(&app{})
 	root.SetArgs(rewriteRunRefArgs(root, os.Args[1:]))
 	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, newTheme(os.Stderr).Danger.Render("carrier:"), err)
+		if !errors.Is(err, errAutoSessionsOff) {
+			fmt.Fprintln(os.Stderr, newTheme(os.Stderr).Danger.Render("carrier:"), err)
+		}
 		return 1
 	}
 	return 0
@@ -103,6 +106,11 @@ func newRootCmd(a *app) *cobra.Command {
 			// Resolve color/theme settings for every command, including those
 			// that skip store setup (version, config).
 			if _, err := a.ensureConfig(); err != nil {
+				return err
+			}
+			// Every new terminal runs "carrier shell --auto"; with automatic
+			// sessions off it ends here, before touching the database.
+			if err := a.checkAutoSessions(cmd); err != nil {
 				return err
 			}
 			if skipsStore(cmd.CommandPath()) {

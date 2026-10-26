@@ -83,8 +83,9 @@ func TestSetupFreshHome(t *testing.T) {
 	f := newSetupFixture(t)
 	f.write(".bashrc", "# my bashrc\nexport PATH=\"$HOME/bin:$PATH\"\n")
 
-	// record: yes, apply; retention: keep; hints: yes, apply; alias: yes, apply
-	env, err := f.run("bash", false, "y", "y", "", "y", "y", "y", "y")
+	// record: yes, apply to .bashrc, apply to the config; retention: keep;
+	// hints: yes, apply; alias: yes, apply
+	env, err := f.run("bash", false, "y", "y", "y", "", "y", "y", "y", "y")
 	if err != nil {
 		t.Fatalf("setup: %v\n%s", err, f.out.String())
 	}
@@ -94,7 +95,7 @@ func TestSetupFreshHome(t *testing.T) {
 	if got := f.read(".bashrc"); got != wantRC {
 		t.Fatalf(".bashrc:\n%s\nwant:\n%s", got, wantRC)
 	}
-	if got := f.read(".config/carrier/config.toml"); got != setupConfigHeader+"\n[hints]\nsimilar_failures = true\n" {
+	if got := f.read(".config/carrier/config.toml"); got != setupConfigHeader+"\n[shell]\nauto_sessions = true\n\n[hints]\nsimilar_failures = true\n" {
 		t.Fatalf("config:\n%s", got)
 	}
 	if len(env.changed) != 2 {
@@ -103,8 +104,10 @@ func TestSetupFreshHome(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(f.home, ".bashrc.bak-20261020-150405")); err != nil {
 		t.Fatalf("the shell config should be backed up next to it: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(f.home, ".config", "carrier", "backups")); !os.IsNotExist(err) {
-		t.Fatal("a new config file has nothing to back up")
+	// The config is new: only the second change to it, the hints, backs up
+	// the first.
+	if backups, _ := os.ReadDir(filepath.Join(f.home, ".config", "carrier", "backups")); len(backups) != 1 {
+		t.Fatalf("expected 1 config backup, got %v", backups)
 	}
 
 	// A second run finds everything set up and changes nothing.
@@ -137,12 +140,14 @@ cmd = 'go test.*'
 	f.write(".config/carrier/conf.d/hints.toml", "[hints]\nsimilar_failures = false # later\n")
 	f.notifyOK = true
 
-	// retention: 60d, apply; hints: yes, apply; test notification: no; min duration: 30s, apply
-	if _, err := f.run("bash", false, "60d", "y", "y", "y", "n", "30s", "y"); err != nil {
+	// The init line is there but automatic sessions are off. record: yes,
+	// apply; retention: 60d, apply; hints: yes, apply; test notification:
+	// no; min duration: 30s, apply
+	if _, err := f.run("bash", false, "y", "y", "60d", "y", "y", "y", "n", "30s", "y"); err != nil {
 		t.Fatalf("setup: %v\n%s", err, f.out.String())
 	}
 	want := strings.Replace(mainConfig, `min_duration = "5s"   # quick feedback`, `min_duration = "30s"   # quick feedback`, 1) +
-		"\n[shell]\nauto_session_retention = \"60d\"\n"
+		"\n[shell]\nauto_sessions = true\nauto_session_retention = \"60d\"\n"
 	if got := f.read(".config/carrier/config.toml"); got != want {
 		t.Fatalf("main config:\n%s\nwant:\n%s", got, want)
 	}
@@ -161,8 +166,8 @@ cmd = 'go test.*'
 		t.Fatalf("conf.d should only hold the include, got %v", entries)
 	}
 	backups, _ := os.ReadDir(filepath.Join(f.home, ".config", "carrier", "backups"))
-	if len(backups) != 3 {
-		t.Fatalf("expected 3 backups (config twice, include once), got %v", backups)
+	if len(backups) != 4 {
+		t.Fatalf("expected 4 backups (config three times, include once), got %v", backups)
 	}
 	// Windows has no Unix permission bits to keep.
 	if info, _ := os.Stat(filepath.Join(f.home, ".config", "carrier", "config.toml")); runtime.GOOS != "windows" && info.Mode().Perm() != 0o640 {
@@ -254,7 +259,7 @@ func TestSetupUnsupportedShellAndFish(t *testing.T) {
 	}
 
 	f = newSetupFixture(t)
-	if _, err := f.run("fish", false, "y", "y", "", "n", "y", "y"); err != nil {
+	if _, err := f.run("fish", false, "y", "y", "y", "", "n", "y", "y"); err != nil {
 		t.Fatalf("setup fish: %v", err)
 	}
 	got := f.read(".config/fish/config.fish")

@@ -139,13 +139,17 @@ carrier session export BUG-1234 > bug-1234.md
 
 ## Record every terminal
 
-Add one line to your shell config, after `PATH` is set, to start every interactive terminal in an automatic session:
+Recording every terminal is off by default. `carrier setup` turns it on in one step. By hand, it takes one line in your shell config, after `PATH` is set, and the [`shell.auto_sessions`](../reference/configuration.md#auto_sessions) setting:
 
 ```bash title="~/.zshrc"
 eval "$(carrier init zsh)"
 ```
 
-Use `carrier init bash` in `~/.bashrc`, or `carrier init fish | source` in `~/.config/fish/config.fish`. `carrier doctor` shows whether it is set up. The same line sets up [tab completion](../guide/commands.md#completion).
+```bash
+carrier config set shell.auto_sessions true
+```
+
+Use `carrier init bash` in `~/.bashrc`, or `carrier init fish | source` in `~/.config/fish/config.fish`. `carrier doctor` shows whether it is set up. The same line sets up [tab completion](../guide/commands.md#completion), so keep it even with automatic sessions off: new terminals then open as plain shells, and `carrier shell` or `carrier attach` records one when you want.
 
 How it behaves:
 
@@ -156,7 +160,7 @@ How it behaves:
 - a terminal opened and closed without running anything leaves no session behind
 - each terminal, and each tmux pane, is its own session, unless its directory is [pinned to a session](#one-session-for-every-terminal); this includes tmux panes of a tmux server started from a recorded shell, which inherit its variables but run in their own terminal
 
-Turn it off for one terminal with `CARRIER_NO_AUTO=1`, for example `CARRIER_NO_AUTO=1 zsh`, or remove the line from your config.
+Turn it off with `carrier config set shell.auto_sessions false`, or the "Record every terminal" toggle in `carrier config`; new terminals from then on open as plain shells. For one terminal, use `CARRIER_NO_AUTO=1`, for example `CARRIER_NO_AUTO=1 zsh`. To stop recording a terminal that is already recorded, use [`carrier detach`](../guide/commands.md#detach).
 
 ### Keep or expire automatic sessions
 

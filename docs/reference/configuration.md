@@ -96,6 +96,7 @@ failure = true
 [shell]
 program = ""
 ignore_commands = ["nvim", "vim", "less", "man", "fzf", "yazi", "lazygit", "tmux"]
+auto_sessions = false
 auto_session_retention = "30d"
 ask_outcome = false
 branch_sessions = "suggest"
@@ -279,6 +280,18 @@ Default:
 ```
 
 carrier's own hook commands are never recorded.
+
+### `auto_sessions`
+
+Type: boolean  
+Default: `false`
+
+Record every new terminal in an automatic session, through the line from [`carrier init`](../guide/commands.md#init) in your shell config. Off, new terminals open as plain shells, and the line only sets up tab completion; `carrier shell` and `carrier attach` still record. `carrier setup` turns it on when you choose to record every terminal.
+
+```toml
+[shell]
+auto_sessions = true
+```
 
 ### `auto_session_retention`
 
