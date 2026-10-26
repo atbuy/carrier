@@ -146,6 +146,9 @@ type Model struct {
 	sessions         []store.SessionChoice
 	filteredSessions []store.SessionChoice
 	sessionCursor    int
+	// runOffset and sessionOffset are the first rows the lists show.
+	runOffset     int
+	sessionOffset int
 }
 
 // New builds a Model. runs should be newest-first. dataDir is used to remove log
@@ -262,6 +265,14 @@ func (m *Model) reload() {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	tm, cmd := m.update(msg)
+	bm := tm.(Model)
+	bm.runOffset = scrollTo(bm.runOffset, bm.cursor, bm.listHeight(), len(bm.filtered))
+	bm.sessionOffset = scrollTo(bm.sessionOffset, bm.sessionCursor, bm.listHeight(), len(bm.filteredSessions))
+	return bm, cmd
+}
+
+func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -475,11 +486,7 @@ func (m Model) listHeight() int {
 func (m Model) renderList() string {
 	var b strings.Builder
 	height := m.listHeight()
-	// Scroll the list window to keep the cursor visible.
-	start := 0
-	if m.cursor >= height {
-		start = m.cursor - height + 1
-	}
+	start := scrollTo(m.runOffset, m.cursor, height, len(m.filtered))
 	end := start + height
 	if end > len(m.filtered) {
 		end = len(m.filtered)

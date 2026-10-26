@@ -41,9 +41,11 @@ type ConfigModel struct {
 	// visible holds the indices in config.Settings that match the search.
 	visible []int
 	cursor  int
-	mode    configMode
-	search  textinput.Model
-	input   textinput.Model
+	// offset is the first row of the list on screen.
+	offset int
+	mode   configMode
+	search textinput.Model
+	input  textinput.Model
 	// list is the list being edited in configList mode, listCursor the item
 	// selected in it, and listEditing the item being edited, or -1 for a new
 	// one.
@@ -221,6 +223,13 @@ type editorDoneMsg struct{ err error }
 func (m ConfigModel) Init() tea.Cmd { return nil }
 
 func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	tm, cmd := m.update(msg)
+	cm := tm.(ConfigModel)
+	cm.scrollSettings()
+	return cm, cmd
+}
+
+func (m ConfigModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -529,44 +538,70 @@ func (m ConfigModel) View() string {
 	return b.String()
 }
 
+// settingRows lays out the list of settings: a title row for each group, a
+// blank row between groups, and a row for each setting. It returns the row of
+// each visible setting, which rows are titles, and how many rows there are.
+func (m ConfigModel) settingRows() (settingRow []int, titles map[int]bool, total int) {
+	titles = map[int]bool{}
+	group := ""
+	for _, idx := range m.visible {
+		if g := config.Settings[idx].Group(); g != group {
+			group = g
+			if total > 0 {
+				total++
+			}
+			titles[total] = true
+			total++
+		}
+		settingRow = append(settingRow, total)
+		total++
+	}
+	return settingRow, titles, total
+}
+
+// settingsHeight is how many rows of settings fit on the screen.
+func (m ConfigModel) settingsHeight(total int) int {
+	if m.height <= 0 {
+		return total
+	}
+	return min(total, max(3, m.height-8))
+}
+
+// scrollSettings keeps the selected setting in view, moving the window only
+// when it would leave it. A group's first setting brings its title along.
+func (m *ConfigModel) scrollSettings() {
+	settingRow, titles, total := m.settingRows()
+	if m.cursor >= len(settingRow) {
+		m.offset = 0
+		return
+	}
+	cursorRow, height := settingRow[m.cursor], m.settingsHeight(total)
+	m.offset = scrollTo(m.offset, cursorRow, height, total)
+	if m.offset == cursorRow && titles[cursorRow-1] && height > 1 {
+		m.offset--
+	}
+}
+
 func (m ConfigModel) renderSettings() string {
 	if len(m.visible) == 0 {
 		return m.styles.muted.Render("  no settings match") + "\n"
 	}
-	// Lay out every row, with group titles, then show the window of rows
-	// around the cursor.
-	var rows []string
-	titles := map[int]bool{}
-	cursorRow := 0
-	group := ""
-	for i, idx := range m.visible {
-		s := config.Settings[idx]
-		if g := s.Group(); g != group {
-			group = g
-			if len(rows) > 0 {
-				rows = append(rows, "")
+	settingRow, titles, total := m.settingRows()
+	rows := make([]string, total)
+	for row := range titles {
+		// The setting after a title names its group.
+		for i, r := range settingRow {
+			if r == row+1 {
+				rows[row] = " " + m.styles.paneTitle.Render(config.GroupTitle(config.Settings[m.visible[i]].Group()))
+				break
 			}
-			titles[len(rows)] = true
-			rows = append(rows, " "+m.styles.paneTitle.Render(config.GroupTitle(g)))
 		}
-		if i == m.cursor {
-			cursorRow = len(rows)
-		}
-		rows = append(rows, m.renderRow(s, i == m.cursor))
 	}
-	height := len(rows)
-	if m.height > 0 {
-		height = min(height, max(3, m.height-8))
+	for i, idx := range m.visible {
+		rows[settingRow[i]] = m.renderRow(config.Settings[idx], i == m.cursor)
 	}
-	start := max(0, cursorRow-height+1)
-	// Show the title of the cursor's group when it would be just out of view.
-	if titles[start-1] && cursorRow-(start-1) < height {
-		start--
-	}
-	if rows[start] == "" && start < cursorRow {
-		start++
-	}
-	end := min(len(rows), start+height)
+	start := m.offset
+	end := min(total, start+m.settingsHeight(total))
 	return strings.Join(rows[start:end], "\n") + "\n"
 }
 

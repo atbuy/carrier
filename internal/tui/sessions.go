@@ -36,6 +36,7 @@ type PickerModel struct {
 	items   []SessionItem
 	visible []int
 	cursor  int
+	offset  int
 	filter  textinput.Model
 	styles  styles
 	width   int
@@ -94,6 +95,13 @@ func (m *PickerModel) applyFilter() {
 func (m PickerModel) Init() tea.Cmd { return textinput.Blink }
 
 func (m PickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	tm, cmd := m.update(msg)
+	pm := tm.(PickerModel)
+	pm.offset = scrollTo(pm.offset, pm.cursor, pm.rows(), len(pm.visible))
+	return pm, cmd
+}
+
+func (m PickerModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -157,7 +165,7 @@ func (m PickerModel) View() string {
 		b.WriteString(m.styles.muted.Render("  no sessions match") + "\n")
 	}
 	rows := m.rows()
-	start := max(0, m.cursor-rows+1)
+	start := scrollTo(m.offset, m.cursor, rows, len(m.visible))
 	end := min(len(m.visible), start+rows)
 	width := m.width
 	if width <= 0 {
