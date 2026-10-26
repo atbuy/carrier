@@ -149,6 +149,7 @@ carrier shell                      # start a recorded shell session
 carrier shell 'my-session'         # start a named session
 carrier attach my-session          # switch to an existing session
 carrier attach                     # pick a session to switch to
+carrier detach                     # stop recording this shell, without closing it
 carrier session pin my-session     # new terminals in this directory join it
 carrier status                     # is this terminal recorded, and into which session?
 carrier session show my-session    # replay a session as a timeline

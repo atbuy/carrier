@@ -34,6 +34,9 @@ func (a *app) internalBeginCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sf := &carriershell.StateFile{Path: statePath}
 			state := sf.Read()
+			if state.Detached {
+				return nil
+			}
 			if isHookCommand(command) {
 				_ = sf.Write(carriershell.State{SessionID: state.SessionID})
 				return nil
@@ -113,7 +116,7 @@ func (a *app) internalEndCmd() *cobra.Command {
 					_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
 				}
 			}
-			if err := sf.Write(carriershell.State{SessionID: state.SessionID}); err != nil {
+			if err := sf.Write(carriershell.State{SessionID: state.SessionID, Detached: state.Detached}); err != nil {
 				return err
 			}
 			// After the run is recorded where it ran: a checkout belongs to

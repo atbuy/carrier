@@ -15,8 +15,10 @@ import (
 // terminalStatus is what "carrier status" and "carrier doctor" report about
 // the terminal they run in.
 type terminalStatus struct {
-	// Recorded is true inside a recorded shell.
+	// Recorded is true inside a recorded shell that is recording.
 	Recorded bool
+	// Detached is true inside a recorded shell that "carrier detach" stopped.
+	Detached bool
 	// Inherited is true when this terminal only inherited the variables of a
 	// recorded shell in another terminal, such as a tmux pane started from one.
 	Inherited bool
@@ -60,7 +62,9 @@ func (a *app) terminalStatus() terminalStatus {
 	var s terminalStatus
 	s.TTY = os.Getenv("CARRIER_TTY")
 	s.Shell = os.Getenv("SHELL")
-	if statePath := recordedShellState(); statePath != "" {
+	if statePath := recordedShellState(); statePath != "" && (&carriershell.StateFile{Path: statePath}).Read().Detached {
+		s.Detached = true
+	} else if statePath != "" {
 		s.Recorded = true
 		s.OldHooks = hooksIgnoreSessionInfo(statePath)
 		if id := currentSessionID(); id != 0 {
@@ -155,6 +159,9 @@ func printStatus(out io.Writer, s terminalStatus) {
 	case s.Recorded:
 		line("Recording", t.Warning.Render("yes, but its session is gone"))
 		more(`it was deleted; "carrier attach <session>" switches this shell to another`)
+	case s.Detached:
+		line("Recording", t.Muted.Render(`no; "carrier detach" stopped recording this shell`))
+		more(`"carrier attach <session>" records into a session again`)
 	case s.Inherited:
 		line("Recording", t.Warning.Render("no"))
 		more(fmt.Sprintf("this terminal inherited session %d's variables from another terminal, such as the shell", s.InheritedID))
@@ -209,6 +216,7 @@ func labelSuffix(t theme, label string) string {
 // statusView is the JSON form of terminalStatus.
 type statusView struct {
 	Recorded    bool         `json:"recorded"`
+	Detached    bool         `json:"detached,omitempty"`
 	Inherited   bool         `json:"inherited"`
 	InheritedID int64        `json:"inherited_session_id,omitempty"`
 	OldHooks    bool         `json:"old_hooks"`
@@ -238,7 +246,7 @@ type pinView struct {
 
 func (s terminalStatus) view() statusView {
 	v := statusView{
-		Recorded: s.Recorded, Inherited: s.Inherited, InheritedID: s.InheritedID, OldHooks: s.OldHooks,
+		Recorded: s.Recorded, Detached: s.Detached, Inherited: s.Inherited, InheritedID: s.InheritedID, OldHooks: s.OldHooks,
 		RunCount: s.Runs, FailedCount: s.Failed, NoteCount: s.Notes, TmuxStale: s.TmuxStale,
 	}
 	if s.Recorded {

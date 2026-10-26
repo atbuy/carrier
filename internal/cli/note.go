@@ -300,7 +300,11 @@ func currentSessionID() int64 {
 		return 0
 	}
 	if statePath := os.Getenv("CARRIER_SHELL_STATE"); statePath != "" {
-		if state := (&carriershell.StateFile{Path: statePath}).Read(); state.SessionID != 0 {
+		state := (&carriershell.StateFile{Path: statePath}).Read()
+		if state.Detached {
+			return 0
+		}
+		if state.SessionID != 0 {
 			return state.SessionID
 		}
 	}

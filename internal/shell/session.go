@@ -16,6 +16,9 @@ type State struct {
 	CurrentID  int64  `json:"current_id"`
 	CurrentLog string `json:"current_log"`
 	SessionID  int64  `json:"session_id"`
+	// Detached is set by "carrier detach": the shell records nothing, and
+	// SessionID is 0, until "carrier attach" points it at a session again.
+	Detached bool `json:"detached,omitempty"`
 }
 
 type StateFile struct {

@@ -195,6 +195,8 @@ From the next command on, runs are recorded into that session, and the prompt in
 
 Outside a recorded shell, or with `--new-shell`, `attach` starts a new shell that records into the session, which is useful to continue a session from another terminal or after a disconnect.
 
+To stop recording a terminal without closing it, for example before working with something you would rather not keep, run `carrier detach`. The shell carries on unrecorded, without the prompt indicator, until `carrier attach` points it at a session again. See [`detach`](../guide/commands.md#detach).
+
 ### One session per branch
 
 When each branch is its own task, link the branch to its session. `carrier attach --branch` does it in one step, starting a session named after the branch when there is none:
