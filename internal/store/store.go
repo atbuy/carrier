@@ -278,6 +278,7 @@ func (s *Store) AllRuns() ([]Run, error) {
 type HistoryFilter struct {
 	Status    string    // exact match on status column
 	Since     time.Time // only runs started at or after this time
+	Until     time.Time // only runs started before this time
 	CWD       string    // substring match on cwd
 	Branch    string    // exact match on git_branch
 	Command   string    // substring match on command
@@ -367,6 +368,10 @@ func historyWhere(f HistoryFilter) ([]string, []any) {
 	if !f.Since.IsZero() {
 		where = append(where, "started_at >= ?")
 		args = append(args, fmtTime(f.Since))
+	}
+	if !f.Until.IsZero() {
+		where = append(where, "started_at < ?")
+		args = append(args, fmtTime(f.Until))
 	}
 	if f.CWD != "" {
 		where = append(where, "cwd LIKE ?")

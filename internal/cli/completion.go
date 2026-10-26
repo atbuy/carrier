@@ -176,6 +176,7 @@ func (a *app) completionSpecs() completionSpecs {
 		"carrier completion":     fixedValues("bash", "zsh", "fish", "powershell"),
 		"carrier init":           fixedValues("zsh", "bash", "fish"),
 		"carrier config set":     completeSettings,
+		"carrier report":         onlyFirst(fixedValues("today", "yesterday", "week")),
 	}
 	statuses := fixedValues(store.StatusSuccess, store.StatusFailed, store.StatusRunning, store.StatusKilled)
 	durations := completeDurations
@@ -187,6 +188,7 @@ func (a *app) completionSpecs() completionSpecs {
 		},
 		"carrier search":         {"status": statuses, "since": durations},
 		"carrier stats":          {"command": a.completeValues(store.ValueCommand)},
+		"carrier report":         {"since": durations},
 		"carrier clean":          {"older-than": durations},
 		"carrier tail":           {"stream": fixedValues("both", "stdout", "stderr", "terminal")},
 		"carrier diff":           {"stream": fixedValues("auto", "stdout", "stderr", "terminal")},

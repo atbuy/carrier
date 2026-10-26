@@ -177,6 +177,8 @@ carrier search                     # pick a command from every terminal's histor
 carrier similar 42
 carrier stats
 carrier stats --json
+carrier report                     # what you worked on today
+carrier report week --markdown
 carrier export 42
 carrier rerun 42
 carrier doctor

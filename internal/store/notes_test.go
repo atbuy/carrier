@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -265,5 +266,40 @@ func TestErrorLines(t *testing.T) {
 	}
 	if got := ErrorLines("all good\n\n", 3); strings.Join(got, "|") != "all good" {
 		t.Fatalf("ErrorLines without errors = %q", got)
+	}
+}
+
+func TestNotesBetweenAndHistoryUntil(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = st.Close() }()
+	day := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	sess, err := st.CreateSession(CreateSession{Label: "BUG-1234: fix login", StartedAt: day})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, at := range []time.Time{day.Add(-time.Second), day, day.Add(23 * time.Hour), day.AddDate(0, 0, 1)} {
+		if _, err := st.CreateNote(CreateNote{SessionID: &sess, Text: fmt.Sprintf("note %d", i), CreatedAt: at}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.CreateRun(CreateRun{Status: StatusSuccess, Mode: ModeShell, Command: fmt.Sprintf("run %d", i), ArgvJSON: "[]", CWD: "/srv/app", StartedAt: at}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	notes, err := st.NotesBetween(day, day.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(notes) != 2 || notes[0].Text != "note 1" || notes[1].Text != "note 2" {
+		t.Fatalf("notes = %+v", notes)
+	}
+	runs, err := st.ListHistory(10, HistoryFilter{Since: day, Until: day.AddDate(0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 2 || runs[0].Command != "run 2" || runs[1].Command != "run 1" {
+		t.Fatalf("runs = %+v", runs)
 	}
 }

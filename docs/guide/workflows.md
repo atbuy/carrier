@@ -178,6 +178,16 @@ carrier stats --slowest 10
 
 Use this to check total runs, failure rate, runs per active day, and slow commands.
 
+## Write up what you did
+
+`carrier report` sums up a day from what carrier recorded: where you worked, the sessions there with their notes and outcomes, and what is still failing. Label sessions and add notes as you go, and the report reads like a log of the day:
+
+```bash title="Report on your work"
+carrier report                     # today
+carrier report yesterday --markdown > standup.md
+carrier report week --repo         # this repository over the last 7 days
+```
+
 ## Watch a project
 
 Re-run a command when files change:

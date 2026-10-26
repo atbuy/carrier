@@ -51,6 +51,7 @@ func TestJSONOutputSchema(t *testing.T) {
 		{"search", a.searchCmd, []string{"refused"}, map[string]string{"json": "true"}, nil},
 		{"similar", a.similarCmd, []string{full}, map[string]string{"json": "true"}, nil},
 		{"stats", a.statsCmd, nil, map[string]string{"json": "true"}, nil},
+		{"report", a.reportCmd, []string{"2025-01-02"}, map[string]string{"json": "true"}, nil},
 		{"notes", a.notesCmd, nil, map[string]string{"json": "true"}, nil},
 		{"session list", a.sessionListCmd, nil, map[string]string{"json": "true"}, nil},
 		{"session show", a.sessionShowCmd, []string{"1234"}, map[string]string{"json": "true", "output": "true"}, nil},
