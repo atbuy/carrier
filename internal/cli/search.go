@@ -113,9 +113,12 @@ func (a *app) pickCommand(cmd *cobra.Command, query string) error {
 	}
 	h := tui.History{Commands: commands, Labels: map[int64]string{}, SessionID: currentSessionID()}
 	h.CWD, _ = os.Getwd()
+	// Many commands share a session; asking for each once keeps the lookup quick.
 	var ids []int64
+	seen := map[int64]bool{}
 	for _, c := range commands {
-		if c.SessionID != nil {
+		if c.SessionID != nil && !seen[*c.SessionID] {
+			seen[*c.SessionID] = true
 			ids = append(ids, *c.SessionID)
 		}
 	}
