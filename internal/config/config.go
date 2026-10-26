@@ -83,6 +83,9 @@ type NotifyConfig struct {
 type ShellConfig struct {
 	Program        string   `toml:"program"`
 	IgnoreCommands []string `toml:"ignore_commands"`
+	// AutoSessions lets the line from "carrier init" record every new
+	// terminal in an automatic session. Off, new terminals are plain shells.
+	AutoSessions bool `toml:"auto_sessions"`
 	// AutoSessionRetention is how long sessions started by "carrier shell
 	// --auto" are kept after they end, e.g. "30d"; "0" keeps them forever.
 	// Labeled, noted, and kept sessions never expire.
@@ -314,6 +317,9 @@ func mergeInclude(base *Config, path string, read func(string) ([]byte, error)) 
 	}
 	if meta.IsDefined("shell", "program") {
 		base.Shell.Program = overlay.Shell.Program
+	}
+	if meta.IsDefined("shell", "auto_sessions") {
+		base.Shell.AutoSessions = overlay.Shell.AutoSessions
 	}
 	if meta.IsDefined("shell", "auto_session_retention") {
 		base.Shell.AutoSessionRetention = overlay.Shell.AutoSessionRetention

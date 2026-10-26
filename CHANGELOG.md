@@ -6,7 +6,12 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 
 ### Added
 
+- `shell.auto_sessions` turns recording every terminal on and off, also as the "Record every terminal" toggle in `carrier config`. Off, the `carrier init` line opens new terminals as plain shells and only sets up tab completion.
 - `carrier detach` (`carrier dt`) stops recording the shell you are in, without closing it. Its session is ended, or deleted if it is an empty automatic session, the prompt indicator and title go away, and nothing more is recorded until `carrier attach` records into a session again in the same shell. `carrier status` shows the shell as not recording, and `status --json` reports `"detached": true`.
+
+### Changed
+
+- Recording every terminal is now off by default. If your shell config has the `carrier init` line and you want new terminals recorded, turn it on with `carrier config set shell.auto_sessions true`, or run `carrier setup`. Terminals that are already open are not affected.
 
 ### Fixed
 

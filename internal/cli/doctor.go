@@ -53,7 +53,7 @@ func (a *app) runDoctor(w io.Writer) error {
 	check(w, t, "notify", notify.Available(), "optional desktop notifications", nil)
 	shellErr := carriershell.Supported()
 	check(w, t, "shell", shellErr == nil && shellSupported(a.cfg.Shell.Program), shellProgram(a.cfg.Shell.Program), shellErr)
-	check(w, t, "auto session", true, autoSessionStatus(a.cfg.Shell.Program, a.cfg.Shell.AutoSessionRetention), nil)
+	check(w, t, "auto session", true, autoSessionStatus(a.cfg.Shell), nil)
 	s := a.terminalStatus()
 	check(w, t, "this shell", s.shellHealthy(), thisShellDetail(s), nil)
 	if s.Pin.Path != "" {
@@ -190,7 +190,7 @@ func shellConfigFiles(home string) map[string]string {
 
 // autoSessionStatus reports which shell configs run "carrier init", or how to
 // turn automatic sessions on for the current shell.
-func autoSessionStatus(configured, retention string) string {
+func autoSessionStatus(shell config.ShellConfig) string {
 	home, _ := os.UserHomeDir()
 	files := shellConfigFiles(home)
 	var enabled []string
@@ -199,10 +199,15 @@ func autoSessionStatus(configured, retention string) string {
 			enabled = append(enabled, collapseHome(files[name]))
 		}
 	}
-	if len(enabled) > 0 {
-		return fmt.Sprintf("on in %s (kept %s)", strings.Join(enabled, ", "), retention)
+	switch {
+	case len(enabled) > 0 && shell.AutoSessions:
+		return fmt.Sprintf("on in %s (kept %s)", strings.Join(enabled, ", "), shell.AutoSessionRetention)
+	case len(enabled) > 0:
+		return `off: shell.auto_sessions is off; "carrier config set shell.auto_sessions true" turns it on`
+	case !shell.AutoSessions:
+		return `off; "carrier setup" turns it on`
 	}
-	name := filepath.Base(shellProgram(configured))
+	name := filepath.Base(shellProgram(shell.Program))
 	if file, ok := files[name]; ok {
 		return fmt.Sprintf("off; add %s to %s", carriershell.InitLine(name), collapseHome(file))
 	}

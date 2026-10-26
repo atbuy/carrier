@@ -167,23 +167,43 @@ func (e *setupEnv) stepAutoSessions() error {
 		return nil
 	}
 	content, _ := os.ReadFile(rc)
-	on := strings.Contains(string(content), "carrier init")
-	if on {
+	// Recording every terminal takes the "carrier init" line, which also
+	// sets up tab completion, and shell.auto_sessions turned on.
+	hasLine := strings.Contains(string(content), "carrier init")
+	switch {
+	case hasLine && e.cfg.Shell.AutoSessions:
 		e.done("already on in " + collapseHome(rc))
-	} else {
+	case hasLine:
+		e.printf("%s has the \"carrier init\" line, but shell.auto_sessions is off, so new\n", collapseHome(rc))
+		e.printf("terminals are not recorded.\n")
+		if !e.ask("Record every terminal?", true) {
+			return nil
+		}
+		if err := e.setConfig("shell", "auto_sessions", "true"); err != nil {
+			return err
+		}
+	default:
 		e.printf("Start every new terminal in an automatic session, so commands and output\n")
 		e.printf("are recorded without running \"carrier shell\" first. This also sets up tab\n")
 		e.printf("completion for carrier and the \"c\" alias.\n")
-		if e.ask("Record every terminal?", true) {
-			added := appendBlock(content, "Added by carrier setup: record every terminal in a carrier session.", carriershell.InitLine(e.shell))
-			applied, err := e.proposeEdit(rc, content, added, nil)
-			if err != nil {
+		if !e.ask("Record every terminal?", true) {
+			return nil
+		}
+		added := appendBlock(content, "Added by carrier setup: record every terminal in a carrier session.", carriershell.InitLine(e.shell))
+		applied, err := e.proposeEdit(rc, content, added, nil)
+		if err != nil {
+			return err
+		}
+		if !applied && !e.dryRun {
+			return nil
+		}
+		if !e.cfg.Shell.AutoSessions {
+			if err := e.setConfig("shell", "auto_sessions", "true"); err != nil {
 				return err
 			}
-			on = applied || e.dryRun
 		}
 	}
-	if !on {
+	if !e.cfg.Shell.AutoSessions && !e.dryRun {
 		return nil
 	}
 

@@ -58,7 +58,7 @@ New users should start with the [Getting started guide](https://atbuy.github.io/
 - `carrier attach <id-or-label>` switches a recorded shell to an existing session, or opens it in a new shell from any other terminal. Without a session it lists recent ones to pick from.
 - `carrier session pin` pins a directory to a session, so every new terminal or tmux window started there joins it.
 - `carrier session list` lists shell sessions; `carrier session label` sets or clears a session label.
-- `eval "$(carrier init zsh)"` in your shell config records every terminal in an automatic session; unlabeled ones expire after 30 days (`shell.auto_session_retention`).
+- `eval "$(carrier init zsh)"` in your shell config, with `shell.auto_sessions = true`, records every terminal in an automatic session; unlabeled ones expire after 30 days (`shell.auto_session_retention`). `carrier setup` sets up both.
 - optional similar-failure hints point at an earlier run with the same error (`[hints] similar_failures = true`); `carrier similar <id>` lists them.
 - `carrier note <text>` adds a note to the current shell session or a run, so you can record why you ran something. Notes show up in `history` and `show` and are searchable.
 

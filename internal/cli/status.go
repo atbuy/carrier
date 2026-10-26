@@ -168,7 +168,7 @@ func printStatus(out io.Writer, s terminalStatus) {
 		more(`a tmux server was started from; open a new terminal, or "carrier shell" to record this one`)
 	default:
 		line("Recording", t.Muted.Render("no; this terminal is not a recorded shell"))
-		more(`start one with "carrier shell", or record every terminal: see "carrier init"`)
+		more(`start one with "carrier shell", or record every terminal with "carrier setup"`)
 	}
 	if s.Outcome != nil {
 		line("Outcome", s.Outcome.Text)

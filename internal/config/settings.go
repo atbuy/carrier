@@ -122,6 +122,12 @@ var Settings = []Setting{
 		Value:   func(c Config) any { return c.Shell.IgnoreCommands },
 	},
 	{
+		Section: "shell", Key: "auto_sessions", Kind: KindBool,
+		Title:   "Record every terminal",
+		Summary: "Start each new terminal in an automatic session, through the line from \"carrier init\". Off, new terminals are plain shells; \"carrier shell\" and \"carrier attach\" still record.",
+		Value:   func(c Config) any { return c.Shell.AutoSessions },
+	},
+	{
 		Section: "shell", Key: "auto_session_retention", Kind: KindDuration,
 		Title:   "Automatic session retention",
 		Summary: "How long automatic sessions are kept after they end. 0 keeps them all. Labeled, noted, and kept sessions never expire.",

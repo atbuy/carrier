@@ -20,6 +20,9 @@ func autoSessionApp(t *testing.T) (*app, string) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.Storage.DataDir = filepath.Join(dir, "data")
+	// The tests run "carrier shell --auto" as the line from "carrier init"
+	// does with automatic sessions on.
+	cfg.Shell.AutoSessions = true
 	st, err := store.Open(cfg.Storage.DataDir)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -295,14 +298,42 @@ func TestAutoSessionStatus(t *testing.T) {
 	home := t.TempDir()
 	setHome(t, home)
 	t.Setenv("ZDOTDIR", "")
-	if got := autoSessionStatus("/bin/bash", "30d"); got != `off; add eval "$(carrier init bash)" to `+filepath.FromSlash("~/.bashrc") {
+	on := config.ShellConfig{Program: "/bin/bash", AutoSessions: true, AutoSessionRetention: "30d"}
+	off := on
+	off.AutoSessions = false
+	if got := autoSessionStatus(off); got != `off; "carrier setup" turns it on` {
 		t.Fatalf("off status = %q", got)
 	}
-	if got := autoSessionStatus("/bin/sh", "30d"); got != "off; see carrier init" {
+	if got := autoSessionStatus(on); got != `off; add eval "$(carrier init bash)" to `+filepath.FromSlash("~/.bashrc") {
+		t.Fatalf("status without the init line = %q", got)
+	}
+	sh := on
+	sh.Program = "/bin/sh"
+	if got := autoSessionStatus(sh); got != "off; see carrier init" {
 		t.Fatalf("unsupported shell status = %q", got)
 	}
 	_ = os.WriteFile(filepath.Join(home, ".zshrc"), []byte("eval \"$(carrier init zsh)\"\n"), 0o600)
-	if got := autoSessionStatus("/bin/bash", "30d"); got != "on in "+filepath.FromSlash("~/.zshrc")+" (kept 30d)" {
+	if got := autoSessionStatus(on); got != "on in "+filepath.FromSlash("~/.zshrc")+" (kept 30d)" {
 		t.Fatalf("on status = %q", got)
+	}
+	if got := autoSessionStatus(off); !strings.Contains(got, "carrier config set shell.auto_sessions true") {
+		t.Fatalf("status with the line but the setting off = %q", got)
+	}
+}
+
+func TestShellAutoWhenAutoSessionsOff(t *testing.T) {
+	a, _ := autoSessionApp(t)
+	a.cfg.Shell.AutoSessions = false
+	cmd := a.shellCmd()
+	_ = cmd.Flags().Set("auto", "true")
+	if err := cmd.RunE(cmd, nil); !errors.Is(err, errAutoSessionsOff) {
+		t.Fatalf("err = %v, want errAutoSessionsOff", err)
+	}
+	if sessions, _ := a.st.ListSessions(10); len(sessions) != 0 {
+		t.Fatalf("no session should be created: %+v", sessions)
+	}
+	// "carrier shell" itself is not automatic, and still records.
+	if err := a.checkAutoSessions(a.shellCmd()); err != nil {
+		t.Fatalf("carrier shell without --auto: %v", err)
 	}
 }
