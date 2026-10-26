@@ -78,6 +78,9 @@ type NotifyConfig struct {
 	MinDuration string `toml:"min_duration"`
 	Success     bool   `toml:"success"`
 	Failure     bool   `toml:"failure"`
+	// Shell notifies for every command in a recorded shell that runs at least
+	// MinDuration, as if the shell had been started with -n.
+	Shell bool `toml:"shell"`
 }
 
 type ShellConfig struct {
@@ -319,6 +322,9 @@ func mergeInclude(base *Config, path string, read func(string) ([]byte, error)) 
 	}
 	if meta.IsDefined("notify", "failure") {
 		base.Notify.Failure = overlay.Notify.Failure
+	}
+	if meta.IsDefined("notify", "shell") {
+		base.Notify.Shell = overlay.Notify.Shell
 	}
 	if meta.IsDefined("shell", "program") {
 		base.Shell.Program = overlay.Shell.Program

@@ -142,8 +142,9 @@ cmd = 'go test.*'
 
 	// The init line is there but automatic sessions are off. record: yes,
 	// apply; retention: 60d, apply; hints: yes, apply; test notification:
-	// no; min duration: 30s, apply. History search: no.
-	if _, err := f.run("bash", false, "y", "y", "60d", "y", "n", "y", "y", "n", "30s", "y"); err != nil {
+	// no; shell notifications: no; min duration: 30s, apply. History
+	// search: no.
+	if _, err := f.run("bash", false, "y", "y", "60d", "y", "n", "y", "y", "n", "n", "30s", "y"); err != nil {
 		t.Fatalf("setup: %v\n%s", err, f.out.String())
 	}
 	want := strings.Replace(mainConfig, `min_duration = "5s"   # quick feedback`, `min_duration = "30s"   # quick feedback`, 1) +
@@ -271,15 +272,19 @@ func TestSetupUnsupportedShellAndFish(t *testing.T) {
 func TestSetupNotifications(t *testing.T) {
 	f := newSetupFixture(t)
 	f.notifyOK = true
-	// hints: no; test: yes; min duration: invalid, then 1m, apply
-	if _, err := f.run("", false, "n", "y", "soon", "1m", "y"); err != nil {
+	// hints: no; test: yes; shell notifications: yes, apply; min duration:
+	// invalid, then 1m, apply
+	if _, err := f.run("", false, "n", "y", "y", "y", "soon", "1m", "y"); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 	if f.notified != 1 {
 		t.Fatalf("test notification sent %d times", f.notified)
 	}
-	if !strings.Contains(f.out.String(), "invalid:") || !strings.Contains(f.read(".config/carrier/config.toml"), "[notify]\nmin_duration = \"1m\"\n") {
-		t.Fatalf("min duration should be validated and saved:\n%s", f.out.String())
+	if !strings.Contains(f.out.String(), "invalid:") || !strings.Contains(f.read(".config/carrier/config.toml"), "[notify]\nshell = true\nmin_duration = \"1m\"\n") {
+		t.Fatalf("shell notifications and the min duration should be saved:\n%s\n%s", f.out.String(), f.read(".config/carrier/config.toml"))
+	}
+	if !strings.Contains(f.out.String(), "Notify for commands that run longer than") {
+		t.Fatalf("with shell notifications on, the threshold applies without -n too:\n%s", f.out.String())
 	}
 }
 

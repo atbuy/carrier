@@ -52,7 +52,7 @@ New users should start with the [Getting started guide](https://atbuy.github.io/
 - search uses SQLite FTS over commands, working directories, and output snippets.
 - SQLite metadata is stored in `~/.local/share/carrier/carrier.db`.
 - output logs are stored in `~/.local/share/carrier/runs/`.
-- optional notifications use `notify-send` on Linux.
+- optional notifications use `notify-send` on Linux; with `notify.shell = true`, recorded shells notify when a long command finishes.
 - human-readable output is colorized on TTYs; use `NO_COLOR=1` to disable or `CARRIER_COLOR=always` to force.
 - `carrier shell` starts a recorded shell session for zsh, bash, or fish. Each shell session groups its runs in `carrier history`, `carrier history --session my-session`, and `carrier history --sessions-only`.
 - `carrier attach <id-or-label>` switches a recorded shell to an existing session, or opens it in a new shell from any other terminal. Without a session it lists recent ones to pick from.
@@ -216,6 +216,7 @@ patterns = [
 min_duration = "10s"
 success = true
 failure = true
+shell = false
 
 [shell]
 program = ""

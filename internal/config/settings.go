@@ -110,6 +110,12 @@ var Settings = []Setting{
 		Value:   func(c Config) any { return c.Notify.Failure },
 	},
 	{
+		Section: "notify", Key: "shell", Kind: KindBool,
+		Title:   "Notify in recorded shells",
+		Summary: "Notify when a command in a recorded shell runs at least min_duration, without -n. Editors, pagers, ssh, and other shell.ignore_commands, and commands stopped with Ctrl+C, never notify.",
+		Value:   func(c Config) any { return c.Notify.Shell },
+	},
+	{
 		Section: "shell", Key: "program", Kind: KindText,
 		Title:   "Shell program",
 		Summary: "Shell started by \"carrier shell\". Empty uses $SHELL.",
