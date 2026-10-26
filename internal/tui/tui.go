@@ -265,6 +265,9 @@ func (m *Model) reload() {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keys := eachKey(msg); keys != nil {
+		return updateEach(m, keys)
+	}
 	tm, cmd := m.update(msg)
 	bm := tm.(Model)
 	bm.runOffset = scrollTo(bm.runOffset, bm.cursor, bm.listHeight(), len(bm.filtered))

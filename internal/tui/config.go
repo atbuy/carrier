@@ -223,6 +223,9 @@ type editorDoneMsg struct{ err error }
 func (m ConfigModel) Init() tea.Cmd { return nil }
 
 func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keys := eachKey(msg); keys != nil {
+		return updateEach(m, keys)
+	}
 	tm, cmd := m.update(msg)
 	cm := tm.(ConfigModel)
 	cm.scrollSettings()

@@ -16,6 +16,7 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 ### Fixed
 
 - Lists in `carrier browse`, `carrier config`, the `carrier attach` picker, and history search scroll only when the selection would leave the screen. Before, moving back up a long list scrolled it along with the selection, instead of moving the selection within the screen.
+- Text pasted into `carrier browse`, `carrier config`, the `carrier attach` picker, or history search, or typed faster than the screen reads it, is handled as if typed one key at a time. Before, pasting `/min` into `carrier config` did not open the search, since the keys arrived together.
 
 ## [1.10.0] - 2026-10-26
 

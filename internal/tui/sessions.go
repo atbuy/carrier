@@ -95,6 +95,9 @@ func (m *PickerModel) applyFilter() {
 func (m PickerModel) Init() tea.Cmd { return textinput.Blink }
 
 func (m PickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keys := eachKey(msg); keys != nil {
+		return updateEach(m, keys)
+	}
 	tm, cmd := m.update(msg)
 	pm := tm.(PickerModel)
 	pm.offset = scrollTo(pm.offset, pm.cursor, pm.rows(), len(pm.visible))
