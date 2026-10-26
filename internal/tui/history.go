@@ -39,6 +39,7 @@ type HistoryModel struct {
 	scope   historyScope
 	visible []int
 	cursor  int
+	offset  int
 	filter  textinput.Model
 	styles  styles
 	width   int
@@ -120,6 +121,13 @@ func (m *HistoryModel) nextScope() {
 func (m HistoryModel) Init() tea.Cmd { return textinput.Blink }
 
 func (m HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	tm, cmd := m.update(msg)
+	hm := tm.(HistoryModel)
+	hm.offset = scrollTo(hm.offset, hm.cursor, hm.rows(), len(hm.visible))
+	return hm, cmd
+}
+
+func (m HistoryModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -190,7 +198,7 @@ func (m HistoryModel) View() string {
 		b.WriteString(m.styles.muted.Render("  no commands match") + "\n")
 	}
 	rows := m.rows()
-	start := max(0, m.cursor-rows+1)
+	start := scrollTo(m.offset, m.cursor, rows, len(m.visible))
 	end := min(len(m.visible), start+rows)
 	commandWidth := max(20, min(60, width-40))
 	for i := start; i < end; i++ {

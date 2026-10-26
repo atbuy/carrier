@@ -13,6 +13,10 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 
 - Notifications for commands in recorded shells are sent in the background, so the next prompt no longer waits for the notifier, and they say the directory and session the command ran in.
 
+### Fixed
+
+- Lists in `carrier browse`, `carrier config`, the `carrier attach` picker, and history search scroll only when the selection would leave the screen. Before, moving back up a long list scrolled it along with the selection, instead of moving the selection within the screen.
+
 ## [1.10.0] - 2026-10-26
 
 ### Added

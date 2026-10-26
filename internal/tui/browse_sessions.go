@@ -198,10 +198,7 @@ func (m Model) toggleKeep(sess store.SessionChoice) Model {
 
 func (m Model) renderSessionList(height int) string {
 	var b strings.Builder
-	start := 0
-	if m.sessionCursor >= height {
-		start = m.sessionCursor - height + 1
-	}
+	start := scrollTo(m.sessionOffset, m.sessionCursor, height, len(m.filteredSessions))
 	end := min(len(m.filteredSessions), start+height)
 	const labelWidth = listWidth - 20 // gutter(2)+id(5)+sp+glyph(1)+sp+when(9)+sp
 	for i := start; i < end; i++ {
