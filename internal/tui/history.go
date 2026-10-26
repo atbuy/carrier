@@ -121,6 +121,9 @@ func (m *HistoryModel) nextScope() {
 func (m HistoryModel) Init() tea.Cmd { return textinput.Blink }
 
 func (m HistoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keys := eachKey(msg); keys != nil {
+		return updateEach(m, keys)
+	}
 	tm, cmd := m.update(msg)
 	hm := tm.(HistoryModel)
 	hm.offset = scrollTo(hm.offset, hm.cursor, hm.rows(), len(hm.visible))
