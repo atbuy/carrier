@@ -111,6 +111,25 @@ func (s *Store) ListNotes(f NoteFilter, limit int) ([]Note, error) {
 	return notes, rows.Err()
 }
 
+// NotesBetween returns the notes written from from up to, not including, to,
+// oldest first.
+func (s *Store) NotesBetween(from, to time.Time) ([]Note, error) {
+	rows, err := s.db.Query(noteSelect+` WHERE created_at >= ? AND created_at < ? ORDER BY created_at, id`, fmtTime(from), fmtTime(to))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var notes []Note
+	for rows.Next() {
+		n, err := scanNote(rows)
+		if err != nil {
+			return nil, err
+		}
+		notes = append(notes, *n)
+	}
+	return notes, rows.Err()
+}
+
 // SessionOutcome returns the latest outcome note of a session, or nil when it
 // has none.
 func (s *Store) SessionOutcome(sessionID int64) (*Note, error) {

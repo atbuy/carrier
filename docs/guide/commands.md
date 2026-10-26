@@ -413,6 +413,40 @@ carrier stats --json
 
     When filtering with `-c`/`--command`, output includes min/max duration in addition to avg.
 
+## `report`
+
+Summarize what you worked on: the repositories and directories you ran commands in, the sessions there with their notes and outcomes, the commands you ran more than once, and the commands whose last run failed.
+
+```bash title="Report"
+carrier report                # today
+carrier report yesterday
+carrier report week           # the last 7 days
+carrier report 2026-10-20     # one day
+carrier report --since 3h     # the last 3 hours
+carrier report --repo         # only the Git repository you are in
+carrier report --markdown     # to paste into a standup or a pull request
+carrier report --json
+```
+
+```text
+Today, Monday 26 October 2026
+8 runs in 3 sessions, 2 failed, 12m in commands.
+
+api  ~/src/api · fix-login, main
+  09:10–14:00 · 6 runs, 2 failed
+  • BUG-1234: fix login (session 12) · 09:10–10:20 · 4 runs, 2 failed
+      outcome: fixed by locking the refresh
+      09:50 token refresh races the logout
+  • 2 other sessions · 2 runs
+  most run: go test ./... ×3
+  ✗ still failing: make e2e  run 43, 10:05
+
+~/scratch
+  15:00–15:05 · 2 runs
+```
+
+Places with the most runs come first. Sessions with a label, a note, or an outcome get a line each; the rest, such as the automatic session of each terminal, share one line. A note written during the period shows up with its session even when the session ran its commands earlier. `--json` lists every session, labeled or not.
+
 ## `diff`
 
 Diff the captured output of two runs:
@@ -1039,6 +1073,7 @@ What Tab offers:
 | `--status`, `--stream`, `--format`, `setup --shell` | the values they accept |
 | `history --branch`, `--label`, `--cwd`, `--command`, `stats --command` | values from your recorded runs |
 | `--since`, `--older-than` | common durations such as `7d` |
+| `report` | `today`, `yesterday`, and `week` |
 | `self changelog`, `self update --version` | released versions, read from the built-in changelog |
 | `notes rm` | notes, with their text |
 | `run` and `watch` | the command you run, completed as if you typed it on its own: `c run git ch<Tab>` completes like `git ch<Tab>` |

@@ -133,7 +133,7 @@ func newRootCmd(a *app) *cobra.Command {
 	root.PersistentFlags().BoolVarP(&a.quiet, "quiet", "q", false, "suppress carrier status output")
 	root.PersistentFlags().BoolVar(&a.noRedact, "no-redact", false, "disable persisted log redaction for this run")
 
-	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.setupCmd(), a.attachCmd(), a.detachCmd(), a.doctorCmd(), a.configCmd(), a.selfCmd(), a.versionCmd(), deprecatedSelfAlias(a.changelogCmd()), a.statusCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.browseCmd(), a.diffCmd(), a.completionCmd())
+	root.AddCommand(a.runCmd(), a.lastCmd(), a.showCmd(), a.failedCmd(), a.runningCmd(), a.historyCmd(), a.hsCmd(), a.searchCmd(), a.similarCmd(), a.exportCmd(), a.rerunCmd(), a.statsCmd(), a.reportCmd(), a.cleanCmd(), a.tailCmd(), a.watchCmd(), a.shellCmd(), a.initCmd(), a.setupCmd(), a.attachCmd(), a.detachCmd(), a.doctorCmd(), a.configCmd(), a.selfCmd(), a.versionCmd(), deprecatedSelfAlias(a.changelogCmd()), a.statusCmd(), a.internalCmd(), a.labelCmd(), a.noteCmd(), a.notesCmd(), a.sessionCmd(), a.browseCmd(), a.diffCmd(), a.completionCmd())
 	installHelp(root)
 	a.installCompletions(root)
 	return root

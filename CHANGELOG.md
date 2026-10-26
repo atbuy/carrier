@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.12.0] - 2026-10-26
+
+### Added
+
+- `carrier report` (`carrier rp`) sums up what you worked on today, `yesterday`, over the last `week`, on a date such as `2026-10-20`, or `--since 3h`: the repositories and directories you ran commands in, with their branches, the sessions there with their notes and outcomes, the commands you ran most, and the ones whose last run failed. `--repo` keeps to the repository you are in, `--markdown` writes it to paste into a standup or a pull request, and `--json` gives every detail.
+
 ## [1.11.0] - 2026-10-26
 
 ### Added
