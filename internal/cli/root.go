@@ -72,6 +72,9 @@ type app struct {
 	noRedact     bool
 	timeout      time.Duration
 	label        string
+	// retries and retryDelay are "carrier run --retry N --retry-delay D".
+	retries    int
+	retryDelay time.Duration
 
 	// completionTried is set once shell completion has tried to open the
 	// store, so a failure is not retried for every candidate.

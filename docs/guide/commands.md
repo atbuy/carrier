@@ -110,6 +110,31 @@ Useful flags:
 | `-q`, `--quiet`              | Hide `carrier: run <id>` status output.                               |
 | `--no-redact`                | Persist logs without redaction for this run.                          |
 | `-L`, `--label <text>`       | Attach a label to this run.                                           |
+| `--retry <n>`                | Run the command again while it fails, up to `n` more times.           |
+| `--retry-delay <duration>`   | Wait this long between attempts.                                      |
+
+carrier's flags go before the command; everything from the command on is passed to it as is.
+
+### Retrying
+
+`--retry` runs a flaky command again until it succeeds, for tests that fail now and then or a download that times out:
+
+```bash title="Retry a flaky command"
+carrier run --retry 3 go test ./...                 # up to 4 attempts
+carrier run --retry 2 --retry-delay 10s npm ci
+carrier run --retry 2 -t 5m make e2e                # a timeout counts as a failure
+```
+
+```text
+carrier: run 41
+--- FAIL: TestLogin (0.02s)
+carrier: run 41 failed with exit 1; retrying (attempt 2 of 4)
+carrier: run 42
+ok      github.com/example/api  0.31s
+carrier: run 42 succeeded on attempt 2 of 4
+```
+
+Each attempt is its own run in the history, so `carrier diff 41 42` compares a failure with the success. carrier exits with the last attempt's exit code. A notification, with `-n` or `-N`, comes once: when an attempt succeeds, or when the last one fails. Ctrl+C stops the command and the retries, also while carrier waits between attempts.
 
 Behavior:
 
@@ -510,9 +535,11 @@ carrier rerun 42 --edit
 
 Useful flags:
 
-| Flag                   | Meaning                    |
-| ---------------------- | -------------------------- |
-| `-L`, `--label <text>` | Attach a label to this run |
+| Flag                       | Meaning                                               |
+| -------------------------- | ----------------------------------------------------- |
+| `-L`, `--label <text>`     | Attach a label to this run                            |
+| `--retry <n>`              | Run it again while it fails, up to `n` more times     |
+| `--retry-delay <duration>` | Wait this long between attempts                       |
 
 ## `label`
 
