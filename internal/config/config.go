@@ -483,6 +483,13 @@ func (c *Config) CompileAutoLabels() error {
 // Capture group values from matched fields are merged into a single map and
 // used to expand ${name} and ${N} placeholders in the rule's label template.
 func (c Config) ResolveLabel(cmd, dir, branch string) string {
+	label, _ := c.MatchAutoLabel(cmd, dir, branch)
+	return label
+}
+
+// MatchAutoLabel is ResolveLabel that also returns the index of the rule
+// that matched, or -1 when none did.
+func (c Config) MatchAutoLabel(cmd, dir, branch string) (string, int) {
 	for i := range c.AutoLabels {
 		rule := &c.AutoLabels[i]
 		captures := map[string]string{}
@@ -509,9 +516,9 @@ func (c Config) ResolveLabel(cmd, dir, branch string) string {
 			mergeCaptures(captures, rule.compiledGitBranch, m)
 		}
 
-		return expandLabelTemplate(rule.Label, captures)
+		return expandLabelTemplate(rule.Label, captures), i
 	}
-	return ""
+	return "", -1
 }
 
 // mergeCaptures adds all named and positional submatches from match into dst.

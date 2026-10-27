@@ -99,7 +99,7 @@ func Set(mainPath string, s Setting, value any) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return file, write(mainPath, file, updated, s)
+	return file, write(mainPath, file, updated, settingFields(s))
 }
 
 // Reset removes s from the file whose value takes effect, so the default, or
@@ -114,12 +114,18 @@ func Reset(mainPath string, s Setting) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return file, write(mainPath, file, RemoveValue(old, s.Section, s.Key), s)
+	return file, write(mainPath, file, RemoveValue(old, s.Section, s.Key), settingFields(s))
+}
+
+// settingFields matches the fields "carrier config check" reports s as,
+// such as "redaction.patterns[2]" for an item of a list.
+func settingFields(s Setting) func(string) bool {
+	return func(field string) bool { return field == s.Name() || strings.HasPrefix(field, s.Name()+"[") }
 }
 
 // write checks the config as it would be with file holding content, and
-// writes it when it loads and passes the checks for s.
-func write(mainPath, file string, content []byte, s Setting) error {
+// writes it when it loads and has no errors in the fields that match.
+func write(mainPath, file string, content []byte, fields func(string) bool) error {
 	cfg, err := load(mainPath, func(path string) ([]byte, error) {
 		if path == file {
 			return content, nil
@@ -130,7 +136,7 @@ func write(mainPath, file string, content []byte, s Setting) error {
 		return fmt.Errorf("the config would not load: %w", err)
 	}
 	for _, issue := range Check(cfg) {
-		if issue.Level == IssueError && (issue.Field == s.Name() || strings.HasPrefix(issue.Field, s.Name()+"[")) {
+		if issue.Level == IssueError && fields(issue.Field) {
 			return errors.New(issue.Message)
 		}
 	}

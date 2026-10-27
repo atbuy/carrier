@@ -12,9 +12,9 @@ Change settings without editing the file:
 carrier config
 ```
 
-This lists every setting, grouped like the file, with its value. Move with the arrow keys and press Enter to change the selected one: on/off settings toggle, settings with a fixed set of values move to the next one (←/→ pick either way), and other settings open for typing. Lists, such as `ignore_commands`, open on their own screen to add, edit, and delete items. Press `r` to reset a setting to its default, `/` to search, and `e` to open the file in `$EDITOR`.
+This lists every setting, grouped like the file, with its value. Move with the arrow keys and press Enter to change the selected one: on/off settings toggle, settings with a fixed set of values move to the next one (←/→ pick either way), and other settings open for typing. Lists, such as `ignore_commands`, open on their own screen to add, edit, and delete items. So do the [`[[auto_label]]` rules](#auto_label), under **Auto labels** at the end. Press `r` to reset a setting to its default, `/` to search, and `e` to open the file in `$EDITOR`.
 
-Each change is checked like `carrier config check` does and saved to the file right away; an invalid value is not saved. Only the setting's line changes, so comments and the rest of the file stay as they are. carrier reads the file on every command, so a change applies from the next one, also in recorded shells. When an [include](#includes) sets the value, the include is changed, since its value is the one that takes effect. `[[auto_label]]` rules and `includes` are edited in the file.
+Each change is checked like `carrier config check` does and saved to the file right away; an invalid value is not saved. Only the setting's line changes, so comments and the rest of the file stay as they are. carrier reads the file on every command, so a change applies from the next one, also in recorded shells. When an [include](#includes) sets the value, the include is changed, since its value is the one that takes effect. `includes`, and `[[auto_label]]` rules in includes, are edited in their files.
 
 Change one setting from the command line or a script with `carrier config set`, which saves it the same way:
 
@@ -621,6 +621,25 @@ dir = '/home/me/myproject'
 label = "make: ${1}"
 cmd = 'make (\w+)'
 ```
+
+### Editing rules in `carrier config`
+
+`carrier config` lists the rules under **Auto labels**; press Enter on **Rules** to open them:
+
+```text
+ Auto-label rules · the first rule that matches labels the run
+ ❯  1  tests                     cmd go test.*
+    2  feature ${branch}         branch feat/(?P<branch>.+)
+
+ Try › git checkout -b feat/login
+   → feature login from rule 2 in ~/src/api on feat/login
+
+ a add · enter edit · d delete · J/K move down/up · t try a command · esc back
+```
+
+`a` adds a rule after the others, Enter edits the one selected in a form with its label and three patterns (Tab moves between them), `d` deletes it after asking, and `J` and `K` move it down and up, since the first rule that matches wins. `t` tries a command: type one to see the label it would get in the current directory and Git branch, and which rule gives it.
+
+Each change is checked, so a rule without a label or with a pattern that is not a regular expression is not saved, and written to the main config file as `[[auto_label]]` tables. A rule changed keeps its comments and the lines of the keys that did not change; a new rule is written after the last one. Rules from includes are listed after these, and edited in their files.
 
 ### Interaction with `--label`
 

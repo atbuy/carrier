@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.15.0] - 2026-10-27
+
+### Added
+
+- `carrier config` edits the `[[auto_label]]` rules, under **Auto labels** at the end. Enter opens them: `a` adds a rule, Enter edits its label and patterns, `d` deletes it after asking, `J` and `K` move it, since the first rule that matches wins, and `t` tries a command to see the label it would get here and from which rule. Rules are checked before they are saved, and written to the main config file keeping its comments and the lines that did not change. Rules from includes are listed after them and edited in their files.
+
 ## [1.14.0] - 2026-10-27
 
 ### Added
