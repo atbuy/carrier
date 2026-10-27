@@ -131,7 +131,12 @@ func TestRerunRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	runs, _ := st.ListHistory(10, store.HistoryFilter{})
-	if exitCode != 0 || len(runs) != 4 || runs[0].Status != store.StatusSuccess || runs[0].Mode != store.ModeRerun {
-		t.Fatalf("exit = %d, runs = %+v", exitCode, runs)
+	var statuses []string
+	for _, r := range runs {
+		statuses = append(statuses, r.Mode+" "+r.Status)
+	}
+	// The original run, then three reruns, newest first.
+	if want := "rerun success, rerun failed, rerun failed, run failed"; exitCode != 0 || strings.Join(statuses, ", ") != want {
+		t.Fatalf("exit = %d, runs = %v, want %s", exitCode, statuses, want)
 	}
 }

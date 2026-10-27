@@ -32,7 +32,9 @@ func TestMain(m *testing.M) {
 
 // flaky counts its runs in a file and fails until the nth.
 func flaky(spec string) int {
-	path, n, _ := strings.Cut(spec, ":")
+	// The count follows the last colon: a Windows path has one of its own.
+	i := strings.LastIndex(spec, ":")
+	path, n := spec[:i], spec[i+1:]
 	succeedOn, _ := strconv.Atoi(n)
 	data, _ := os.ReadFile(path)
 	runs, _ := strconv.Atoi(string(data))
