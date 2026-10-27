@@ -55,6 +55,8 @@ func press(m ConfigModel, keys ...string) ConfigModel {
 			msgs = []tea.KeyMsg{{Type: tea.KeyBackspace}}
 		case "ctrl+u":
 			msgs = []tea.KeyMsg{{Type: tea.KeyCtrlU}}
+		case "tab":
+			msgs = []tea.KeyMsg{{Type: tea.KeyTab}}
 		default:
 			for _, r := range k {
 				msgs = append(msgs, runeKey(r))

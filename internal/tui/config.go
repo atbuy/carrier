@@ -25,6 +25,9 @@ const (
 	configEdit
 	configList
 	configListEdit
+	configRules
+	configRuleEdit
+	configRuleTry
 )
 
 // titleWidth is the width of the settings' titles, before their values.
@@ -52,8 +55,10 @@ type ConfigModel struct {
 	list        []string
 	listCursor  int
 	listEditing int
-	status      string
-	statusErr   bool
+	// rule holds the auto-label rules screens.
+	rule      ruleState
+	status    string
+	statusErr bool
 	// changed lists the settings saved, for the line printed on exit.
 	changed  []string
 	files    []string
@@ -76,8 +81,9 @@ func NewConfig(path string) (ConfigModel, error) {
 	search.Placeholder = "search settings"
 	input := textinput.New()
 	input.Prompt = ""
-	m := ConfigModel{path: path, cfg: cfg, styles: newStyles(cfg.UI.Theme), search: search, input: input, editor: editorCommand}
+	m := ConfigModel{path: path, cfg: cfg, styles: newStyles(cfg.UI.Theme), search: search, input: input, editor: editorCommand, rule: newRuleState()}
 	m.loadSources()
+	m.loadRules()
 	m.applySearch()
 	return m, nil
 }
@@ -108,9 +114,20 @@ func (m ConfigModel) Summary() string {
 	for i, f := range m.files {
 		files[i] = collapseHome(f)
 	}
+	settings := len(m.changed)
+	if slices.Contains(m.changed, rulesName) {
+		settings--
+	}
 	what, applies := "1 setting", "it applies"
-	if len(m.changed) > 1 {
-		what, applies = fmt.Sprintf("%d settings", len(m.changed)), "they apply"
+	if settings > 1 {
+		what, applies = fmt.Sprintf("%d settings", settings), "they apply"
+	}
+	switch {
+	case settings == len(m.changed):
+	case settings == 0:
+		what, applies = "the "+rulesName, "they apply"
+	default:
+		what, applies = what+" and the "+rulesName, "they apply"
 	}
 	return fmt.Sprintf("carrier: saved %s to %s; %s from the next carrier command", what, strings.Join(files, ", "), applies)
 }
@@ -133,14 +150,15 @@ func (m *ConfigModel) reload() error {
 	m.cfg = cfg
 	m.styles = newStyles(cfg.UI.Theme)
 	m.loadSources()
+	m.loadRules()
 	return nil
 }
 
 func (m *ConfigModel) applySearch() {
 	q := strings.ToLower(strings.TrimSpace(m.search.Value()))
-	var selected string
-	if s, ok := m.selected(); ok {
-		selected = s.Name()
+	selected := -1
+	if m.cursor >= 0 && m.cursor < len(m.visible) {
+		selected = m.visible[m.cursor]
 	}
 	m.visible = m.visible[:0]
 	for i, s := range config.Settings {
@@ -149,16 +167,19 @@ func (m *ConfigModel) applySearch() {
 			m.visible = append(m.visible, i)
 		}
 	}
+	if rulesMatch(q) {
+		m.visible = append(m.visible, rulesRow)
+	}
 	m.cursor = 0
 	for i, idx := range m.visible {
-		if config.Settings[idx].Name() == selected {
+		if idx == selected {
 			m.cursor = i
 		}
 	}
 }
 
 func (m ConfigModel) selected() (config.Setting, bool) {
-	if m.cursor < 0 || m.cursor >= len(m.visible) {
+	if m.cursor < 0 || m.cursor >= len(m.visible) || m.visible[m.cursor] == rulesRow {
 		return config.Setting{}, false
 	}
 	return config.Settings[m.visible[m.cursor]], true
@@ -260,6 +281,12 @@ func (m ConfigModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateList(msg)
 		case configListEdit:
 			return m.updateListEdit(msg)
+		case configRules:
+			return m.updateRules(msg)
+		case configRuleEdit:
+			return m.updateRuleEdit(msg)
+		case configRuleTry:
+			return m.updateRuleTry(msg)
 		default:
 			return m.updateBrowse(msg)
 		}
@@ -315,10 +342,16 @@ func (m ConfigModel) updateBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.reset(s)
 		}
 	case "enter", " ":
+		if m.onRules() {
+			return m.openRules()
+		}
 		if ok {
 			return m.change(s, 1)
 		}
 	case "right", "l":
+		if m.onRules() {
+			return m.openRules()
+		}
 		if ok && (s.Kind == config.KindBool || s.Kind == config.KindChoice) {
 			return m.change(s, 1)
 		}
@@ -528,9 +561,14 @@ func (m ConfigModel) View() string {
 	}
 	var b strings.Builder
 	b.WriteString(m.styles.paneTitle.Render("Settings") + "  " + m.styles.muted.Render(collapseHome(m.path)) + "\n")
-	if m.mode == configList || m.mode == configListEdit {
+	switch m.mode {
+	case configList, configListEdit:
 		b.WriteString(m.renderList())
-	} else {
+	case configRules, configRuleTry:
+		b.WriteString(m.renderRules())
+	case configRuleEdit:
+		b.WriteString(m.renderRuleForm())
+	default:
 		if m.mode == configSearch || m.search.Value() != "" {
 			b.WriteString(m.search.View() + "\n")
 		}
@@ -548,7 +586,7 @@ func (m ConfigModel) settingRows() (settingRow []int, titles map[int]bool, total
 	titles = map[int]bool{}
 	group := ""
 	for _, idx := range m.visible {
-		if g := config.Settings[idx].Group(); g != group {
+		if g := groupOf(idx); g != group {
 			group = g
 			if total > 0 {
 				total++
@@ -595,12 +633,16 @@ func (m ConfigModel) renderSettings() string {
 		// The setting after a title names its group.
 		for i, r := range settingRow {
 			if r == row+1 {
-				rows[row] = " " + m.styles.paneTitle.Render(config.GroupTitle(config.Settings[m.visible[i]].Group()))
+				rows[row] = " " + m.styles.paneTitle.Render(groupTitleOf(m.visible[i]))
 				break
 			}
 		}
 	}
 	for i, idx := range m.visible {
+		if idx == rulesRow {
+			rows[settingRow[i]] = m.renderRulesRow(i == m.cursor)
+			continue
+		}
 		rows[settingRow[i]] = m.renderRow(config.Settings[idx], i == m.cursor)
 	}
 	start := m.offset
@@ -686,6 +728,9 @@ func (m ConfigModel) renderList() string {
 }
 
 func (m ConfigModel) renderDetail() string {
+	if m.onRules() {
+		return m.renderRulesDetail()
+	}
 	s, ok := m.selected()
 	if !ok {
 		return "\n"
@@ -712,10 +757,19 @@ func (m ConfigModel) renderConfigHelp() string {
 		help = "enter save · esc cancel"
 	case configList:
 		help = "a add · enter edit · d delete · r reset to default · esc back"
+	case configRules:
+		help = "a add · enter edit · d delete · J/K move down/up · t try a command · esc back"
+	case configRuleEdit:
+		help = "tab next field · shift+tab back · enter save · esc cancel"
+	case configRuleTry:
+		help = "type a command · esc back"
 	default:
 		help = "↑/↓ move · enter change · ←/→ choose · r reset · / search · e edit file · q quit"
 		if s, ok := m.selected(); ok && s.Kind == config.KindList {
 			help = "↑/↓ move · enter edit list · r reset · / search · e edit file · q quit"
+		}
+		if m.onRules() {
+			help = "↑/↓ move · enter edit rules · / search · e edit file · q quit"
 		}
 	}
 	line := "\n" + m.styles.help.Render(" "+help)

@@ -24,8 +24,8 @@ const (
 )
 
 // Setting describes one config key that can be changed without editing the
-// file by hand, for "carrier config". auto_label rules and includes are left
-// to the file.
+// file by hand, for "carrier config". auto_label rules have a screen of their
+// own (see rules.go), and includes are left to the file.
 type Setting struct {
 	// Section is the TOML table, such as "shell" or "ui.theme", and Key the
 	// key in it.

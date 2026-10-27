@@ -1054,6 +1054,8 @@ Settings  ~/.config/carrier/config.toml
  ↑/↓ move · enter change · ←/→ choose · r reset · / search · e edit file · q quit
 ```
 
+The [`[[auto_label]]` rules](../reference/configuration.md#editing-rules-in-carrier-config) are under **Auto labels**, at the end: Enter opens them to add, edit, reorder, delete, and try them.
+
 See [the configuration reference](../reference/configuration.md) for the keys and what each does.
 
 ### `config set`
