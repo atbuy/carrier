@@ -144,6 +144,7 @@ Add it to your shell config, for example `~/.zshrc` or `~/.bashrc`.
 ```bash
 carrier run go test ./...
 carrier -n run docker compose build
+carrier run --retry 3 go test ./...  # run a flaky command again until it passes
 carrier -N run ls
 carrier shell                      # start a recorded shell session
 carrier shell 'my-session'         # start a named session

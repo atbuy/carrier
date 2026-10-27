@@ -36,16 +36,35 @@ type Options struct {
 	Quiet        bool
 	Timeout      time.Duration
 	Ctx          context.Context
+	// Retrying is set when another attempt follows if this one fails: a
+	// failure then has no notification or similar-failure hint.
+	Retrying bool
 }
 
+// Result is how a run ended.
+type Result struct {
+	RunID  int64
+	Exit   int
+	Status string
+	// Interrupted is true when carrier was told to stop, such as by Ctrl+C.
+	Interrupted bool
+}
+
+// Run runs and records one command, and returns its exit code.
 func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
+	res, err := Execute(cfg, st, opts)
+	return res.Exit, err
+}
+
+// Execute runs and records one command, and returns how it ended.
+func Execute(cfg config.Config, st *store.Store, opts Options) (Result, error) {
 	if len(opts.Argv) == 0 {
-		return 1, errors.New("missing command")
+		return Result{Exit: 1}, errors.New("missing command")
 	}
 	if opts.CWD == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return 1, err
+			return Result{Exit: 1}, err
 		}
 		opts.CWD = cwd
 	}
@@ -82,12 +101,12 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 		NotifyRequested: opts.Notify, NotifyAlways: opts.NotifyAlways,
 	})
 	if err != nil {
-		return 1, err
+		return Result{Exit: 1}, err
 	}
 	stdoutPath := logs.StdoutPath(cfg.Storage.DataDir, id)
 	stderrPath := logs.StderrPath(cfg.Storage.DataDir, id)
 	if err := st.UpdatePaths(id, stdoutPath, stderrPath, ""); err != nil {
-		return 1, err
+		return Result{RunID: id, Exit: 1}, err
 	}
 	if !opts.Quiet {
 		_, _ = io.WriteString(os.Stderr, runStartedLine(os.Stderr, id, cfg.UI.Theme))
@@ -114,20 +133,21 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	}); err != nil && finishErr == nil {
 		finishErr = err
 	}
-	if status == store.StatusFailed && !opts.Quiet {
+	retried := opts.Retrying && status != store.StatusSuccess && !interrupted
+	if status == store.StatusFailed && !opts.Quiet && !retried {
 		if hint := hints.SimilarFailure(st, cfg, id, exit); hint != "" {
 			_, _ = io.WriteString(os.Stderr, hintLine(os.Stderr, hint, cfg.UI.Theme))
 		}
 	}
 	// Whoever pressed Ctrl+C is at the terminal and needs no notification.
-	if (opts.Notify || opts.NotifyAlways) && !interrupted {
+	if (opts.Notify || opts.NotifyAlways) && !interrupted && !retried {
 		if r, err := st.GetRun(id); err == nil {
 			if notifyErr := notify.MaybeSend(cfg, *r); notifyErr != nil && !opts.Quiet {
 				_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
 			}
 		}
 	}
-	return exit, finishErr
+	return Result{RunID: id, Exit: exit, Status: status, Interrupted: interrupted}, finishErr
 }
 
 // execute runs the command, copying its output to the terminal and the logs.

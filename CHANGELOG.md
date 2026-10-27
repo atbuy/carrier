@@ -4,6 +4,10 @@ All notable changes to carrier are listed here, newest first. Run `carrier self 
 
 ## [1.14.0] - 2026-10-27
 
+### Added
+
+- `carrier run --retry N` runs a failing command again, up to N more times, until it succeeds; `--retry-delay 10s` waits between attempts. A timeout counts as a failure, and Ctrl+C stops the retries. Each attempt is its own run, carrier says which attempt failed or succeeded, exits with the last attempt's code, and notifies once, for the attempt that succeeded or the last one. `carrier rerun` takes the same flags. `carrier run --help` now lists `--label`, `--timeout`, and the retry flags.
+
 ### Fixed
 
 - Ctrl+C during `carrier run` or `carrier rerun` no longer leaves the run `running` in the history. carrier used to stop along with the command, before it could record how it ended; now it records the run as killed with the command's exit code, such as 130, and sends no notification for it. A termination or hangup sent to carrier is passed on to the command and recorded the same way.
