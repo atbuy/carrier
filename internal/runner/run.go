@@ -8,10 +8,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/atbuy/carrier/internal/command"
@@ -92,14 +94,14 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	}
 
 	// Run the child while the env goroutine continues in parallel.
-	exit, killed, finishErr := execute(opts, cfg, stdoutPath, stderrPath)
+	exit, killed, interrupted, finishErr := execute(opts, cfg, stdoutPath, stderrPath)
 
 	// Drain env goroutine (done long before any non-trivial child finishes).
 	envID := <-envCh
 
 	status := store.StatusSuccess
 	switch {
-	case killed:
+	case killed, interrupted:
 		status = store.StatusKilled
 	case exit != 0:
 		status = store.StatusFailed
@@ -117,7 +119,8 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 			_, _ = io.WriteString(os.Stderr, hintLine(os.Stderr, hint, cfg.UI.Theme))
 		}
 	}
-	if opts.Notify || opts.NotifyAlways {
+	// Whoever pressed Ctrl+C is at the terminal and needs no notification.
+	if (opts.Notify || opts.NotifyAlways) && !interrupted {
 		if r, err := st.GetRun(id); err == nil {
 			if notifyErr := notify.MaybeSend(cfg, *r); notifyErr != nil && !opts.Quiet {
 				_, _ = fmt.Fprintf(os.Stderr, "carrier: notify: %s\n", notifyErr)
@@ -127,18 +130,21 @@ func Run(cfg config.Config, st *store.Store, opts Options) (int, error) {
 	return exit, finishErr
 }
 
-func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (int, bool, error) {
+// execute runs the command, copying its output to the terminal and the logs.
+// killed is true when a timeout or the context stopped it; interrupted when
+// carrier was sent a signal to stop, such as by Ctrl+C.
+func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (int, bool, bool, error) {
 	if err := os.MkdirAll(filepath.Dir(stdoutPath), 0o755); err != nil {
-		return 1, false, err
+		return 1, false, false, err
 	}
 	stdoutFile, err := os.Create(stdoutPath)
 	if err != nil {
-		return 1, false, err
+		return 1, false, false, err
 	}
 	defer func() { _ = stdoutFile.Close() }()
 	stderrFile, err := os.Create(stderrPath)
 	if err != nil {
-		return 1, false, err
+		return 1, false, false, err
 	}
 	defer func() { _ = stderrFile.Close() }()
 
@@ -152,11 +158,11 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	cmd.Stdin = os.Stdin
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return 1, false, err
+		return 1, false, false, err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return 1, false, err
+		return 1, false, false, err
 	}
 	redactor := logs.NewRedactorWithBuiltins(cfg.Redaction.Enabled && !opts.NoRedact, cfg.Redaction.Patterns)
 	maxOutputBytes := logs.MaxOutputBytes(cfg.Storage.MaxOutputMB)
@@ -167,8 +173,24 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 	stdoutDst := io.MultiWriter(os.Stdout, stdoutLog)
 	stderrDst := io.MultiWriter(os.Stderr, stderrLog)
 	if err := cmd.Start(); err != nil {
-		return 127, false, startError(opts.Argv[0], err)
+		return 127, false, false, startError(opts.Argv[0], err)
 	}
+
+	// Ctrl+C reaches the command from the terminal; carrier stays to record
+	// how it ended instead of dying with it. A termination or hangup sent to
+	// carrier alone is passed on to the command.
+	var interrupted atomic.Bool
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(stop)
+	go func() {
+		for sig := range stop {
+			interrupted.Store(true)
+			if sig != os.Interrupt {
+				_ = cmd.Process.Signal(sig)
+			}
+		}
+	}()
 
 	var killed atomic.Bool
 	if opts.Timeout > 0 {
@@ -195,10 +217,7 @@ func execute(opts Options, cfg config.Config, stdoutPath, stderrPath string) (in
 		killed.Store(true)
 	}
 	exit, _ := ExitCode(waitErr)
-	if copyErr != nil {
-		return exit, killed.Load(), copyErr
-	}
-	return exit, killed.Load(), nil
+	return exit, killed.Load(), interrupted.Load(), copyErr
 }
 
 func strconvID(id int64) string {

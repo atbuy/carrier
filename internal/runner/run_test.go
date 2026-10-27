@@ -188,7 +188,7 @@ func TestExecuteReturnsMkdirError(t *testing.T) {
 
 	stdoutPath := filepath.Join(filePath, "stdout.log")
 	stderrPath := filepath.Join(filePath, "stderr.log")
-	exit, killed, err := execute(Options{Argv: []string{"true"}, CWD: t.TempDir()}, config.Default(), stdoutPath, stderrPath)
+	exit, killed, _, err := execute(Options{Argv: []string{"true"}, CWD: t.TempDir()}, config.Default(), stdoutPath, stderrPath)
 	if err == nil {
 		t.Fatal("expected mkdir error")
 	}
