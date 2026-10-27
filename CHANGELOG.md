@@ -2,7 +2,7 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
-## [1.13.0] - 2026-10-26
+## [1.13.0] - 2026-10-27
 
 ### Added
 
