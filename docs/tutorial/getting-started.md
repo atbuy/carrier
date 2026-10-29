@@ -222,6 +222,12 @@ Inside the shell, run commands normally. Exit when done. Then review:
 c history --session my-debug-session
 ```
 
+Moving on to another task? Start a session for it in the same terminal; the one you leave is kept:
+
+```bash title="Start the next task"
+c new BUG-5678: fix signup
+```
+
 Use `carrier attach` to re-open a session from a different terminal:
 
 ```bash title="Re-join a session"

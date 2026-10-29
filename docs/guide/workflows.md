@@ -73,10 +73,10 @@ carrier shell
 Use a labeled session to group related exploratory work:
 
 ```bash title="Start a named session"
-carrier shell 'incident-123'
+carrier new incident-123
 ```
 
-Inside the shell, all commands are recorded under that session. Check the current session label anytime:
+In a recorded terminal this switches it to the new session; elsewhere it starts a recorded shell. From then on, all commands are recorded under that session. Check the current session label anytime:
 
 ```bash title="Check sessions"
 carrier session list

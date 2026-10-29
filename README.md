@@ -147,7 +147,8 @@ carrier -n run docker compose build
 carrier run --retry 3 go test ./...  # run a flaky command again until it passes
 carrier -N run ls
 carrier shell                      # start a recorded shell session
-carrier shell 'my-session'         # start a named session
+carrier new BUG-5678: fix signup    # start a session for the next task, in this terminal
+carrier shell 'my-session'         # start a named session in a new shell
 carrier attach my-session          # switch to an existing session
 carrier attach                     # pick a session to switch to
 carrier detach                     # stop recording this shell, without closing it
