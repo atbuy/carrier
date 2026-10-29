@@ -31,7 +31,7 @@ carrier note -r -2 "this one hung"
 `attach`, `history --session`, and `note --session` take a session ID or label. A number that is not a session ID is matched against labels too, so a session labeled `BUG-1234: fix login` can be reached with just `1234`:
 
 ```bash title="Attach by label"
-carrier shell "BUG-1234: fix login"
+carrier new BUG-1234: fix login
 carrier attach BUG-1234
 carrier attach 1234      # no session 1234: matches the label, and says so
 ```
@@ -723,6 +723,24 @@ Terminal   /dev/pts/3
 The `Branch` line shows the Git branch checked out here and the session [linked to it](#session-branch), if any. `--json` has it as `branch`, with `name` and `session_id`.
 
 It also says when this terminal is not recorded, including a tmux pane that only inherited another terminal's carrier variables; when a pin here names another session than the one this shell records into, so `carrier session reload` would switch; when the pin names a session that does not exist; when the shell was started by a carrier too old for its prompt to follow switches; and when the tmux server holds variables from an older carrier. The outcome is shown once the session has one.
+
+## `new`
+
+Start a new session for the next task, with a label when you give one, and record into it:
+
+```bash title="Start working on another issue"
+carrier new BUG-5678: fix signup     # quotes are not needed
+carrier new                          # a session without a label
+```
+
+```text
+carrier: started session 209 "BUG-5678: fix signup"
+carrier: go back to the last one with: carrier attach 208
+```
+
+Inside a recorded shell, the shell switches to the new session in place, as [`attach`](#attach) does for an existing one: the next commands are recorded there, and the prompt shows it. The session it leaves is ended, or deleted if it is an automatic session with nothing in it, and `carrier attach` goes back to it. `carrier new` itself is not recorded. Outside a recorded shell, it starts a recorded shell in the new session, like `carrier shell "BUG-5678: fix signup"`.
+
+If another session already has the label, carrier still starts a new one, and says which session that is in case you meant to go back to it.
 
 ## `attach`
 

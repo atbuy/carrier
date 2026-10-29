@@ -121,7 +121,7 @@ func (a *app) pickSession(cmd *cobra.Command) (*store.Session, error) {
 		if f.Exclude != nil {
 			return nil, errors.New("no other sessions to attach to")
 		}
-		return nil, errors.New(`no sessions to attach to; "carrier shell" starts one`)
+		return nil, errors.New(`no sessions to attach to; "carrier new" starts one`)
 	}
 	tags := map[int64][]string{}
 	if pinned := a.pinnedSession(cmd); pinned != nil {

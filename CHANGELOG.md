@@ -2,6 +2,12 @@
 
 All notable changes to carrier are listed here, newest first. Run `carrier self changelog` to read this from the command line.
 
+## [1.16.0] - 2026-10-29
+
+### Added
+
+- `carrier new [label]` (`carrier n`) starts a new session for the next task. In a recorded shell it switches the shell to it in place, like `carrier attach` does for an existing session: the session it leaves is ended and kept, unless it is an empty automatic one, and carrier says how to go back to it. Outside one it starts a recorded shell, like `carrier shell`. Labels need no quotes (`carrier new BUG-5678: fix signup`), and carrier says when another session already has the label. `carrier new` and `carrier detach` are now in `carrier help`.
+
 ## [1.15.0] - 2026-10-27
 
 ### Added

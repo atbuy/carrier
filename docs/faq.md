@@ -65,9 +65,11 @@ carrier shell 'incident-123'
 carrier history --session incident-123
 ```
 
-## What is the difference between `shell` and `attach`?
+## What is the difference between `shell`, `new`, and `attach`?
 
-`carrier shell` creates a new session.
+`carrier shell` starts a new shell, recording into a new session.
+
+`carrier new <label>` starts a new session for the next task. Inside a recorded shell it switches that shell to it, keeping the session it leaves; elsewhere it starts a new shell for it, like `carrier shell`.
 
 `carrier attach <id-or-label>` records into an existing session. Inside a recorded shell it switches that shell to the session; elsewhere it starts a new shell for it. Either way the runs are added to the same session, so they appear together in history.
 
